@@ -12,3 +12,6 @@
 # Security
 1. Never store passwords, API keys or other private data in the code. Explicitely warn me, when there is such a thing about to be committed to the code repository.
 2. If your code accepts input from an external source, the input must be sanizied before it is processed.
+
+# Documentation
+1. Kepp README.md updated on a per feature basis.
