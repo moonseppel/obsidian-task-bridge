@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "minAppVersion": "0.15.0",
   "description": "Sync Obsidian task checkboxes with a cloud task management platform",
-  "author": "",
-  "authorUrl": "",
-  "fundingUrl": "",
+  "author": "Jan Pralle",
+  "authorUrl": "https://www.linkedin.com/in/jan-pralle/",
   "isDesktopOnly": false
 }
