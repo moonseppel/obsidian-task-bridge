@@ -13,21 +13,33 @@ export class Logger {
    * Log an info-level message
    */
   info(message: string, data?: unknown): void {
-    console.info(`[${this.namespace}] ${message}`, data);
+    if (data !== undefined) {
+      console.info(`[${this.namespace}] ${message}`, data);
+    } else {
+      console.info(`[${this.namespace}] ${message}`);
+    }
   }
 
   /**
    * Log a warning-level message
    */
   warn(message: string, data?: unknown): void {
-    console.warn(`[${this.namespace}] ${message}`, data);
+    if (data !== undefined) {
+      console.warn(`[${this.namespace}] ${message}`, data);
+    } else {
+      console.warn(`[${this.namespace}] ${message}`);
+    }
   }
 
   /**
    * Log an error-level message
    */
   error(message: string, error?: unknown): void {
-    console.error(`[${this.namespace}] ${message}`, error);
+    if (error !== undefined) {
+      console.error(`[${this.namespace}] ${message}`, error);
+    } else {
+      console.error(`[${this.namespace}] ${message}`);
+    }
   }
 
   /**
@@ -35,7 +47,11 @@ export class Logger {
    */
   debug(message: string, data?: unknown): void {
     if (process.env.DEBUG) {
-      console.debug(`[${this.namespace}] ${message}`, data);
+      if (data !== undefined) {
+        console.debug(`[${this.namespace}] ${message}`, data);
+      } else {
+        console.debug(`[${this.namespace}] ${message}`);
+      }
     }
   }
 }
