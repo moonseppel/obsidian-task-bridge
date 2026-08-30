@@ -11,7 +11,7 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 
 ## Status
 
-**Phase 1: Complete** — "Hello World" plugin with build infrastructure (esbuild, TypeScript strict mode, Jest testing) and plugin lifecycle hooks.
+**Feature 1: Complete** — "Hello World" plugin: lifecycle hooks, error handling, and build infrastructure (esbuild, TypeScript strict mode, Jest testing). Next: Feature 2 — Todoist provider and sync engine.
 
 ## Installation
 
