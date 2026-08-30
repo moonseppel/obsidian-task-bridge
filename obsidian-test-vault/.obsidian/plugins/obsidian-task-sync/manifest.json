@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-task-sync",
+  "name": "Obsidian Task Sync",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "Sync Obsidian task checkboxes with a cloud task management platform",
+  "author": "",
+  "authorUrl": "",
+  "fundingUrl": "",
+  "isDesktopOnly": false
+}

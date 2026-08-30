@@ -44,9 +44,6 @@ typings/
 # macOS
 .DS_Store
 
-# Obsidian
-.obsidian/
-
 # IDE
 .idea/
 .vscode/
