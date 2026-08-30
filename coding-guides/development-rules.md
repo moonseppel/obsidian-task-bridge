@@ -7,6 +7,7 @@
 - Print out all the commands to prepare the git staging area, ready to copy and paste. Do not execute the commands yourself.
 - Print in a **separate** step the commands needed to execute the acutal git command, ready to copy and paste. Do not execute the commands yourself.
 - If the above approach seems not feasible, tell the human.
+5. Tie up all documentation loose ends before you start implementing.
 
 # Security
 1. If your code accepts input from an external source, the input must be sanizied before it is processed.
