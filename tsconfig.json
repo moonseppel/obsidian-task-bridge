@@ -6,11 +6,11 @@
     "lib": [
       "DOM",
       "DOM.Iterable",
-      "ES2018"
+      "ES2022"
     ],
     "module": "ESNext",
     "rootDir": "./src",
-    "target": "ES6",
+    "target": "ES2022",
     "noEmit": true,
     "isolatedModules": true,
     "strict": true,

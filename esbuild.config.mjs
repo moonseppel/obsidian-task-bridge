@@ -10,6 +10,33 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === 'production';
+import fs from 'fs';
+import path from 'path';
+
+const copyToVaultPlugin = {
+  name: 'copy-to-vault',
+  setup(build) {
+    build.onEnd(() => {
+      const vaultPluginDir = 'obsidian-test-vault/.obsidian/plugins/obsidian-task-sync';
+      
+      // Ensure directory exists
+      if (!fs.existsSync(vaultPluginDir)) {
+        fs.mkdirSync(vaultPluginDir, { recursive: true });
+      }
+
+      // Copy files to test vault
+      if (fs.existsSync('dist/main.js')) {
+        fs.copyFileSync('dist/main.js', path.join(vaultPluginDir, 'main.js'));
+      }
+      if (fs.existsSync('manifest.json')) {
+        fs.copyFileSync('manifest.json', path.join(vaultPluginDir, 'manifest.json'));
+      }
+      
+      console.log(`✅ Plugin files copied to test vault`);
+    });
+  }
+};
+
 const context = await esbuild.context({
   banner: {
     js: banner,
@@ -32,11 +59,12 @@ const context = await esbuild.context({
     '@lezer/lr',
     ...builtins],
   format: 'cjs',
-  target: 'ES6',
+  target: 'es2022',
   logLevel: 'info',
   sourcemap: prod ? false : 'inline',
   treeShaking: true,
   outfile: 'dist/main.js',
+  plugins: [copyToVaultPlugin],
 });
 
 if (prod) {

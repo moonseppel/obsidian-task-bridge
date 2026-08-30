@@ -21,37 +21,18 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-var __async = (__this, __arguments, generator) => {
-  return new Promise((resolve, reject) => {
-    var fulfilled = (value) => {
-      try {
-        step(generator.next(value));
-      } catch (e) {
-        reject(e);
-      }
-    };
-    var rejected = (value) => {
-      try {
-        step(generator.throw(value));
-      } catch (e) {
-        reject(e);
-      }
-    };
-    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
-    step((generator = generator.apply(__this, __arguments)).next());
-  });
-};
 
 // src/main.ts
 var main_exports = {};
 __export(main_exports, {
-  default: () => ObsidianTicktickSyncPlugin
+  default: () => ObsidianTaskSyncPlugin
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 
 // src/utils/logger.ts
 var Logger = class {
+  namespace;
   constructor(namespace) {
     this.namespace = namespace;
   }
@@ -59,47 +40,59 @@ var Logger = class {
    * Log an info-level message
    */
   info(message, data) {
-    console.info(`[${this.namespace}] ${message}`, data);
+    if (data !== void 0) {
+      console.info(`[${this.namespace}] ${message}`, data);
+    } else {
+      console.info(`[${this.namespace}] ${message}`);
+    }
   }
   /**
    * Log a warning-level message
    */
   warn(message, data) {
-    console.warn(`[${this.namespace}] ${message}`, data);
+    if (data !== void 0) {
+      console.warn(`[${this.namespace}] ${message}`, data);
+    } else {
+      console.warn(`[${this.namespace}] ${message}`);
+    }
   }
   /**
    * Log an error-level message
    */
   error(message, error) {
-    console.error(`[${this.namespace}] ${message}`, error);
+    if (error !== void 0) {
+      console.error(`[${this.namespace}] ${message}`, error);
+    } else {
+      console.error(`[${this.namespace}] ${message}`);
+    }
   }
   /**
    * Log a debug-level message
    */
   debug(message, data) {
     if (process.env.DEBUG) {
-      console.debug(`[${this.namespace}] ${message}`, data);
+      if (data !== void 0) {
+        console.debug(`[${this.namespace}] ${message}`, data);
+      } else {
+        console.debug(`[${this.namespace}] ${message}`);
+      }
     }
   }
 };
 
 // src/main.ts
-var logger = new Logger("ObsidianTicktickSync");
-var ObsidianTicktickSyncPlugin = class extends import_obsidian.Plugin {
-  onload() {
-    return __async(this, null, function* () {
-      try {
-        logger.info("Obsidian Ticktick Sync plugin loaded");
-      } catch (error) {
-        const userMessage = "Failed to load Obsidian Ticktick Sync plugin. Check console for details.";
-        logger.error("Plugin load failed", error);
-        new import_obsidian.Notice(userMessage);
-      }
-    });
+var logger = new Logger("ObsidianTaskSync");
+var ObsidianTaskSyncPlugin = class extends import_obsidian.Plugin {
+  async onload() {
+    try {
+      logger.info("Obsidian Task Sync plugin loaded");
+    } catch (error) {
+      const userMessage = "Failed to load Obsidian Task Sync plugin. Check console for details or contact the author with the console output.";
+      logger.error("Plugin load failed", error);
+      new import_obsidian.Notice(userMessage);
+    }
   }
-  onunload() {
-    return __async(this, null, function* () {
-      logger.info("Obsidian Ticktick Sync plugin unloaded");
-    });
+  async onunload() {
+    logger.info("Obsidian Task Sync plugin unloaded");
   }
 };
