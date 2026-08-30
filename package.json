@@ -8,7 +8,8 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit && node esbuild.config.mjs production",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "commitlint": "commitlint"
   },
   "keywords": [
     "obsidian",
@@ -19,6 +20,8 @@
   "author": "",
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@types/jest": "^29.5.8",
     "@types/node": "^20.10.5",
     "builtin-modules": "^3.3.0",
@@ -27,6 +30,5 @@
     "obsidian": "latest",
     "ts-jest": "^29.1.1",
     "typescript": "5.3.3"
-  },
-  "dependencies": {}
+  }
 }
