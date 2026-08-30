@@ -55,7 +55,3 @@ typings/
 dist/
 *.js.map
 *.d.ts
-
-# Plugin testing vault
-.test-vault/
-test-vault/
