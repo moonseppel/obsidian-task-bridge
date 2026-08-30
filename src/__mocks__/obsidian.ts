@@ -44,6 +44,3 @@ export class App {
   vault: any;
   workspace: any;
 }
-
-export const Notice_Mock = Notice;
-export const Plugin_Mock = Plugin;

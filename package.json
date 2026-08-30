@@ -1,15 +1,16 @@
 {
   "name": "obsidian-task-sync",
   "version": "0.1.0",
+  "private": true,
   "description": "Obsidian plugin for syncing tasks between Obsidian notes and a cloud task management platform",
   "main": "dist/main.js",
-  "types": "dist/main.d.ts",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit && node esbuild.config.mjs production",
     "test": "jest",
     "test:watch": "jest --watch",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
     "obsidian",
@@ -17,8 +18,11 @@
     "task-sync",
     "todoist"
   ],
-  "author": "",
+  "author": "Jan Pralle",
   "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
