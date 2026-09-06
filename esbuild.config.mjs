@@ -31,7 +31,10 @@ const copyToVaultPlugin = {
       if (fs.existsSync('manifest.json')) {
         fs.copyFileSync('manifest.json', path.join(vaultPluginDir, 'manifest.json'));
       }
-      
+      if (fs.existsSync('styles.css')) {
+        fs.copyFileSync('styles.css', path.join(vaultPluginDir, 'styles.css'));
+      }
+
       console.log(`✅ Plugin files copied to test vault`);
     });
   }
