@@ -11,7 +11,11 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 
 ## Status
 
-**Feature 1: Complete** — "Hello World" plugin: lifecycle hooks, error handling, and build infrastructure (esbuild, TypeScript strict mode, Jest testing). Next: Feature 2 — Todoist provider and sync engine.
+**Feature 1: Complete** — "Hello World" plugin: lifecycle hooks, error handling, and build infrastructure (esbuild, TypeScript strict mode, Jest testing).
+
+**Feature 2: Complete** — Select a single source note in settings: a fuzzy note picker in the plugin settings, the selection persists across restarts, follows the note when it is renamed or moved, and is cleared (with a notice) when the note is deleted.
+
+Next: Feature 3 — establish the Todoist connection.
 
 ## Installation
 
@@ -39,12 +43,16 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 
 ```
 src/
-  main.ts           # Plugin entry point
+  main.ts           # Plugin lifecycle & wiring
+  settings.ts       # Settings interface, defaults, and setting tab
+  views/
+    source-note-suggest.ts  # Fuzzy note picker for the source-note setting
   utils/
     logger.ts       # Logging utility
   __tests__/        # Jest tests
   __mocks__/        # Mock definitions for testing
 
+styles.css          # Namespaced plugin styles
 dist/               # Built plugin (generated)
 manifest.json       # Obsidian plugin metadata
 ```
@@ -73,4 +81,5 @@ npm test
 Tests cover:
 - Plugin structure and lifecycle hooks
 - Error handling and graceful failure
-- Logger functionality
+- Settings load/save and the source-note setting tab
+- Source-note picker filtering, and rename/delete tracking of the configured note
