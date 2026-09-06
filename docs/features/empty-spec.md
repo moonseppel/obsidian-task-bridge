@@ -3,5 +3,6 @@
 ## Scenarios
 
 ### Scenario: -
+- **GIVEN** -
 - **WHEN** -
 - **THEN** -
