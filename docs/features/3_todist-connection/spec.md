@@ -10,3 +10,9 @@
 ### Scenario: Configure Todoist Connection
 - **WHEN** the user open the settings of the plugin
 - **THEN** he can spefiy the needed information to establish a Todist connection
+
+## Architecture
+
+1. Besure to encapsulate any Todoist-specific code in it's own module.
+2. The module shall have a generic interface to the rest of the plugin so that the connected task amangement provider may be changed without too much changes to this interface.
+3. Write a basic integration tests against the Todoist API that ensures that the functionlity used by the plugin is still worling as expected.
