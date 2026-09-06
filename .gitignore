@@ -55,3 +55,7 @@ typings/
 dist/
 *.js.map
 *.d.ts
+
+# Test vault build output
+obsidian-test-vault/.obsidian/plugins/obsidian-task-sync/main.js
+obsidian-test-vault/.obsidian/plugins/obsidian-task-sync/styles.css
