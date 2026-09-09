@@ -1,4 +1,4 @@
-import { App, SearchComponent, SecretComponent, Setting, TFile } from 'obsidian';
+import { App, ButtonComponent, SearchComponent, SecretComponent, Setting, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../settings';
 import type ObsidianTaskSyncPlugin from '../main';
 import { ProviderConnection } from '../services/provider-connection';
@@ -324,6 +324,28 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
     await changeTokenSecret(tab, '');
 
     expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+  });
+
+  it('disables the connection test while no API token is selected', () => {
+    const setDisabled = jest.spyOn(ButtonComponent.prototype, 'setDisabled');
+    makeTab('').tab.display();
+    expect(setDisabled).toHaveBeenCalledWith(true);
+  });
+
+  it('says why the connection test is unavailable', () => {
+    const setTooltip = jest.spyOn(ButtonComponent.prototype, 'setTooltip');
+    makeTab('').tab.display();
+    expect(setTooltip).toHaveBeenCalledWith('Select an API token first.');
+  });
+
+  it('enables the connection test once a secret is selected', () => {
+    const setDisabled = jest.spyOn(ButtonComponent.prototype, 'setDisabled');
+    const { tab, plugin } = makeTab('');
+    plugin.settings.todoistApiTokenSecretName = 'todoist-api-token';
+
+    tab.display();
+
+    expect(setDisabled).toHaveBeenCalledWith(false);
   });
 
   it('reconnects when a different secret is chosen', async () => {

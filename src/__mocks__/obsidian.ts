@@ -217,6 +217,10 @@ export class ButtonComponent {
     return this;
   }
 
+  setTooltip(_tooltip: string): this {
+    return this;
+  }
+
   setDisabled(_disabled: boolean): this {
     return this;
   }

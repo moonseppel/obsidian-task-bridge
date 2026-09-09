@@ -128,19 +128,32 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   }
 
   private displayConnectionSetting(): void {
+    const unavailableReason = this.describeWhyTestingIsUnavailable();
+
     this.connectionSetting = new Setting(this.containerEl)
       .setName(CONNECTION_DISPLAY_NAME)
       .setDesc(describeConnectionStatus(this.connectionStatus, this.plugin.connection.providerName))
       .addButton((button) =>
         button
           .setButtonText('Test connection')
-          .setDisabled(this.connectionStatus.state === 'connecting')
+          .setTooltip(unavailableReason)
+          .setDisabled(unavailableReason.length > 0)
           .onClick(() => {
             void this.handleTestConnection();
           }),
       );
 
     this.connectionSetting.settingEl.toggleClass(CONNECTION_FAILED_CLASS, this.connectionStatus.state === 'failed');
+  }
+
+  private describeWhyTestingIsUnavailable(): string {
+    if (this.connectionStatus.state === 'connecting') {
+      return 'A connection check is already running.';
+    }
+
+    return this.plugin.settings.todoistApiTokenSecretName.length === 0
+      ? 'Select an API token first.'
+      : '';
   }
 
   private get connectionStatus(): ConnectionStatus {
