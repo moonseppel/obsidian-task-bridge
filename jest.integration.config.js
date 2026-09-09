@@ -1,18 +1,15 @@
+/**
+ * Reaches the real Todoist API, so it is kept out of `npm test` and the pre-commit hook.
+ * Obsidian is deliberately left unmapped: these tests must not touch app-only code.
+ */
+
 /** @type {import('jest').Config} */
 const config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.test.ts'],
+  testMatch: ['**/__integration__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  moduleNameMapper: {
-    '^obsidian$': '<rootDir>/src/__mocks__/obsidian.ts',
-  },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/__tests__/**',
-    '!src/__integration__/**',
-  ],
+  testTimeout: 20000,
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
