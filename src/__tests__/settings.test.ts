@@ -299,6 +299,33 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
     expect(saveSettings).toHaveBeenCalledTimes(1);
   });
 
+  it('forgets the secret when the field is cleared, which reports null rather than an empty string', async () => {
+    const { tab, plugin } = makeTab('');
+    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+
+    await changeTokenSecret(tab, null as unknown as string);
+
+    expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+  });
+
+  it('re-checks the connection when the field is cleared', async () => {
+    const { tab, plugin, connectToTaskProvider } = makeTab('');
+    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+
+    await changeTokenSecret(tab, null as unknown as string);
+
+    expect(connectToTaskProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets the secret when it is deleted from the secret list', async () => {
+    const { tab, plugin } = makeTab('');
+    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+
+    await changeTokenSecret(tab, '');
+
+    expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+  });
+
   it('reconnects when a different secret is chosen', async () => {
     const { tab, connectToTaskProvider } = makeTab('');
 

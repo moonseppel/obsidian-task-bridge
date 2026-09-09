@@ -25,6 +25,11 @@ const MISSING_ROW_CLASS = 'obsidian-task-sync-source-missing';
 const INVALID_INPUT_CLASS = 'obsidian-task-sync-source-invalid';
 const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
 
+// Obsidian types the secret value as a string but sends null when the field is cleared with "x".
+function toSecretName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   private readonly plugin: ObsidianTaskSyncPlugin;
   private sourceSetting: Setting | null = null;
@@ -116,7 +121,7 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.todoistApiTokenSecretName)
-          .onChange((secretName) => {
+          .onChange((secretName: unknown) => {
             void this.handleApiTokenSecretChange(secretName);
           }),
       );
@@ -142,8 +147,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     return this.plugin.connection.status;
   }
 
-  private async handleApiTokenSecretChange(secretName: string): Promise<void> {
-    this.plugin.settings.todoistApiTokenSecretName = secretName.trim();
+  private async handleApiTokenSecretChange(secretName: unknown): Promise<void> {
+    this.plugin.settings.todoistApiTokenSecretName = toSecretName(secretName);
     await this.plugin.saveSettings();
     await this.plugin.connectToTaskProvider();
     this.display();
