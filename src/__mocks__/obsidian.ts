@@ -1,11 +1,3 @@
-/**
- * Mock implementation of the Obsidian API for testing.
- *
- * Only the surface the plugin actually touches is modelled. Anything exported here
- * mirrors the real `obsidian` module shape closely enough for `ts-jest` to type-check
- * production code against it.
- */
-
 // Mirror of the subset of Obsidian's global `HTMLElement` augmentation the plugin uses.
 declare global {
   interface HTMLElement {
@@ -18,7 +10,6 @@ declare global {
   }
 }
 
-/** Minimal stand-in for an Obsidian-augmented DOM element. */
 export class MockElement {
   private readonly classes = new Set<string>();
   private readonly listeners = new Map<string, Array<() => void>>();
@@ -93,6 +84,27 @@ export class Notice {
   constructor(message: string | DocumentFragment, _duration?: number) {
     this.message = typeof message === 'string' ? message : '';
   }
+}
+
+export interface RequestUrlParam {
+  url: string;
+  method?: string;
+  contentType?: string;
+  body?: string | ArrayBuffer;
+  headers?: Record<string, string>;
+  throw?: boolean;
+}
+
+export interface RequestUrlResponse {
+  status: number;
+  headers: Record<string, string>;
+  arrayBuffer: ArrayBuffer;
+  json: unknown;
+  text: string;
+}
+
+export function requestUrl(_request: RequestUrlParam | string): Promise<RequestUrlResponse> {
+  throw new Error('requestUrl reaches the network and must be mocked in tests.');
 }
 
 export class App {
@@ -178,8 +190,46 @@ export class SearchComponent {
   }
 }
 
+export class SecretComponent {
+  app: App;
+
+  constructor(app: App, _containerEl: HTMLElement) {
+    this.app = app;
+  }
+
+  setValue(_value: string): this {
+    return this;
+  }
+
+  onChange(_handler: (value: string) => unknown): this {
+    return this;
+  }
+
+  setDisabled(_disabled: boolean): this {
+    return this;
+  }
+}
+
+export class ButtonComponent {
+  buttonEl: HTMLElement = createMockElement();
+
+  setButtonText(_text: string): this {
+    return this;
+  }
+
+  setDisabled(_disabled: boolean): this {
+    return this;
+  }
+
+  onClick(_handler: (event: MouseEvent) => unknown): this {
+    return this;
+  }
+}
+
 export class Setting {
   settingEl: HTMLElement = createMockElement();
+  /** Not part of Obsidian's Setting — lets tests read a row's current text back. */
+  description = '';
 
   constructor(_containerEl: HTMLElement) {}
 
@@ -187,7 +237,12 @@ export class Setting {
     return this;
   }
 
-  setDesc(_description: string | DocumentFragment): this {
+  setDesc(description: string | DocumentFragment): this {
+    this.description = typeof description === 'string' ? description : '';
+    return this;
+  }
+
+  setHeading(): this {
     return this;
   }
 
@@ -198,6 +253,16 @@ export class Setting {
 
   addText(callback: (component: SearchComponent) => void): this {
     return this.addSearch(callback);
+  }
+
+  addButton(callback: (component: ButtonComponent) => void): this {
+    callback(new ButtonComponent());
+    return this;
+  }
+
+  addComponent<T>(callback: (el: HTMLElement) => T): this {
+    callback(createMockElement());
+    return this;
   }
 }
 
