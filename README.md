@@ -50,9 +50,10 @@ that it is not carried along by vault sync, backups, or a git repository.
 
 - `npm run dev` — Watch mode for development
 - `npm run build` — Production build
-- `npm test` — Run the offline test suite
-- `npm run test:watch` — Run tests in watch mode
-- `npm run test:integration` — Run the tests that call the real Todoist API
+- `npm test` — Run every test, offline and integration. Requires `OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN`
+- `npm run test:unit` — Run the offline suite on its own, no token needed
+- `npm run test:watch` — Run the offline suite in watch mode
+- `npm run test:integration` — Run only the tests that call the real Todoist API
 
 ### Project Structure
 
@@ -118,12 +119,55 @@ Tests cover:
 
 ### Integration tests
 
-The integration suite calls the real Todoist API, so it is deliberately kept out of `npm test` and
-out of the pre-commit hook. It is skipped unless a token is supplied through the environment:
+The integration suite calls the real Todoist API to catch changes on Todoist's side. It runs as
+part of `npm test`, and therefore as part of the pre-commit hook.
+
+The token is read from the `OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN` environment variable. Get one
+in Todoist under **Settings → Integrations → Developer**. Without it the run fails immediately
+with a message naming the variable — it is never skipped silently, because a guard that quietly
+does nothing is no guard at all. For the offline suite on its own, run `npm run test:unit`, which
+needs no token.
+
+There are three ways to supply it. None of them put the token in the repository, and none of them
+should: the token grants full access to your Todoist account.
+
+#### One run at a time
+
+Prefix the command. The token lives only for that process and is never written anywhere.
 
 ```bash
-TODOIST_API_TOKEN=your-token npm run test:integration
+OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN=your-token npm test
 ```
 
-The suite only reads (`GET /api/v1/user`) and never creates or changes anything in the account.
-Pass the token on the command line or through your shell environment — never commit it.
+Best for an occasional check. The drawback is your shell history: in zsh, start the line with a
+space to keep it out of the history file, provided `HIST_IGNORE_SPACE` is set.
+
+#### One terminal session
+
+Export it once, then run the tests as often as you like in that terminal.
+
+```bash
+export OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN=your-token
+npm test
+```
+
+This also covers `git commit` from that same terminal, because the pre-commit hook inherits the
+environment of whatever process starts the commit. It is gone when you close the terminal.
+
+#### Every session
+
+Add the export line to `~/.zshrc` (or `~/.bashrc`). This is the most convenient option and the
+only one that reliably works when committing from an editor's source-control UI rather than a
+terminal, since the editor inherits the token at launch.
+
+```bash
+echo 'export OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN=your-token' >> ~/.zshrc
+```
+
+The cost is that the token sits in a plaintext file in your home directory and is exported into
+every process you start. Restrict the file with `chmod 600 ~/.zshrc`, and remember that an editor
+already running will not see the change until it is restarted.
+
+#### What the suite does to your account
+
+It only reads (`GET /api/v1/user`) and never creates or changes anything.
