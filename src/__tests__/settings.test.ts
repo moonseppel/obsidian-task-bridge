@@ -92,6 +92,19 @@ function sourceInput(tab: ObsidianTaskSyncSettingTab): TestEl {
   return (tab as unknown as { sourceInputEl: TestEl }).sourceInputEl;
 }
 
+interface TestFragment {
+  textContent: string;
+  links: Array<{ text: string; href: string }>;
+}
+
+function tokenDescription(setDesc: jest.SpyInstance): TestFragment {
+  const fragment = setDesc.mock.calls
+    .map((call) => call[0] as unknown)
+    .find((value) => typeof value !== 'string');
+
+  return fragment as TestFragment;
+}
+
 function connectionRow(tab: ObsidianTaskSyncSettingTab): TestEl {
   return (tab as unknown as { connectionSetting: { settingEl: TestEl } }).connectionSetting.settingEl;
 }
@@ -210,6 +223,24 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
     const names = spySettingNames();
     makeTab('').tab.display();
     expect(names()).toContain('Todoist');
+  });
+
+  it('keeps the API token description wording', () => {
+    const setDesc = jest.spyOn(Setting.prototype, 'setDesc');
+    makeTab('').tab.display();
+    expect(tokenDescription(setDesc).textContent).toBe(
+      'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
+        'Create a token in Todoist under Settings → Integrations → Developer. ' +
+        'The token must be configured on every devices used separately.',
+    );
+  });
+
+  it('links "Developer" to the Todoist page that issues tokens', () => {
+    const setDesc = jest.spyOn(Setting.prototype, 'setDesc');
+    makeTab('').tab.display();
+    expect(tokenDescription(setDesc).links).toEqual([
+      { text: 'Developer', href: 'https://app.todoist.com/app/settings/integrations/developer' },
+    ]);
   });
 
   it('renders the API token setting', () => {

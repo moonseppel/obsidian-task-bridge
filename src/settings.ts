@@ -17,9 +17,13 @@ export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
 const SOURCE_NOTE_DISPLAY_NAME = 'Task source note';
 const SOURCE_NOTE_DESC = 'The single note whose tasks are synced. Leave empty to sync no tasks.';
 const API_TOKEN_DISPLAY_NAME = 'API token';
-const API_TOKEN_DESC =
+const API_TOKEN_DESC_START =
   'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
-  'Create a token in Todoist under Settings → Integrations → Developer.';
+  'Create a token in Todoist under Settings → Integrations → ';
+const API_TOKEN_LINK_TEXT = 'Developer';
+const API_TOKEN_URL = 'https://app.todoist.com/app/settings/integrations/developer';
+const API_TOKEN_DESC_END =
+  '. The token must be configured on every devices used separately.';
 const CONNECTION_DISPLAY_NAME = 'Connection';
 const MISSING_ROW_CLASS = 'obsidian-task-sync-source-missing';
 const INVALID_INPUT_CLASS = 'obsidian-task-sync-source-invalid';
@@ -28,6 +32,14 @@ const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
 // Obsidian types the secret value as a string but sends null when the field is cleared with "x".
 function toSecretName(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function describeApiTokenSetting(): DocumentFragment {
+  return createFragment((description) => {
+    description.appendText(API_TOKEN_DESC_START);
+    description.createEl('a', { text: API_TOKEN_LINK_TEXT, href: API_TOKEN_URL });
+    description.appendText(API_TOKEN_DESC_END);
+  });
 }
 
 export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
@@ -117,7 +129,7 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   private displayApiTokenSetting(): void {
     new Setting(this.containerEl)
       .setName(API_TOKEN_DISPLAY_NAME)
-      .setDesc(API_TOKEN_DESC)
+      .setDesc(describeApiTokenSetting())
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.todoistApiTokenSecretName)

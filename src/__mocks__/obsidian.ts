@@ -70,6 +70,33 @@ function createMockElement(): HTMLElement {
   return new MockElement() as unknown as HTMLElement;
 }
 
+class MockFragment {
+  textContent = '';
+  readonly links: Array<{ text: string; href: string }> = [];
+
+  appendText(value: string): void {
+    this.textContent += value;
+  }
+
+  createEl(tag: string, info: { text?: string; href?: string } = {}): HTMLElement {
+    if (tag === 'a') {
+      this.links.push({ text: info.text ?? '', href: info.href ?? '' });
+    }
+
+    this.textContent += info.text ?? '';
+    return createMockElement();
+  }
+}
+
+(globalThis as Record<string, unknown>).createFragment = (
+  callback?: (fragment: DocumentFragment) => void,
+): DocumentFragment => {
+  const fragment = new MockFragment();
+  callback?.(fragment as unknown as DocumentFragment);
+
+  return fragment as unknown as DocumentFragment;
+};
+
 export function normalizePath(path: string): string {
   return path
     .replace(/\\/g, '/')
@@ -242,7 +269,7 @@ export class Setting {
   }
 
   setDesc(description: string | DocumentFragment): this {
-    this.description = typeof description === 'string' ? description : '';
+    this.description = typeof description === 'string' ? description : description.textContent ?? '';
     return this;
   }
 
