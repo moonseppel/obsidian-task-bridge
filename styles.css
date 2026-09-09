@@ -1,4 +1,3 @@
-/* Applied to the source-note setting row while the configured note cannot be found. */
 .obsidian-task-sync-source-missing .setting-item-description {
   color: var(--text-warning);
 }
@@ -10,4 +9,12 @@
 input.obsidian-task-sync-source-invalid {
   border-color: var(--text-warning);
   box-shadow: 0 0 0 1px var(--text-warning);
+}
+
+.obsidian-task-sync-connection-failed .setting-item-description {
+  color: var(--text-error);
+}
+
+.obsidian-task-sync-connection-failed .setting-item-description::before {
+  content: "⚠ ";
 }

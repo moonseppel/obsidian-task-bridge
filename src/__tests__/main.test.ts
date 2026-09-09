@@ -1,6 +1,9 @@
 import * as obsidian from 'obsidian';
 import { App, TFile } from 'obsidian';
 import ObsidianTaskSyncPlugin from '../main';
+import { ProviderConnection } from '../services/provider-connection';
+import { ProviderAccount, TaskProvider } from '../services/task-provider';
+import { TaskProviderError, TaskProviderFailure } from '../services/task-provider-error';
 
 interface FakeVault {
   on: (event: string, cb: (...args: unknown[]) => void) => { event: string };
@@ -28,10 +31,19 @@ interface PluginContext {
   addSettingTab: jest.SpyInstance;
 }
 
-function makePlugin(): PluginContext {
+function stubProvider(connect: () => Promise<ProviderAccount>): TaskProvider {
+  return { displayName: 'Todoist', connect };
+}
+
+function rejectingWith(failure: TaskProviderFailure): () => Promise<ProviderAccount> {
+  return () => Promise.reject(new TaskProviderError(failure));
+}
+
+function makePlugin(connect = rejectingWith('not-configured')): PluginContext {
   const vault = fakeVault();
   const plugin = Object.create(ObsidianTaskSyncPlugin.prototype) as ObsidianTaskSyncPlugin;
   plugin.app = { vault, workspace: {} } as unknown as App;
+  plugin.connection = new ProviderConnection(stubProvider(connect));
   plugin.manifest = {
     id: 'obsidian-task-sync',
     name: 'Obsidian Task Sync',
@@ -144,10 +156,83 @@ describe('ObsidianTaskSyncPlugin', () => {
     });
 
     it('writes settings through saveData', async () => {
+      const settings = { relativeTaskSourceNotePath: 'Done.md', todoistApiTokenSecretName: 'todoist-token' };
       const { plugin, saveData } = makePlugin();
-      plugin.settings = { relativeTaskSourceNotePath: 'Done.md' };
+      plugin.settings = settings;
       await plugin.saveSettings();
-      expect(saveData).toHaveBeenCalledWith({ relativeTaskSourceNotePath: 'Done.md' });
+      expect(saveData).toHaveBeenCalledWith(settings);
+    });
+
+    it('loads the persisted token secret name', async () => {
+      const { plugin, loadData } = makePlugin();
+      loadData.mockResolvedValue({ todoistApiTokenSecretName: 'todoist-token' });
+      await plugin.loadSettings();
+      expect(plugin.settings.todoistApiTokenSecretName).toBe('todoist-token');
+    });
+
+    it('falls back to the default when the persisted token secret name is not text', async () => {
+      const { plugin, loadData } = makePlugin();
+      loadData.mockResolvedValue({ todoistApiTokenSecretName: 42 });
+      await plugin.loadSettings();
+      expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+    });
+  });
+
+  describe('Task provider connection', () => {
+    it('connects to the task provider on load', async () => {
+      const { plugin } = makePlugin();
+      const connect = jest.spyOn(plugin.connection, 'connect');
+
+      await plugin.onload();
+
+      expect(connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports the connected account in the connection status', async () => {
+      const account = { id: 'user-1', displayName: 'Jan Pralle' };
+      const { plugin } = makePlugin(() => Promise.resolve(account));
+
+      await plugin.connectToTaskProvider();
+
+      expect(plugin.connection.status).toEqual({ state: 'connected', account });
+    });
+
+    async function noticesFor(failure: TaskProviderFailure): Promise<jest.SpyInstance> {
+      const notice = jest
+        .spyOn(obsidian, 'Notice')
+        .mockImplementation(() => undefined as unknown as obsidian.Notice);
+      const { plugin } = makePlugin(rejectingWith(failure));
+
+      await plugin.connectToTaskProvider();
+
+      return notice;
+    }
+
+    it('warns the user when a configured token is refused', async () => {
+      const notice = await noticesFor('invalid-credentials');
+      expect(notice).toHaveBeenCalledWith(expect.stringContaining('rejected the API token'), expect.anything());
+    });
+
+    it('keeps a refused-token warning up until the user dismisses it', async () => {
+      const notice = await noticesFor('invalid-credentials');
+      expect(notice).toHaveBeenCalledWith(expect.any(String), 0);
+    });
+
+    it('asks the user to report an unexpected response', async () => {
+      const notice = await noticesFor('unexpected');
+      expect(notice).toHaveBeenCalledWith(expect.stringContaining('report this'), expect.anything());
+    });
+
+    it('stays quiet while the service is unreachable, which resolves on its own', async () => {
+      expect(await noticesFor('unreachable')).not.toHaveBeenCalled();
+    });
+
+    it('stays quiet while rate limited, which resolves on its own', async () => {
+      expect(await noticesFor('rate-limited')).not.toHaveBeenCalled();
+    });
+
+    it('stays quiet when no token has been configured yet', async () => {
+      expect(await noticesFor('not-configured')).not.toHaveBeenCalled();
     });
   });
 
@@ -155,7 +240,7 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('follows the configured source note when it is renamed', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md' };
+      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md', todoistApiTokenSecretName: '' };
 
       vault.trigger('rename', tfile('archive/Tasks.md'), 'Tasks.md');
       await Promise.resolve();
@@ -166,7 +251,7 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('ignores renames of unrelated notes', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md' };
+      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md', todoistApiTokenSecretName: '' };
 
       vault.trigger('rename', tfile('Other.md'), 'Renamed-from.md');
       await Promise.resolve();
@@ -177,7 +262,7 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('clears the setting when the configured source note is deleted', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md' };
+      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md', todoistApiTokenSecretName: '' };
 
       vault.trigger('delete', tfile('Tasks.md'));
       await Promise.resolve();
@@ -191,7 +276,7 @@ describe('ObsidianTaskSyncPlugin', () => {
         .mockImplementation(() => undefined as unknown as obsidian.Notice);
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md' };
+      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md', todoistApiTokenSecretName: '' };
 
       vault.trigger('delete', tfile('Tasks.md'));
       await Promise.resolve();
@@ -202,7 +287,7 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('clears the setting when the configured source note is moved to local trash', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md' };
+      plugin.settings = { relativeTaskSourceNotePath: 'Tasks.md', todoistApiTokenSecretName: '' };
 
       vault.trigger('rename', tfile('.trash/Tasks.md'), 'Tasks.md');
       await Promise.resolve();
