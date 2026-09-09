@@ -1,4 +1,4 @@
 {
   "relativeTaskSourceNotePath": "Test Note.md",
-  "todoistApiTokenSecretName": ""
+  "todoistApiTokenSecretName": "todoist-test-token"
 }
