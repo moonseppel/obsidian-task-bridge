@@ -11,7 +11,6 @@ function appWithNotes(paths: string[]): App {
   return { vault: { getMarkdownFiles: (): TFile[] => paths.map(tfile) } } as unknown as App;
 }
 
-/** Reach the protected `getSuggestions` for assertions. */
 function suggestionsOf(app: App, query: string): string[] {
   const suggest = new SourceNoteSuggest(app, {} as HTMLInputElement, () => {});
   const withGetSuggestions = suggest as unknown as { getSuggestions(q: string): TFile[] };

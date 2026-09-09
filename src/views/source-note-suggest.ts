@@ -3,13 +3,8 @@ import { filterNotePaths } from '../utils/note-filter';
 
 const MAX_SUGGESTIONS = 50;
 
-/** Called with the vault-relative path of the note the user picked. */
-export type SourceNoteSelectHandler = (path: string) => void;
+export type SourceNoteSelectHandler = (relativeNotePath: string) => void;
 
-/**
- * Fuzzy picker over the vault's markdown notes, bound to a settings text input.
- * On selection it writes the chosen path back into the input and notifies the caller.
- */
 export class SourceNoteSuggest extends AbstractInputSuggest<TFile> {
   private readonly onSelectPath: SourceNoteSelectHandler;
 
