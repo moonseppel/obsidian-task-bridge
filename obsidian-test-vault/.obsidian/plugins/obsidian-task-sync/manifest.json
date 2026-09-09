@@ -2,7 +2,7 @@
   "id": "obsidian-task-sync",
   "name": "Obsidian Task Sync",
   "version": "0.1.0",
-  "minAppVersion": "0.15.0",
+  "minAppVersion": "1.11.4",
   "description": "Sync Obsidian task checkboxes with a cloud task management platform",
   "author": "Jan Pralle",
   "authorUrl": "https://www.linkedin.com/in/jan-pralle/",
