@@ -73,12 +73,12 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       return;
     }
 
-    logger.error('Task provider connection failed', status.message);
-
     if (isTransientFailure(status.failure)) {
+      logger.warn('Task provider connection failed; it retries on its own', status.message);
       return;
     }
 
+    logger.error('Task provider connection failed', status.message);
     new Notice(`Obsidian Task Sync: ${status.message}`, NOTICE_UNTIL_DISMISSED);
   }
 
