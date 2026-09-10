@@ -1,12 +1,12 @@
 import { ProviderConnection } from '../services/provider-connection';
-import { ProviderAccount, TaskProvider } from '../services/task-provider';
+import { ProviderAccount } from '../services/task-provider';
 import { TaskProviderError, TaskProviderFailure } from '../services/task-provider-error';
+import { stubProvider } from './support/stub-provider';
 
 const ACCOUNT: ProviderAccount = { id: 'user-1', displayName: 'Jan Pralle' };
 
 function connectionTo(connect: () => Promise<ProviderAccount>): ProviderConnection {
-  const provider: TaskProvider = { displayName: 'Todoist', connect };
-  return new ProviderConnection(provider);
+  return new ProviderConnection(stubProvider({ connect }));
 }
 
 function failingWith(failure: TaskProviderFailure): ProviderConnection {

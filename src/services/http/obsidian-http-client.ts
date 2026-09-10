@@ -8,6 +8,8 @@ export class ObsidianHttpClient implements HttpClient {
       url: request.url,
       method: request.method,
       headers: request.headers,
+      body: request.body,
+      contentType: request.contentType,
       throw: false,
     });
 

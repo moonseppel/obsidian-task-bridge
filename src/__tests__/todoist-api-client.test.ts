@@ -132,3 +132,162 @@ describe('TodoistApiClient', () => {
     });
   });
 });
+
+describe('TodoistApiClient tasks and projects', () => {
+  function page(results: unknown[], nextCursor: string | null = null): HttpResponse {
+    return { status: 200, text: JSON.stringify({ results, next_cursor: nextCursor }) };
+  }
+
+  describe('listProjects', () => {
+    it('reads the project list from the v1 projects endpoint', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 'p1', name: 'Errands', inbox_project: false }])),
+      );
+
+      await expect(context.client.listProjects()).resolves.toEqual([
+        { id: 'p1', name: 'Errands', isInbox: false },
+      ]);
+      expect(sentRequest(context).url).toContain('https://api.todoist.com/api/v1/projects?');
+    });
+
+    it('marks the Inbox, which is what the plugin falls back to', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 'p1', name: 'Inbox', inbox_project: true }])),
+      );
+
+      await expect(context.client.listProjects()).resolves.toEqual([
+        { id: 'p1', name: 'Inbox', isInbox: true },
+      ]);
+    });
+
+    it('treats a project with no inbox flag as an ordinary one', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 'p1', name: 'Errands' }])));
+
+      await expect(context.client.listProjects()).resolves.toEqual([
+        { id: 'p1', name: 'Errands', isInbox: false },
+      ]);
+    });
+
+    it('rejects a project entry with no id rather than syncing into nowhere', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ name: 'Nameless' }])));
+
+      await expect(context.client.listProjects()).rejects.toBeInstanceOf(TaskProviderError);
+    });
+  });
+
+  describe('listTasks', () => {
+    it('scopes the request to the requested project', async () => {
+      const context = clientReplying(() => Promise.resolve(page([])));
+      await context.client.listTasks('p1');
+
+      expect(sentRequest(context).url).toContain('project_id=p1');
+    });
+
+    it('follows next_cursor until the list is exhausted', async () => {
+      const pages = [
+        page([{ id: 't1', content: 'One' }], 'cursor-2'),
+        page([{ id: 't2', content: 'Two' }]),
+      ];
+      const context = clientReplying(() => Promise.resolve(pages.shift() as HttpResponse));
+
+      await expect(context.client.listTasks('p1')).resolves.toEqual([
+        { id: 't1', content: 'One' },
+        { id: 't2', content: 'Two' },
+      ]);
+      expect(context.send.mock.calls[1][0].url).toContain('cursor=cursor-2');
+    });
+
+    // Todoist answers an unknown project with an empty list, so absence cannot be detected here.
+    // TitleSync tells an empty project from a deleted one by checking the project list instead.
+    it('returns nothing for a project with no tasks', async () => {
+      const context = clientReplying(() => Promise.resolve(page([])));
+
+      await expect(context.client.listTasks('p1')).resolves.toEqual([]);
+    });
+
+    it('strips a line break out of a title so it cannot split a markdown line', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One\nTwo' }])));
+
+      await expect(context.client.listTasks('p1')).resolves.toEqual([{ id: 't1', content: 'One Two' }]);
+    });
+
+    it('gives up if the server never stops handing back a cursor', async () => {
+      const context = clientReplying(() => Promise.resolve(page([], 'always-more')));
+
+      await expect(context.client.listTasks('p1')).rejects.toMatchObject({ failure: 'unexpected' });
+    });
+  });
+
+  describe('createTask', () => {
+    it('posts the title and project as a JSON body', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await expect(context.client.createTask('Buy milk', 'p1')).resolves.toEqual({
+        id: 't1',
+        content: 'Buy milk',
+      });
+
+      const request = sentRequest(context);
+      expect(request.method).toBe('POST');
+      expect(request.url).toBe('https://api.todoist.com/api/v1/tasks');
+      expect(request.contentType).toBe('application/json');
+      expect(JSON.parse(request.body ?? '')).toEqual({ content: 'Buy milk', project_id: 'p1' });
+    });
+
+    it('reports a deleted project rather than a puzzling error', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 404, text: '{}' }));
+
+      await expect(context.client.createTask('Buy milk', 'p1')).rejects.toMatchObject({
+        failure: 'project-missing',
+      });
+    });
+  });
+
+  describe('updateTaskContent', () => {
+    it('posts the new title to the task endpoint', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy oat milk' }) }),
+      );
+
+      await context.client.updateTaskContent('t1', 'Buy oat milk');
+
+      const request = sentRequest(context);
+      expect(request.url).toBe('https://api.todoist.com/api/v1/tasks/t1');
+      expect(JSON.parse(request.body ?? '')).toEqual({ content: 'Buy oat milk' });
+    });
+
+    it('escapes a task id so it cannot reshape the request path', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 'x', content: 'x' }) }),
+      );
+
+      await context.client.updateTaskContent('../projects/p1', 'Nice try');
+
+      expect(sentRequest(context).url).toBe(
+        'https://api.todoist.com/api/v1/tasks/..%2Fprojects%2Fp1',
+      );
+    });
+
+    it.each([
+      [401, 'invalid-credentials'],
+      [429, 'rate-limited'],
+      [500, 'unreachable'],
+      [418, 'unexpected'],
+    ])('maps status %s to the %s failure', async (status, failure) => {
+      const context = clientReplying(() => Promise.resolve({ status, text: '{}' }));
+
+      await expect(context.client.updateTaskContent('t1', 'x')).rejects.toMatchObject({ failure });
+    });
+  });
+
+  describe('deleteTask', () => {
+    it('accepts the empty body Todoist returns for a delete', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 204, text: '' }));
+
+      await expect(context.client.deleteTask('t1')).resolves.toBeUndefined();
+      expect(sentRequest(context).method).toBe('DELETE');
+    });
+  });
+});

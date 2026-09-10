@@ -1,5 +1,6 @@
 export type TaskProviderFailure =
   | 'not-configured'
+  | 'project-missing'
   | 'invalid-credentials'
   | 'rate-limited'
   | 'unreachable'
@@ -7,6 +8,8 @@ export type TaskProviderFailure =
 
 const FAILURE_MESSAGES: Record<TaskProviderFailure, string> = {
   'not-configured': 'No API token is configured, please provide one to make this plugin work.',
+  'project-missing':
+    'No project could be found in the task manager to sync tasks into.',
   'invalid-credentials':
     'The task manager rejected the API token as invalid. Please provide a valid token to make this plugin work.',
   'rate-limited':

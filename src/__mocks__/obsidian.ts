@@ -97,6 +97,41 @@ class MockFragment {
   return fragment as unknown as DocumentFragment;
 };
 
+// The offline suite runs on the node environment, where the plugin's `window` timers are absent.
+// Each call reaches through to the current global, so `jest.useFakeTimers()` is picked up even
+// though this shim is installed when the module is first imported. Handles are unref'd so a timer
+// the plugin schedules cannot keep the test runner alive.
+type Scheduler = (...args: never[]) => unknown;
+
+function releasedTimer(name: 'setTimeout' | 'setInterval') {
+  return (...args: never[]): unknown => {
+    const handle = (globalThis[name] as unknown as Scheduler)(...args);
+
+    if (typeof handle === 'object' && handle !== null && 'unref' in handle) {
+      (handle as { unref: () => void }).unref();
+    }
+
+    return handle;
+  };
+}
+
+function passThrough(name: 'clearTimeout' | 'clearInterval') {
+  return (...args: never[]): unknown => (globalThis[name] as unknown as Scheduler)(...args);
+}
+
+if ((globalThis as Record<string, unknown>).document === undefined) {
+  (globalThis as Record<string, unknown>).document = { body: createMockElement() };
+}
+
+if ((globalThis as Record<string, unknown>).window === undefined) {
+  (globalThis as Record<string, unknown>).window = {
+    setInterval: releasedTimer('setInterval'),
+    clearInterval: passThrough('clearInterval'),
+    setTimeout: releasedTimer('setTimeout'),
+    clearTimeout: passThrough('clearTimeout'),
+  };
+}
+
 export function normalizePath(path: string): string {
   return path
     .replace(/\\/g, '/')
@@ -174,9 +209,15 @@ export class Plugin {
 
   addSettingTab(_tab: PluginSettingTab): void {}
 
+  addCommand(command: unknown): unknown {
+    return command;
+  }
+
   registerEvent(_eventRef: unknown): void {}
 
   registerInterval(_id: number): void {}
+
+  registerMarkdownPostProcessor(_processor: unknown): void {}
 
   register(_callback: () => unknown): void {}
 }
@@ -237,6 +278,23 @@ export class SecretComponent {
   }
 }
 
+export class ToggleComponent {
+  private value = false;
+
+  setValue(value: boolean): this {
+    this.value = value;
+    return this;
+  }
+
+  getValue(): boolean {
+    return this.value;
+  }
+
+  onChange(_handler: (value: boolean) => unknown): this {
+    return this;
+  }
+}
+
 export class ButtonComponent {
   buttonEl: HTMLElement = createMockElement();
 
@@ -284,6 +342,11 @@ export class Setting {
 
   addText(callback: (component: SearchComponent) => void): this {
     return this.addSearch(callback);
+  }
+
+  addToggle(callback: (component: ToggleComponent) => void): this {
+    callback(new ToggleComponent());
+    return this;
   }
 
   addButton(callback: (component: ButtonComponent) => void): this {

@@ -1,3 +1,17 @@
+/**
+ * Off unless the user turns debug mode on. Reading `process.env` instead would throw on mobile,
+ * where Obsidian gives plugins no Node globals.
+ */
+let debugLogging = false;
+
+export function setDebugLogging(enabled: boolean): void {
+  debugLogging = enabled;
+}
+
+export function isDebugLogging(): boolean {
+  return debugLogging;
+}
+
 export class Logger {
   private namespace: string;
 
@@ -30,7 +44,7 @@ export class Logger {
   }
 
   debug(message: string, data?: unknown): void {
-    if (process.env.DEBUG) {
+    if (debugLogging) {
       if (data !== undefined) {
         console.debug(`[${this.namespace}] ${message}`, data);
       } else {

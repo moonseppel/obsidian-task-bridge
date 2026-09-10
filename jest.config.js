@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 const config = {
+  displayName: 'offline',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],

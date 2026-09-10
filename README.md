@@ -17,7 +17,12 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 
 **Feature 3: Complete** — Establish the Todoist connection: pick a Todoist API token in the settings, the connection is established when Obsidian starts, and a "Test connection" button reports the current state. Todoist-specific code lives behind a provider-neutral interface, and an opt-in integration suite checks the live Todoist API.
 
-Next: Feature 4 — sync task titles.
+**Feature 4: Complete** — Sync task titles both ways: a checkbox line in the source note becomes a
+Todoist task, and a title changed in Todoist is written back into the note. Tasks are anchored with
+Obsidian block ids, syncing runs on save and on a configurable poll, and "Sync now" is in the
+command palette.
+
+Next: Feature 5 — conflict resolution.
 
 ## Connecting to Todoist
 
@@ -30,6 +35,78 @@ Requires Obsidian 1.11.4 or newer, which is where Obsidian's secret storage arri
 The token is held in Obsidian's secret storage, never in the plugin's `data.json`. That storage is
 local to the vault on each device, so the token has to be entered once per device — the upside is
 that it is not carried along by vault sync, backups, or a git repository.
+
+## How syncing works
+
+Pick a source note and a Todoist project in the settings, and every checkbox line in that note is
+kept in step with a task in that project.
+
+```markdown
+- [ ] Buy milk ^ots-a1b2c3
+- [x] Call the dentist ^ots-d4e5f6
+```
+
+The `^ots-...` suffix is an ordinary Obsidian block identifier. The plugin appends it the first time
+it syncs a line, and it is what ties that line to its Todoist task, so the title can change on
+either side without the link breaking. `[[Tasks#^ots-a1b2c3]]` links to that task from anywhere in
+the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
+
+The anchor is hidden by default, in reading view and while editing alike, and **Debug mode** in the
+settings brings it back. See [Debug mode](#debug-mode) for what that costs.
+
+A sync runs when the plugin loads, two seconds after you stop typing in the source note, on the
+poll interval, and whenever you run **Sync now** from the command palette. Editing the note while
+a sync is already running schedules another pass, so a change made in that window is not left
+waiting for the next poll.
+
+### Which project tasks go to
+
+Your Inbox, until you choose otherwise. The project list is remembered in `data.json`, so the
+picker still offers your projects when you are offline. It is refreshed only when you open the
+settings, change the API token, or press **Test connection**. The project setting starts on the Inbox as soon as the
+connection is established, and picking a suggestion is the only way to change it, so it can never be
+left empty. A sync therefore never stalls for want of a project.
+
+If the project you chose is later deleted in Todoist, syncing falls back to the Inbox, remembers
+that, and tells you once so the change is never silent.
+
+### What wins when both sides changed
+
+Nothing clever, by design. Within one pass a change made in Obsidian is sent to Todoist and the
+Todoist title is discarded. Across passes the later sync wins, regardless of when either edit was
+actually made. Real conflict resolution arrives in feature 5.
+
+## Debug mode
+
+One switch in the settings, off by default, for when something needs diagnosing. It does two things:
+it reveals the `^ots-` anchors, and it prints this plugin's debug logging to the developer console.
+
+With debug mode off, the anchors are hidden in two different ways, because Obsidian renders the two
+views differently.
+
+- **Reading view** offers no CSS hook for a block identifier, so the plugin edits the rendered text
+  instead, matching on the `ots-` prefix. Only its own anchors are touched, and only the rendered
+  copy: the note on disk keeps its anchor. This applies as views are drawn, so a reading view that is
+  already open may need reopening after you flip the switch
+- **Live Preview** does expose a class, so a rule in `styles.css` hides it. The class carries no hint
+  of which plugin wrote the identifier, so while debug mode is off this hides **every** block
+  identifier in your vault, not only this plugin's. The line your cursor is on is left alone, because
+  hiding the text under the caret makes arrow keys skip across it
+
+Turning debug mode on reverses both. One caveat in reading view: Obsidian itself swallows a block
+identifier that terminates a block, which is what the last item of a list does. Those never reach the
+page, so no setting can reveal them. Live Preview shows all of them.
+
+### Known limitations
+
+- Only the title syncs. A `- [x]` line is created in Todoist as an open task, because completion
+  state is not synced yet
+- Deleting a task is not synced in either direction. A line removed from the note leaves its Todoist
+  task alone, and a task deleted in Todoist leaves its note line alone
+- Tasks created directly in Todoist are not pulled into the note. Only tasks this plugin created are
+  followed, which is what "partial two-way sync" means
+- The note and `data.json` are separate files. If they get out of step, through a partial restore or
+  a third-party vault sync, a line can lose its link and be created in Todoist a second time
 
 ## Installation
 
@@ -71,8 +148,15 @@ src/
     todoist/
       todoist-api-client.ts   # Todoist REST calls
       todoist-provider.ts     # Todoist implementation of the provider interface
+    sync/
+      task-line.ts            # Parses and formats a markdown checkbox line
+      block-id.ts             # Mints the block ids that anchor tasks
+      task-links.ts           # Block id to provider task id mapping, with its stored form
+      title-sync.ts           # The sync pass itself, plus how note edits are applied
+      obsidian-source-note.ts # Adapter over the vault for the configured note
   views/
     source-note-suggest.ts  # Fuzzy note picker for the source-note setting
+    project-suggest.ts      # Picker for the Todoist project
   utils/
     logger.ts       # Logging utility
   __tests__/        # Jest tests
@@ -90,12 +174,15 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 
 - **Task manager provider interface** — `TaskProvider` is the only thing the plugin talks to; everything Todoist-specific is confined to `src/services/todoist/`
 - **Transport port** — provider clients speak to an `HttpClient` rather than to a concrete transport, so the plugin can use Obsidian's `requestUrl` (CORS-free, works on desktop and mobile) while the integration tests drive the identical code over `fetch`
-- **Clear error handling and user feedback** — failures are typed (`not-configured`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
+- **Clear error handling and user feedback** — failures are typed (`not-configured`, `project-missing`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
+- **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and
+  `data.json` maps that id to the provider's task id plus the title both sides last agreed on. The
+  provider's id never enters the note, so switching providers rewrites one file rather than every note
 
 Future versions will add:
 
-- Local metadata for task identity mapping
-- Sync state tracking to prevent duplicates
+- Conflict resolution for simultaneous edits (feature 5)
+- More synced fields, starting with priority (feature 6)
 
 ## License
 
@@ -116,17 +203,23 @@ Tests cover:
 - Source-note picker filtering, and rename/delete tracking of the configured note
 - The Todoist client's request shape and its mapping of API failures
 - Connection status handling and how it is reported in the settings tab
+- Task line parsing, block id minting, and the link store's tolerance of corrupt data
+- The sync pass in both directions, including what it keeps when a call fails midway
 
 ### Integration tests
 
 The integration suite calls the real Todoist API to catch changes on Todoist's side. It runs as
 part of `npm test`, and therefore as part of the pre-commit hook.
 
+`npm test` runs both suites in one Jest command, through its `--projects` option, so a single
+summary covers the lot.
+
 The token is read from the `OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN` environment variable. Get one
-in Todoist under **Settings → Integrations → Developer**. Without it the run fails immediately
-with a message naming the variable — it is never skipped silently, because a guard that quietly
-does nothing is no guard at all. For the offline suite on its own, run `npm run test:unit`, which
-needs no token.
+in Todoist under **Settings → Integrations → Developer**. Without it one test fails on purpose
+with a message explaining what to do, and the rest of the integration suite is skipped. The
+offline suite still runs and reports normally. It is never skipped silently, because a guard that
+quietly does nothing is no guard at all. For the offline suite on its own, run `npm run test:unit`,
+which needs no token.
 
 There are three ways to supply it. None of them put the token in the repository, and none of them
 should: the token grants full access to your Todoist account.
@@ -170,4 +263,7 @@ already running will not see the change until it is restarted.
 
 #### What the suite does to your account
 
-It only reads (`GET /api/v1/user`) and never creates or changes anything.
+It creates its own temporary project, does the whole task round trip inside it, and deletes that
+project when it finishes. Your existing projects and tasks are never read or modified, and nothing
+is left behind. If a run is killed part way through, a project named `obsidian-task-sync test <timestamp>`
+may survive and can be deleted by hand.
