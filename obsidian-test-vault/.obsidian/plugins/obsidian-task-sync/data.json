@@ -1,4 +1,30 @@
 {
   "relativeTaskSourceNotePath": "Test Note.md",
-  "todoistApiTokenSecretName": "todoist-test-token"
+  "todoistApiTokenSecretName": "todoist-test-token",
+  "todoistProjectId": "6hRvxww6q685Jg2c",
+  "todoistProjectName": "Inbox",
+  "syncIntervalMinutes": 5,
+  "debugMode": false,
+  "taskLinks": [
+    {
+      "blockId": "ots-ib7kpp4v",
+      "providerTaskId": "6hV7qcF7M563hGpc",
+      "lastSyncedTitle": "Buy milk"
+    },
+    {
+      "blockId": "ots-0pc0073d",
+      "providerTaskId": "6hV7qc9xc4JWpXmc",
+      "lastSyncedTitle": "Call the dentist"
+    },
+    {
+      "blockId": "ots-jg1w8hw3",
+      "providerTaskId": "6hV7qcHJ99mxXg56",
+      "lastSyncedTitle": "Nested parent"
+    },
+    {
+      "blockId": "ots-3tgglva3",
+      "providerTaskId": "6hV7qcQhxJ64PV2c",
+      "lastSyncedTitle": "Nested child"
+    }
+  ]
 }
