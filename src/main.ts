@@ -5,6 +5,7 @@ import { StatusReporter } from './services/status-reporter';
 import { ProviderProject, defaultProjectOf } from './services/task-provider';
 import { getDeviceTag } from './services/sync/device-tag';
 import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
+import { OrphanTracker } from './services/sync/orphan-tracker';
 import { SyncScheduler } from './services/sync/sync-scheduler';
 import { TaskLinkStore } from './services/sync/task-links';
 import { ProjectResolution, TitleSync } from './services/sync/title-sync';
@@ -40,6 +41,7 @@ function announce(message: string): void {
 export default class ObsidianTaskSyncPlugin extends Plugin {
   settings: ObsidianTaskSyncSettings = { ...DEFAULT_SETTINGS };
   taskLinks = new TaskLinkStore();
+  orphanedTasks = new OrphanTracker();
   /** The last project list seen, so the picker still offers choices while offline. */
   knownProjects: ProviderProject[] = [];
   readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
@@ -52,6 +54,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.taskLinks,
     () => this.saveSettings(),
     () => getDeviceTag(window.localStorage),
+    this.orphanedTasks,
   );
   private readonly scheduler = new SyncScheduler(
     () => void this.syncTasks(),
@@ -163,6 +166,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.settings = toSettings(stored);
     this.credentials.restore(readProviderCredentials(stored));
     this.taskLinks.replaceAll(readStoredField(stored, 'taskLinks'));
+    this.orphanedTasks.replaceAll(readStoredField(stored, 'orphanedTasks'));
     this.knownProjects = toKnownProjects(readStoredField(stored, 'knownProjects'));
   }
 
@@ -170,6 +174,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     await this.saveData({
       ...this.settings,
       taskLinks: this.taskLinks.toStored(),
+      orphanedTasks: this.orphanedTasks.toStored(),
       knownProjects: this.knownProjects,
       providerCredentials: this.credentials.toStored(),
     });

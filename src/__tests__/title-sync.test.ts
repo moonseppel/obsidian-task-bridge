@@ -1,5 +1,6 @@
 import { NewTask, ProviderTask } from '../services/task-provider';
 import { TaskProviderError } from '../services/task-provider-error';
+import { OrphanTracker } from '../services/sync/orphan-tracker';
 import { TaskLinkStore } from '../services/sync/task-links';
 import { LineEdit, SourceNote, TitleSync, applyLineEdits } from '../services/sync/title-sync';
 import { stubProvider } from './support/stub-provider';
@@ -36,6 +37,7 @@ function makeSync(
   provider: Parameters<typeof stubProvider>[0],
   onSave: () => void = () => undefined,
   getDeviceTag?: () => string,
+  orphans?: OrphanTracker,
 ): TitleSync {
   return new TitleSync(
     note,
@@ -45,6 +47,7 @@ function makeSync(
       onSave();
     },
     getDeviceTag,
+    orphans,
   );
 }
 
@@ -590,6 +593,61 @@ describe('TitleSync', () => {
 
     await expect(sync.run(PROJECT)).rejects.toThrow();
     expect(saved).toBe(1);
+  });
+
+  it('tracks a task that carries this plugin\'s block id but has no live link to it', async () => {
+    const orphans = new OrphanTracker();
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }) },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(orphans.get(TASK_ID)).toBeDefined();
+  });
+
+  it('never tracks a task whose link legitimately exists', async () => {
+    const orphans = new OrphanTracker();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const sync = makeSync(
+      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      links,
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(orphans.get(TASK_ID)).toBeUndefined();
+  });
+
+  it('drops tracking for a task that is no longer orphaned after being re-linked', async () => {
+    const orphans = new OrphanTracker();
+    orphans.track(TASK_ID, 1_000);
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const sync = makeSync(
+      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      links,
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 });
 

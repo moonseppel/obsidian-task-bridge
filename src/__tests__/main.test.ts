@@ -174,6 +174,7 @@ describe('ObsidianTaskSyncPlugin', () => {
       expect(saveData).toHaveBeenCalledWith({
         ...settings,
         taskLinks: [],
+        orphanedTasks: [],
         knownProjects: [],
         providerCredentials: { apiTokenSecretName: '' },
       });
@@ -531,6 +532,30 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
     await plugin.loadSettings();
 
     expect(plugin.taskLinks.size).toBe(0);
+  });
+
+  it('persists the orphaned-task tracking alongside the settings', async () => {
+    const { plugin, saveData } = makePlugin();
+    plugin.orphanedTasks.track('t1', 1_000);
+
+    await plugin.saveSettings();
+
+    expect(saveData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orphanedTasks: [{ providerTaskId: 't1', firstSeenOrphanedAt: 1_000 }],
+      }),
+    );
+  });
+
+  it('restores the orphaned-task tracking that was stored last time', async () => {
+    const { plugin, loadData } = makePlugin();
+    loadData.mockResolvedValue({
+      orphanedTasks: [{ providerTaskId: 't1', firstSeenOrphanedAt: 1_000 }],
+    });
+
+    await plugin.loadSettings();
+
+    expect(plugin.orphanedTasks.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000 });
   });
 });
 

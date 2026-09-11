@@ -1,5 +1,6 @@
 import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '../task-provider';
 import { createBlockId } from './block-id';
+import { OrphanTracker } from './orphan-tracker';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 
@@ -57,6 +58,7 @@ export class TitleSync {
   private readonly links: TaskLinkStore;
   private readonly saveLinks: () => Promise<void>;
   private readonly getDeviceTag: () => string;
+  private readonly orphans: OrphanTracker;
   /** In memory only, and rebuilt from what's currently in the note each pass, so a block id that
    * disappears from the note before the grace period is up is simply dropped rather than tracked
    * forever. */
@@ -68,12 +70,14 @@ export class TitleSync {
     links: TaskLinkStore,
     saveLinks: () => Promise<void>,
     getDeviceTag: () => string = () => '',
+    orphans: OrphanTracker = new OrphanTracker(),
   ) {
     this.note = note;
     this.provider = provider;
     this.links = links;
     this.saveLinks = saveLinks;
     this.getDeviceTag = getDeviceTag;
+    this.orphans = orphans;
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
@@ -96,6 +100,7 @@ export class TitleSync {
       await this.syncEveryLine(pass);
     } finally {
       this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
+      this.updateOrphanTracking(pass.remoteTasks.values());
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
       await this.commit(pass.edits);
@@ -167,6 +172,34 @@ export class TitleSync {
         this.firstSeenUnrecognized.delete(blockId);
       }
     }
+  }
+
+  /**
+   * A task carrying this plugin's block id whose current link doesn't point back at it — no link
+   * at all, or one that points elsewhere — is orphaned. Checked against every task in the
+   * project, not just lines in the note, since re-linking (or a task simply being deleted) can
+   * resolve an orphan without this note ever mentioning it.
+   */
+  private updateOrphanTracking(tasks: Iterable<ProviderTask>): void {
+    const now = Date.now();
+    const stillOrphaned = new Set<string>();
+
+    for (const task of tasks) {
+      if (task.embeddedBlockId === undefined) {
+        continue;
+      }
+
+      const link = this.links.get(task.embeddedBlockId);
+
+      if (link !== undefined && link.providerTaskId === task.id) {
+        continue;
+      }
+
+      stillOrphaned.add(task.id);
+      this.orphans.track(task.id, now);
+    }
+
+    this.orphans.keepOnly(stillOrphaned);
   }
 
   /**
