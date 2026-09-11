@@ -4,6 +4,9 @@ import { isRecord } from '../../utils/type-guards';
 export interface OrphanRecord {
   providerTaskId: string;
   firstSeenOrphanedAt: number;
+  /** Set once the task has been flagged; the description's removal date is a courtesy notice
+   * only — this is what actually decides when Slice 12 removes it. */
+  removalDueAt?: number;
 }
 
 /** Separate from TaskLinkStore, since an orphan by definition has no live link to keep it in. */
@@ -39,6 +42,15 @@ export class OrphanTracker {
     }
   }
 
+  /** Records the removal date decided for an already-tracked orphan; a no-op if it isn't tracked. */
+  flag(providerTaskId: string, removalDueAt: number): void {
+    const record = this.byTaskId.get(providerTaskId);
+
+    if (record !== undefined) {
+      this.byTaskId.set(providerTaskId, { ...record, removalDueAt });
+    }
+  }
+
   /** Drops tracking for anything not given, since it's rebuilt from what's currently orphaned each pass. */
   keepOnly(stillOrphaned: ReadonlySet<string>): void {
     for (const providerTaskId of this.byTaskId.keys()) {
@@ -65,7 +77,8 @@ function isOrphanRecord(value: unknown): value is OrphanRecord {
   return (
     isRecord(value) &&
     isNonEmptyString(value.providerTaskId) &&
-    typeof value.firstSeenOrphanedAt === 'number'
+    typeof value.firstSeenOrphanedAt === 'number' &&
+    (value.removalDueAt === undefined || typeof value.removalDueAt === 'number')
   );
 }
 

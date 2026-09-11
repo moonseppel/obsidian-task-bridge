@@ -120,4 +120,17 @@ describe('TodoistProvider task and project mapping', () => {
 
     await expect(provider.updateTaskTitle('t1', 'Buy oat milk')).resolves.toBeUndefined();
   });
+
+  it('sends a description update on to the API client', async () => {
+    const updated: Array<[string, string]> = [];
+    const provider = providerOver({
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve({ id, content: 'Buy milk' });
+      },
+    });
+
+    await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^ots-a1')).resolves.toBeUndefined();
+    expect(updated).toEqual([['t1', 'Now orphaned.\n^ots-a1']]);
+  });
 });

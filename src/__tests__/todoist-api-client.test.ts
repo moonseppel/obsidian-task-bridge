@@ -374,6 +374,22 @@ describe('TodoistApiClient tasks and projects', () => {
     });
   });
 
+  describe('updateTaskDescription', () => {
+    it('posts the new description to the task endpoint', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.updateTaskDescription('t1', 'This task is orphaned.\n^ots-a1b2c3d4');
+
+      const request = sentRequest(context);
+      expect(request.url).toBe('https://api.todoist.com/api/v1/tasks/t1');
+      expect(JSON.parse(request.body ?? '')).toEqual({
+        description: 'This task is orphaned.\n^ots-a1b2c3d4',
+      });
+    });
+  });
+
   describe('deleteTask', () => {
     it('accepts the empty body Todoist returns for a delete', async () => {
       const context = clientReplying(() => Promise.resolve({ status: 204, text: '' }));

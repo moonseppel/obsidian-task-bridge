@@ -18,6 +18,23 @@ describe('OrphanTracker', () => {
     expect(orphans.get('t1')?.firstSeenOrphanedAt).toBe(1_000);
   });
 
+  it('records the removal date decided for an already-tracked orphan', () => {
+    const orphans = new OrphanTracker();
+    orphans.track('t1', 1_000);
+
+    orphans.flag('t1', 5_000);
+
+    expect(orphans.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 5_000 });
+  });
+
+  it('does nothing when flagging a task that is not tracked', () => {
+    const orphans = new OrphanTracker();
+
+    orphans.flag('t1', 5_000);
+
+    expect(orphans.get('t1')).toBeUndefined();
+  });
+
   it('drops tracking for a task not given to keepOnly', () => {
     const orphans = new OrphanTracker();
     orphans.track('t1', 1_000);
@@ -42,6 +59,24 @@ describe('OrphanTracker', () => {
     const orphans = OrphanTracker.fromStored([{ providerTaskId: '', firstSeenOrphanedAt: 1_000 }, 'nonsense']);
 
     expect(orphans.size).toBe(0);
+  });
+
+  it('drops a record whose removal date is the wrong type', () => {
+    const orphans = OrphanTracker.fromStored([
+      { providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 'soon' },
+    ]);
+
+    expect(orphans.size).toBe(0);
+  });
+
+  it('round-trips a flagged record through stored data', () => {
+    const orphans = new OrphanTracker();
+    orphans.track('t1', 1_000);
+    orphans.flag('t1', 5_000);
+
+    const restored = OrphanTracker.fromStored(orphans.toStored());
+
+    expect(restored.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 5_000 });
   });
 
   it('replaceAll keeps the same instance, so existing holders see the new records', () => {

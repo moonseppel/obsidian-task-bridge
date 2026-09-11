@@ -649,6 +649,60 @@ describe('TitleSync', () => {
 
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
+
+  it('does not flag an orphan before it has been orphaned for 60 minutes', async () => {
+    jest.useFakeTimers();
+    const orphans = new OrphanTracker();
+    const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        updateTaskDescription,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(59 * 60_000);
+    await sync.run(PROJECT);
+
+    expect(updateTaskDescription).not.toHaveBeenCalled();
+    expect(orphans.get(TASK_ID)?.removalDueAt).toBeUndefined();
+  });
+
+  it('flags an orphan once it has been orphaned for 60 minutes, recording a removal date', async () => {
+    jest.useFakeTimers();
+    const orphans = new OrphanTracker();
+    const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        updateTaskDescription,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60 * 60_000);
+    await sync.run(PROJECT);
+
+    expect(updateTaskDescription).toHaveBeenCalledTimes(1);
+    const [calledTaskId, description] = updateTaskDescription.mock.calls[0] as [string, string];
+    expect(calledTaskId).toBe(TASK_ID);
+    expect(description).toContain('^ots-orphan');
+    expect(description.toLowerCase()).toContain('orphaned');
+    expect(description.toLowerCase()).toContain('removed');
+
+    expect(orphans.get(TASK_ID)?.removalDueAt).toBe(Date.now() + 2 * 24 * 60 * 60_000);
+  });
 });
 
 describe('applyLineEdits', () => {

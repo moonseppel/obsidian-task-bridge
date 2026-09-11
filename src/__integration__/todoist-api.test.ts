@@ -76,6 +76,16 @@ describeAgainstTodoist('Todoist task round trip', () => {
     expect(tasks).toContainEqual(expect.objectContaining({ id: created.id, content: 'Buy oat milk' }));
   });
 
+  it('updates a task description and reads the new one back', async () => {
+    const created = await client.createTask('Buy milk', project.id, '^ots-a1b2c3d4');
+
+    await client.updateTaskDescription(created.id, 'Now orphaned.\n^ots-a1b2c3d4');
+    const tasks = await client.listTasks(project.id);
+    const task = tasks.find((entry) => entry.id === created.id);
+
+    expect(task?.embeddedBlockId).toBe('ots-a1b2c3d4');
+  });
+
   it('round-trips a block id embedded in the description through a real fetch', async () => {
     const created = await client.createTask('Buy milk', project.id, '^ots-a1b2c3d4');
     const tasks = await client.listTasks(project.id);

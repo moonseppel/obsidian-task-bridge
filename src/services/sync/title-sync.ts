@@ -1,6 +1,7 @@
 import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '../task-provider';
 import { createBlockId } from './block-id';
 import { OrphanTracker } from './orphan-tracker';
+import { orphanNoticeDescription } from './orphan-notice';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 
@@ -10,6 +11,10 @@ import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from '
  * a genuinely new task.
  */
 const CREATION_GRACE_PERIOD_MS = 60_000;
+/** How long a task stays orphaned before its description is flagged with a removal notice. */
+const ORPHAN_FLAG_AFTER_MS = 60 * 60_000;
+/** How long a flagged orphan is given to be re-linked before it is actually removed. */
+const ORPHAN_REMOVAL_GRACE_MS = 2 * 24 * 60 * 60_000;
 
 /** Replaces one line only if it still reads as it did when the pass started. */
 export interface LineEdit {
@@ -100,7 +105,7 @@ export class TitleSync {
       await this.syncEveryLine(pass);
     } finally {
       this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
-      this.updateOrphanTracking(pass.remoteTasks.values());
+      await this.updateOrphanTracking(pass.remoteTasks.values());
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
       await this.commit(pass.edits);
@@ -180,7 +185,7 @@ export class TitleSync {
    * project, not just lines in the note, since re-linking (or a task simply being deleted) can
    * resolve an orphan without this note ever mentioning it.
    */
-  private updateOrphanTracking(tasks: Iterable<ProviderTask>): void {
+  private async updateOrphanTracking(tasks: Iterable<ProviderTask>): Promise<void> {
     const now = Date.now();
     const stillOrphaned = new Set<string>();
 
@@ -197,9 +202,30 @@ export class TitleSync {
 
       stillOrphaned.add(task.id);
       this.orphans.track(task.id, now);
+      await this.flagIfDue(task.id, task.embeddedBlockId, now);
     }
 
     this.orphans.keepOnly(stillOrphaned);
+  }
+
+  /**
+   * A task orphaned for less than the flag delay is left alone: a re-link lookup a pass or two
+   * later resolves most of these on its own, so nothing is flagged before that grace has passed.
+   */
+  private async flagIfDue(providerTaskId: string, blockId: string, now: number): Promise<void> {
+    const record = this.orphans.get(providerTaskId);
+
+    if (record === undefined || record.removalDueAt !== undefined) {
+      return;
+    }
+
+    if (now - record.firstSeenOrphanedAt < ORPHAN_FLAG_AFTER_MS) {
+      return;
+    }
+
+    const removalDueAt = now + ORPHAN_REMOVAL_GRACE_MS;
+    await this.provider.updateTaskDescription(providerTaskId, orphanNoticeDescription(blockId, removalDueAt));
+    this.orphans.flag(providerTaskId, removalDueAt);
   }
 
   /**

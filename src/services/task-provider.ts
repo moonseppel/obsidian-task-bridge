@@ -40,6 +40,7 @@ export interface TaskProvider {
   listTasks(projectId: string): Promise<ProviderTask[]>;
   createTask(task: NewTask): Promise<ProviderTask>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
+  updateTaskDescription(taskId: string, description: string): Promise<void>;
 }
 
 /** The provider's own default, or failing that the first project it lists. */

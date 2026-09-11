@@ -61,6 +61,10 @@ export class TodoistApiClient {
     return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { content }));
   }
 
+  async updateTaskDescription(taskId: string, description: string): Promise<TodoistTask> {
+    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { description }));
+  }
+
   async deleteTask(taskId: string): Promise<void> {
     await this.request('DELETE', `/tasks/${encodeURIComponent(taskId)}`);
   }

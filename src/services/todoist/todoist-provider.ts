@@ -32,6 +32,10 @@ export class TodoistProvider implements TaskProvider {
   async updateTaskTitle(taskId: string, title: string): Promise<void> {
     await this.api.updateTaskContent(taskId, title);
   }
+
+  async updateTaskDescription(taskId: string, description: string): Promise<void> {
+    await this.api.updateTaskDescription(taskId, description);
+  }
 }
 
 export function createTodoistProvider(credentials: TodoistCredentials): TodoistProvider {

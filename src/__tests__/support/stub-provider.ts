@@ -6,6 +6,7 @@ export interface StubProviderOptions {
   listTasks?: (projectId: string) => Promise<ProviderTask[]>;
   createTask?: (task: NewTask) => Promise<ProviderTask>;
   updateTaskTitle?: (taskId: string, title: string) => Promise<void>;
+  updateTaskDescription?: (taskId: string, description: string) => Promise<void>;
 }
 
 const NOT_STUBBED = (name: string) => (): never => {
@@ -21,5 +22,6 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
     listTasks: options.listTasks ?? NOT_STUBBED('listTasks'),
     createTask: options.createTask ?? NOT_STUBBED('createTask'),
     updateTaskTitle: options.updateTaskTitle ?? NOT_STUBBED('updateTaskTitle'),
+    updateTaskDescription: options.updateTaskDescription ?? NOT_STUBBED('updateTaskDescription'),
   };
 }
