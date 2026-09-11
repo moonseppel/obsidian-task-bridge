@@ -191,8 +191,8 @@ describe('TodoistApiClient tasks and projects', () => {
       const context = clientReplying(() => Promise.resolve(pages.shift() as HttpResponse));
 
       await expect(context.client.listTasks('p1')).resolves.toEqual([
-        { id: 't1', content: 'One', isCompleted: false, projectId: '', description: '' },
-        { id: 't2', content: 'Two', isCompleted: false, projectId: '', description: '' },
+        { id: 't1', content: 'One', isCompleted: false, projectId: '', description: '', labels: [] },
+        { id: 't2', content: 'Two', isCompleted: false, projectId: '', description: '', labels: [] },
       ]);
       expect(context.send.mock.calls[1][0].url).toContain('cursor=cursor-2');
     });
@@ -209,7 +209,7 @@ describe('TodoistApiClient tasks and projects', () => {
       const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One\nTwo' }])));
 
       await expect(context.client.listTasks('p1')).resolves.toEqual([
-        { id: 't1', content: 'One Two', isCompleted: false, projectId: '', description: '' },
+        { id: 't1', content: 'One Two', isCompleted: false, projectId: '', description: '', labels: [] },
       ]);
     });
 
@@ -334,6 +334,31 @@ describe('TodoistApiClient tasks and projects', () => {
       const [task] = await context.client.listTasks('p1');
       expect(task.description).toBe('');
     });
+
+    it('carries labels through', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', labels: ['errands', 'urgent'] }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.labels).toEqual(['errands', 'urgent']);
+    });
+
+    it('reports no labels when there are none', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.labels).toEqual([]);
+    });
+
+    it('drops a non-string entry from a malformed labels array', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', labels: ['errands', 42, null] }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.labels).toEqual(['errands']);
+    });
   });
 
   describe('createTask', () => {
@@ -348,6 +373,7 @@ describe('TodoistApiClient tasks and projects', () => {
         isCompleted: false,
         projectId: '',
         description: '',
+        labels: [],
       });
 
       const request = sentRequest(context);
@@ -379,6 +405,30 @@ describe('TodoistApiClient tasks and projects', () => {
       await context.client.createTask('Buy milk', 'p1');
 
       expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('description');
+    });
+
+    it('sends labels when given', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1', undefined, ['errands', 'urgent']);
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
+        content: 'Buy milk',
+        project_id: 'p1',
+        labels: ['errands', 'urgent'],
+      });
+    });
+
+    it('omits labels entirely when none are given', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('labels');
     });
 
     it('reports a deleted project rather than a puzzling error', async () => {
@@ -443,6 +493,30 @@ describe('TodoistApiClient tasks and projects', () => {
     });
   });
 
+  describe('updateTaskLabels', () => {
+    it('posts the new labels to the task endpoint', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.updateTaskLabels('t1', ['errands', 'urgent']);
+
+      const request = sentRequest(context);
+      expect(request.url).toBe('https://api.todoist.com/api/v1/tasks/t1');
+      expect(JSON.parse(request.body ?? '')).toEqual({ labels: ['errands', 'urgent'] });
+    });
+
+    it('sends an empty array to clear every label', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.updateTaskLabels('t1', []);
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({ labels: [] });
+    });
+  });
+
   describe('deleteTask', () => {
     it('accepts the empty body Todoist returns for a delete', async () => {
       const context = clientReplying(() => Promise.resolve({ status: 204, text: '' }));
@@ -484,6 +558,7 @@ describe('TodoistApiClient tasks and projects', () => {
         isCompleted: false,
         projectId: '',
         description: '',
+        labels: [],
       });
       expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1');
       expect(sentRequest(context).method).toBe('GET');

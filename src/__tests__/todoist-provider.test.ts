@@ -62,11 +62,11 @@ describe('TodoistProvider task and project mapping', () => {
   it('renames Todoist "content" to the neutral "title"', async () => {
     const provider = providerOver({
       listTasks: () =>
-        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '' }]),
+        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [] }]),
     });
 
     await expect(provider.listTasks('p1')).resolves.toEqual([
-      { id: 't1', title: 'Buy milk', isCompleted: false, projectId: 'p1', description: '' },
+      { id: 't1', title: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [] },
     ]);
   });
 
@@ -81,6 +81,7 @@ describe('TodoistProvider task and project mapping', () => {
             isCompleted: false,
             projectId: 'p1',
             description: '',
+            labels: [],
           },
         ]),
     });
@@ -99,6 +100,7 @@ describe('TodoistProvider task and project mapping', () => {
             isCompleted: false,
             projectId: 'p1',
             description: '',
+            labels: [],
           },
         ]),
     });
@@ -109,7 +111,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('carries completion state and the current project through to the provider-neutral shape', async () => {
     const provider = providerOver({
       listTasks: () =>
-        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: true, projectId: 'p2', description: '' }]),
+        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: true, projectId: 'p2', description: '', labels: [] }]),
     });
 
     await expect(provider.listTasks('p1')).resolves.toMatchObject([{ isCompleted: true, projectId: 'p2' }]);
@@ -119,11 +121,29 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       listTasks: () =>
         Promise.resolve([
-          { id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: 'Some notes' },
+          { id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: 'Some notes', labels: [] },
         ]),
     });
 
     await expect(provider.listTasks('p1')).resolves.toMatchObject([{ description: 'Some notes' }]);
+  });
+
+  it('carries labels through to the provider-neutral shape', async () => {
+    const provider = providerOver({
+      listTasks: () =>
+        Promise.resolve([
+          {
+            id: 't1',
+            content: 'Buy milk',
+            isCompleted: false,
+            projectId: 'p1',
+            description: '',
+            labels: ['errands', 'urgent'],
+          },
+        ]),
+    });
+
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ labels: ['errands', 'urgent'] }]);
   });
 
   it('sends the description on to the API client when creating a task', async () => {
@@ -131,7 +151,7 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       createTask: (content: string, _projectId: string, description?: string) => {
         created.push(description);
-        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId: 'p1', description: description ?? '' });
+        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId: 'p1', description: description ?? '', labels: [] });
       },
     });
 
@@ -140,12 +160,33 @@ describe('TodoistProvider task and project mapping', () => {
     expect(created).toEqual(['^ots-a1b2c3d4']);
   });
 
+  it('sends labels on to the API client when creating a task', async () => {
+    const created: Array<readonly string[] | undefined> = [];
+    const provider = providerOver({
+      createTask: (content: string, _projectId: string, _description?: string, labels?: readonly string[]) => {
+        created.push(labels);
+        return Promise.resolve({
+          id: 't1',
+          content,
+          isCompleted: false,
+          projectId: 'p1',
+          description: '',
+          labels: labels === undefined ? [] : [...labels],
+        });
+      },
+    });
+
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', labels: ['errands', 'urgent'] });
+
+    expect(created).toEqual([['errands', 'urgent']]);
+  });
+
   it('creates a task from a title and a project', async () => {
     const created: Array<[string, string]> = [];
     const provider = providerOver({
       createTask: (content: string, projectId: string) => {
         created.push([content, projectId]);
-        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId, description: '' });
+        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId, description: '', labels: [] });
       },
     });
 
@@ -155,6 +196,7 @@ describe('TodoistProvider task and project mapping', () => {
       isCompleted: false,
       projectId: 'p1',
       description: '',
+      labels: [],
     });
     expect(created).toEqual([['Buy milk', 'p1']]);
   });
@@ -162,7 +204,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('updates a title without handing the caller the raw response', async () => {
     const provider = providerOver({
       updateTaskContent: (_id: string, content: string) =>
-        Promise.resolve({ id: 't1', content, isCompleted: false, projectId: 'p1', description: '' }),
+        Promise.resolve({ id: 't1', content, isCompleted: false, projectId: 'p1', description: '', labels: [] }),
     });
 
     await expect(provider.updateTaskTitle('t1', 'Buy oat milk')).resolves.toBeUndefined();
@@ -173,12 +215,25 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       updateTaskDescription: (id: string, description: string) => {
         updated.push([id, description]);
-        return Promise.resolve({ id, content: 'Buy milk', isCompleted: false, projectId: 'p1', description });
+        return Promise.resolve({ id, content: 'Buy milk', isCompleted: false, projectId: 'p1', description, labels: [] });
       },
     });
 
     await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^ots-a1')).resolves.toBeUndefined();
     expect(updated).toEqual([['t1', 'Now orphaned.\n^ots-a1']]);
+  });
+
+  it('sends a labels update on to the API client', async () => {
+    const updated: Array<[string, readonly string[]]> = [];
+    const provider = providerOver({
+      updateTaskLabels: (id: string, labels: readonly string[]) => {
+        updated.push([id, labels]);
+        return Promise.resolve({ id, content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [...labels] });
+      },
+    });
+
+    await expect(provider.updateTaskLabels('t1', ['errands'])).resolves.toBeUndefined();
+    expect(updated).toEqual([['t1', ['errands']]]);
   });
 
   it('completes a task through the dedicated close action', async () => {
@@ -223,7 +278,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('presents a task fetched directly by id in provider-neutral shape', async () => {
     const provider = providerOver({
       getTask: () =>
-        Promise.resolve({ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '' }),
+        Promise.resolve({ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [] }),
     });
 
     await expect(provider.getTask('t1')).resolves.toEqual({
@@ -232,6 +287,7 @@ describe('TodoistProvider task and project mapping', () => {
       isCompleted: false,
       projectId: 'p1',
       description: '',
+      labels: [],
     });
   });
 

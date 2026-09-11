@@ -48,11 +48,21 @@ export class TodoistApiClient {
     return (await this.getAllPages('/tasks', { project_id: projectId })).map(toTodoistTask);
   }
 
-  async createTask(content: string, projectId: string, description?: string): Promise<TodoistTask> {
+  async createTask(
+    content: string,
+    projectId: string,
+    description?: string,
+    labels?: readonly string[],
+  ): Promise<TodoistTask> {
     return toTodoistTask(
       await this.post(
         '/tasks',
-        { content, project_id: projectId, ...(description === undefined ? {} : { description }) },
+        {
+          content,
+          project_id: projectId,
+          ...(description === undefined ? {} : { description }),
+          ...(labels === undefined || labels.length === 0 ? {} : { labels }),
+        },
         'project-missing',
       ),
     );
@@ -64,6 +74,10 @@ export class TodoistApiClient {
 
   async updateTaskDescription(taskId: string, description: string): Promise<TodoistTask> {
     return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { description }));
+  }
+
+  async updateTaskLabels(taskId: string, labels: readonly string[]): Promise<TodoistTask> {
+    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { labels }));
   }
 
   async deleteTask(taskId: string): Promise<void> {
@@ -128,7 +142,7 @@ export class TodoistApiClient {
 
   private async post(
     path: string,
-    payload: Record<string, string>,
+    payload: Record<string, unknown>,
     notFound: TaskProviderFailure = 'unexpected',
   ): Promise<unknown> {
     return this.request('POST', path, JSON.stringify(payload), notFound);

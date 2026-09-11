@@ -183,4 +183,27 @@ describeAgainstTodoist('Todoist task round trip', () => {
       await expect(client.getTask(created.id)).resolves.toMatchObject({ isCompleted: false });
     });
   });
+
+  // Feature 7 depends on this to sync a tag as a label without a separate "create the label" step.
+  describe('assigning a label Todoist has never seen before', () => {
+    it('accepts it rather than failing, and echoes it back on the task', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      const label = `ots-probe-${Date.now()}`;
+
+      await client.updateTaskLabels(created.id, [label]);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ labels: [label] });
+    });
+
+    it('keeps it listed on a fresh fetch of the task', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      const label = `ots-probe-${Date.now()}`;
+      await client.updateTaskLabels(created.id, [label]);
+
+      const tasks = await client.listTasks(project.id);
+      const task = tasks.find((entry) => entry.id === created.id);
+
+      expect(task?.labels).toEqual([label]);
+    });
+  });
 });

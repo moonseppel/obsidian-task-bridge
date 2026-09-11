@@ -10,6 +10,7 @@ export interface StubProviderOptions {
   createTask?: (task: NewTask) => Promise<LooseProviderTask>;
   updateTaskTitle?: (taskId: string, title: string) => Promise<void>;
   updateTaskDescription?: (taskId: string, description: string) => Promise<void>;
+  updateTaskLabels?: (taskId: string, labels: readonly string[]) => Promise<void>;
   completeTask?: (taskId: string) => Promise<void>;
   reopenTask?: (taskId: string) => Promise<void>;
   removeTask?: (taskId: string) => Promise<void>;
@@ -21,7 +22,7 @@ const NOT_STUBBED = (name: string) => (): never => {
 };
 
 function withTaskDefaults(task: LooseProviderTask): ProviderTask {
-  return { isCompleted: false, projectId: '', description: '', ...task };
+  return { isCompleted: false, projectId: '', description: '', labels: [], ...task };
 }
 
 /** Every port method, so a test only has to spell out the ones it actually exercises. */
@@ -38,6 +39,7 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
       : NOT_STUBBED('createTask'),
     updateTaskTitle: options.updateTaskTitle ?? NOT_STUBBED('updateTaskTitle'),
     updateTaskDescription: options.updateTaskDescription ?? NOT_STUBBED('updateTaskDescription'),
+    updateTaskLabels: options.updateTaskLabels ?? NOT_STUBBED('updateTaskLabels'),
     completeTask: options.completeTask ?? NOT_STUBBED('completeTask'),
     reopenTask: options.reopenTask ?? NOT_STUBBED('reopenTask'),
     removeTask: options.removeTask ?? NOT_STUBBED('removeTask'),

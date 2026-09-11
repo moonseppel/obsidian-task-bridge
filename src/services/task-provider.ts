@@ -25,12 +25,14 @@ export interface ProviderTask {
   projectId: string;
   /** The raw current description, including this plugin's footer where one is present. */
   description: string;
+  labels: readonly string[];
 }
 
 export interface NewTask {
   title: string;
   projectId: string;
   description?: string;
+  labels?: readonly string[];
 }
 
 /** The few words the settings tab needs to speak about this provider without naming it. */
@@ -47,6 +49,7 @@ export interface TaskProvider {
   createTask(task: NewTask): Promise<ProviderTask>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;
+  updateTaskLabels(taskId: string, labels: readonly string[]): Promise<void>;
   /** Marks the task done. Todoist completes a task through a dedicated action, not a field update. */
   completeTask(taskId: string): Promise<void>;
   /** The inverse of completeTask. */

@@ -26,6 +26,7 @@ export interface TodoistTask {
   isCompleted: boolean;
   projectId: string;
   description: string;
+  labels: string[];
 }
 
 export interface Page {
@@ -99,6 +100,7 @@ export function toTodoistTask(payload: unknown): TodoistTask {
     isCompleted: record.checked === true,
     projectId: toProjectId(record.project_id),
     description: sanitizeDescription(record.description),
+    labels: toLabels(record.labels),
   };
 }
 
@@ -136,6 +138,11 @@ function requireRecord(payload: unknown, complaint: string): Record<string, unkn
   }
 
   return payload;
+}
+
+/** Tolerant like the rest of this mapping: anything but an array of strings becomes an empty list. */
+function toLabels(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
 /** Tolerant like toEpochMs below: a missing or malformed project id becomes '', never a thrown error. */

@@ -26,7 +26,9 @@ export class TodoistProvider implements TaskProvider {
   }
 
   async createTask(task: NewTask): Promise<ProviderTask> {
-    return toProviderTask(await this.api.createTask(task.title, task.projectId, task.description));
+    return toProviderTask(
+      await this.api.createTask(task.title, task.projectId, task.description, task.labels),
+    );
   }
 
   async updateTaskTitle(taskId: string, title: string): Promise<void> {
@@ -35,6 +37,10 @@ export class TodoistProvider implements TaskProvider {
 
   async updateTaskDescription(taskId: string, description: string): Promise<void> {
     await this.api.updateTaskDescription(taskId, description);
+  }
+
+  async updateTaskLabels(taskId: string, labels: readonly string[]): Promise<void> {
+    await this.api.updateTaskLabels(taskId, labels);
   }
 
   async completeTask(taskId: string): Promise<void> {
@@ -74,6 +80,7 @@ function toProviderTask(task: TodoistTask): ProviderTask {
     isCompleted: task.isCompleted,
     projectId: task.projectId,
     description: task.description,
+    labels: task.labels,
   };
 }
 
