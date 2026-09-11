@@ -1,27 +1,31 @@
-import { collectBlockIds, formatTaskLine, parseTaskLine } from '../services/sync/task-line';
+import { collectBlockIds, formatTaskLine, isDone, parseTaskLine } from '../services/sync/task-line';
 
 describe('parseTaskLine', () => {
   it.each([
-    ['- [ ] Buy milk', '- [ ] ', 'Buy milk'],
-    ['* [ ] Buy milk', '* [ ] ', 'Buy milk'],
-    ['+ [ ] Buy milk', '+ [ ] ', 'Buy milk'],
-    ['1. [ ] Buy milk', '1. [ ] ', 'Buy milk'],
-    ['2) [ ] Buy milk', '2) [ ] ', 'Buy milk'],
+    ['- [ ] Buy milk', '- ', 'Buy milk'],
+    ['* [ ] Buy milk', '* ', 'Buy milk'],
+    ['+ [ ] Buy milk', '+ ', 'Buy milk'],
+    ['1. [ ] Buy milk', '1. ', 'Buy milk'],
+    ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, title, blockId: null });
+    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, blockId: null });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
-    expect(parseTaskLine('    - [ ] Nested')?.prefix).toBe('    - [ ] ');
+    expect(parseTaskLine('    - [ ] Nested')?.prefix).toBe('    - ');
   });
 
   it.each(['x', 'X', '/', '-'])('treats [%s] as a checkbox too', (marker) => {
-    expect(parseTaskLine(`- [${marker}] Done thing`)?.title).toBe('Done thing');
+    const task = parseTaskLine(`- [${marker}] Done thing`);
+
+    expect(task?.title).toBe('Done thing');
+    expect(task?.checkbox).toBe(marker);
   });
 
   it('splits a trailing block id off the title', () => {
     expect(parseTaskLine('- [ ] Buy milk ^ots-a1b2c3')).toEqual({
-      prefix: '- [ ] ',
+      prefix: '- ',
+      checkbox: ' ',
       title: 'Buy milk',
       blockId: 'ots-a1b2c3',
     });
@@ -29,7 +33,8 @@ describe('parseTaskLine', () => {
 
   it('takes the last caret as the block id and leaves earlier ones in the title', () => {
     expect(parseTaskLine('- [ ] Read ^chapter ^ots-a1')).toEqual({
-      prefix: '- [ ] ',
+      prefix: '- ',
+      checkbox: ' ',
       title: 'Read ^chapter',
       blockId: 'ots-a1',
     });
@@ -54,21 +59,34 @@ describe('parseTaskLine', () => {
   });
 });
 
+describe('isDone', () => {
+  it('reads a space as not done', () => {
+    expect(isDone(parseTaskLine('- [ ] Buy milk')!)).toBe(false);
+  });
+
+  it.each(['x', 'X', '/', '-'])('reads %s as done', (marker) => {
+    expect(isDone(parseTaskLine(`- [${marker}] Buy milk`)!)).toBe(true);
+  });
+});
+
 describe('formatTaskLine', () => {
   it('appends the block id when there is one', () => {
-    expect(formatTaskLine({ prefix: '- [ ] ', title: 'Buy milk', blockId: 'ots-a1' })).toBe(
+    expect(formatTaskLine({ prefix: '- ', checkbox: ' ', title: 'Buy milk', blockId: 'ots-a1' })).toBe(
       '- [ ] Buy milk ^ots-a1',
     );
   });
 
   it('leaves the line bare when there is no block id', () => {
-    expect(formatTaskLine({ prefix: '- [x] ', title: 'Buy milk', blockId: null })).toBe('- [x] Buy milk');
+    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', blockId: null })).toBe(
+      '- [x] Buy milk',
+    );
   });
 
   it.each([
     '- [ ] Buy milk ^ots-a1',
     '    - [x] Nested and done ^ots-b2',
     '3. [ ] Numbered',
+    '- [/] Tasks-plugin-style state ^ots-c3',
   ])('round trips %s unchanged', (line) => {
     const parsed = parseTaskLine(line);
 

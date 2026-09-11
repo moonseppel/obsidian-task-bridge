@@ -16,7 +16,8 @@ const ORPHAN_FLAG_AFTER_MS = 60 * 60_000;
 /** How long a flagged orphan is given to be re-linked before it is actually removed. */
 const ORPHAN_REMOVAL_GRACE_MS = 2 * 24 * 60 * 60_000;
 /** A resurrected line's original marker (bullet vs. numbered, checked vs. not) no longer exists to restore. */
-const RESURRECTED_LINE_PREFIX = '- [ ] ';
+const RESURRECTED_LINE_PREFIX = '- ';
+const RESURRECTED_LINE_CHECKBOX = ' ';
 
 /** Replaces one line only if it still reads as it did when the pass started. */
 export interface LineEdit {
@@ -332,7 +333,14 @@ export class TitleSync {
     pass.outcome.conflicted += 1;
 
     if (remoteTask.updatedAt !== undefined && remoteTask.updatedAt > pass.localModifiedAt) {
-      pass.appended.push(formatTaskLine({ prefix: RESURRECTED_LINE_PREFIX, title: remoteTask.title, blockId: link.blockId }));
+      pass.appended.push(
+        formatTaskLine({
+          prefix: RESURRECTED_LINE_PREFIX,
+          checkbox: RESURRECTED_LINE_CHECKBOX,
+          title: remoteTask.title,
+          blockId: link.blockId,
+        }),
+      );
       this.links.set({ ...link, lastSyncedTitle: remoteTask.title });
       pass.outcome.resurrectedLine += 1;
       return;
