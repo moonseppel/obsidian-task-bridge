@@ -160,7 +160,7 @@ describe('TitleSync', () => {
     expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Buy oat milk');
   });
 
-  it('lets the Obsidian edit win when both sides changed', async () => {
+  it('lets the Obsidian edit win when both sides changed to different titles, and counts the conflict', async () => {
     const note = new FakeNote('- [ ] Local wins ^ots-a1');
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
@@ -174,9 +174,23 @@ describe('TitleSync', () => {
       },
     });
 
-    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0 });
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0, conflicted: 1 });
     expect(pushed).toEqual(['Local wins']);
     expect(note.content).toBe('- [ ] Local wins ^ots-a1');
+  });
+
+  it('is not a conflict when both sides changed to the same title', async () => {
+    const note = new FakeNote('- [ ] Same title ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
+    ]);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Same title' }),
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 0, pulled: 0, conflicted: 0 });
+    expect(note.content).toBe('- [ ] Same title ^ots-a1');
+    expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Same title');
   });
 
   it('does nothing at all when both sides already agree', async () => {

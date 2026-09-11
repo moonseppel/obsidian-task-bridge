@@ -25,6 +25,7 @@ export interface SyncOutcome {
   created: number;
   pushed: number;
   pulled: number;
+  conflicted: number;
   projectResolution: ProjectResolution;
 }
 
@@ -68,7 +69,7 @@ export class TitleSync {
       remoteTitles: toTitleMap(project.tasks),
       takenBlockIds: collectBlockIds(lines),
       edits: [],
-      outcome: { created: 0, pushed: 0, pulled: 0, projectResolution: project.resolution },
+      outcome: { created: 0, pushed: 0, pulled: 0, conflicted: 0, projectResolution: project.resolution },
     };
 
     try {
@@ -104,12 +105,44 @@ export class TitleSync {
       return;
     }
 
-    if (task.title !== link.lastSyncedTitle) {
+    await this.syncAgainstLink(line, link);
+  }
+
+  /**
+   * Both sides are checked against the title they last agreed on, rather than only ever asking
+   * whether Obsidian changed, so a genuine conflict can be told apart from a one-sided change.
+   */
+  private async syncAgainstLink(line: LineUnderSync, link: TaskLink): Promise<void> {
+    const remoteTitle = line.pass.remoteTitles.get(link.providerTaskId);
+    const localChanged = line.task.title !== link.lastSyncedTitle;
+    const remoteChanged =
+      remoteTitle !== undefined && remoteTitle.length > 0 && remoteTitle !== link.lastSyncedTitle;
+
+    if (localChanged && remoteChanged) {
+      await this.resolveConflict(line, link, remoteTitle as string);
+      return;
+    }
+
+    if (localChanged) {
       await this.pushTitle(line, link);
       return;
     }
 
-    this.pullTitle(line, link);
+    if (remoteChanged) {
+      this.pullTitle(line, link, remoteTitle as string);
+    }
+  }
+
+  /** Both sides landed on the same title independently: nothing to reconcile, so it's not a conflict. */
+  private async resolveConflict(line: LineUnderSync, link: TaskLink, remoteTitle: string): Promise<void> {
+    if (line.task.title === remoteTitle) {
+      this.links.set({ ...link, lastSyncedTitle: remoteTitle });
+      return;
+    }
+
+    line.pass.outcome.conflicted += 1;
+    // Resolved via push for now; recency-based resolution follows in a later slice.
+    await this.pushTitle(line, link);
   }
 
   private async createTask(line: LineUnderSync): Promise<void> {
@@ -131,13 +164,7 @@ export class TitleSync {
     line.pass.outcome.pushed += 1;
   }
 
-  private pullTitle(line: LineUnderSync, link: TaskLink): void {
-    const remoteTitle = line.pass.remoteTitles.get(link.providerTaskId);
-
-    if (remoteTitle === undefined || remoteTitle.length === 0 || remoteTitle === link.lastSyncedTitle) {
-      return;
-    }
-
+  private pullTitle(line: LineUnderSync, link: TaskLink, remoteTitle: string): void {
     this.links.set({ ...link, lastSyncedTitle: remoteTitle });
     addEdit(line, formatTaskLine({ ...line.task, title: remoteTitle }));
     line.pass.outcome.pulled += 1;
