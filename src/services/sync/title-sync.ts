@@ -15,6 +15,8 @@ const CREATION_GRACE_PERIOD_MS = 60_000;
 const ORPHAN_FLAG_AFTER_MS = 60 * 60_000;
 /** How long a flagged orphan is given to be re-linked before it is actually removed. */
 const ORPHAN_REMOVAL_GRACE_MS = 2 * 24 * 60 * 60_000;
+/** A resurrected line's original marker (bullet vs. numbered, checked vs. not) no longer exists to restore. */
+const RESURRECTED_LINE_PREFIX = '- [ ] ';
 
 /** Replaces one line only if it still reads as it did when the pass started. */
 export interface LineEdit {
@@ -60,6 +62,8 @@ export interface SyncOutcome {
   removedTask: number;
   /** A task recreated because it was deleted remotely while its line carried a newer local edit. */
   recreatedTask: number;
+  /** A line re-appended because its task carried a newer remote edit after the line was deleted. */
+  resurrectedLine: number;
   projectResolution: ProjectResolution;
 }
 
@@ -159,6 +163,7 @@ export class TitleSync {
         removedLine: 0,
         removedTask: 0,
         recreatedTask: 0,
+        resurrectedLine: 0,
         projectResolution: project.resolution,
       },
     };
@@ -303,6 +308,33 @@ export class TitleSync {
     const remoteChanged = remoteTask.title.length > 0 && remoteTask.title !== link.lastSyncedTitle;
 
     if (remoteChanged) {
+      await this.resolveMissingLineConflict(pass, link, remoteTask);
+      return;
+    }
+
+    await this.provider.removeTask(link.providerTaskId);
+    this.links.delete(link.blockId);
+    pass.outcome.removedTask += 1;
+  }
+
+  /**
+   * The note's overall last-modified time stands in for "when the line was deleted" — removing a
+   * line touches the file's mtime the same as any other edit — compared against the task's
+   * `updated_at` by the same recency rule a plain title conflict already uses. The remote edit
+   * winning resurrects the line, appended at the end of the note since its old position no longer
+   * exists to restore it to.
+   */
+  private async resolveMissingLineConflict(
+    pass: SyncPass,
+    link: TaskLink,
+    remoteTask: ProviderTask,
+  ): Promise<void> {
+    pass.outcome.conflicted += 1;
+
+    if (remoteTask.updatedAt !== undefined && remoteTask.updatedAt > pass.localModifiedAt) {
+      pass.appended.push(formatTaskLine({ prefix: RESURRECTED_LINE_PREFIX, title: remoteTask.title, blockId: link.blockId }));
+      this.links.set({ ...link, lastSyncedTitle: remoteTask.title });
+      pass.outcome.resurrectedLine += 1;
       return;
     }
 

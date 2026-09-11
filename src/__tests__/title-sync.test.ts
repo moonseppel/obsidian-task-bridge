@@ -449,6 +449,67 @@ describe('TitleSync', () => {
     expect(links.get('ots-a1')).toBeUndefined();
   });
 
+  it('resurrects the line when the remote edit is newer than the note', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const note = new FakeNote('# Nothing here');
+    note.modifiedAt = 1_000;
+    const removeTask = jest.fn();
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy oat milk', updatedAt: 2_000 }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, resurrectedLine: 1, removedTask: 0 });
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(note.content).toBe('# Nothing here\n- [ ] Buy oat milk ^ots-a1');
+    expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Buy oat milk');
+  });
+
+  it('deletes the task instead of resurrecting the line when the note is at least as new as the remote edit', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const note = new FakeNote('# Nothing here');
+    note.modifiedAt = 2_000;
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy oat milk', updatedAt: 2_000 }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, removedTask: 1, resurrectedLine: 0 });
+    expect(removeTask).toHaveBeenCalledWith(TASK_ID);
+    expect(links.get('ots-a1')).toBeUndefined();
+  });
+
+  it('deletes the task when the remote edit carries no last-modified time to compare', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(new FakeNote('# Nothing here'), links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy oat milk' }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, removedTask: 1 });
+    expect(removeTask).toHaveBeenCalledWith(TASK_ID);
+  });
+
   it('drops the link without calling the provider when the task is also already gone', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
