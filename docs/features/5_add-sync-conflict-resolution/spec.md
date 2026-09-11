@@ -22,5 +22,3 @@
 - **WHEN** a sync conlfict occurs
 - **THEN** the conflict is solved automatically
 - **AND** the risk for the user to manually solve is still kept at a minium
-
-## Architecture
