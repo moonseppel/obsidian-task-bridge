@@ -1,7 +1,7 @@
 import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '../task-provider';
 import { createBlockId } from './block-id';
 import { OrphanTracker } from './orphan-tracker';
-import { orphanNoticeDescription } from './orphan-notice';
+import { bareBlockIdDescription, orphanNoticeDescription } from './orphan-notice';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 
@@ -199,6 +199,7 @@ export class TitleSync {
       const link = this.links.get(task.embeddedBlockId);
 
       if (link !== undefined && link.providerTaskId === task.id) {
+        await this.unflagIfFlagged(task.id, task.embeddedBlockId);
         continue;
       }
 
@@ -247,6 +248,22 @@ export class TitleSync {
     await this.provider.removeTask(providerTaskId);
 
     return true;
+  }
+
+  /**
+   * A task the note re-links (e.g. Slice 7's lookup finding it again) is no longer orphaned, so a
+   * stale "will be removed on X" notice is reverted rather than left threatening a task nobody
+   * meant to remove. The removal date itself was never derived from this text — only the tracking
+   * this reverses decided it — so reverting the notice changes nothing about what was decided.
+   */
+  private async unflagIfFlagged(providerTaskId: string, blockId: string): Promise<void> {
+    const record = this.orphans.get(providerTaskId);
+
+    if (record?.removalDueAt === undefined) {
+      return;
+    }
+
+    await this.provider.updateTaskDescription(providerTaskId, bareBlockIdDescription(blockId));
   }
 
   /**

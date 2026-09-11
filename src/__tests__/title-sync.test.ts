@@ -753,6 +753,32 @@ describe('TitleSync', () => {
     expect(removeTask).toHaveBeenCalledWith(TASK_ID);
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
+
+  it('un-flags an orphan that becomes properly linked before its removal date, reverting its description', async () => {
+    const orphans = new OrphanTracker();
+    orphans.track(TASK_ID, 0);
+    orphans.flag(TASK_ID, 999_999_999);
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      links,
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
+        updateTaskDescription,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, '^ots-a1');
+    expect(orphans.get(TASK_ID)).toBeUndefined();
+  });
 });
 
 describe('applyLineEdits', () => {
