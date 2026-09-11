@@ -45,7 +45,7 @@ export class StatusReporter {
   reportSyncOutcome(outcome: SyncOutcome): void {
     this.spokenAbout = undefined;
 
-    if (outcome.created + outcome.pushed + outcome.pulled === 0) {
+    if (didNothing(outcome)) {
       this.logger.debug('Task sync finished with nothing to do');
       return;
     }
@@ -70,6 +70,19 @@ export class StatusReporter {
     this.logger.error('Task sync failed', error);
     this.notify(message);
   }
+}
+
+function didNothing(outcome: SyncOutcome): boolean {
+  return (
+    outcome.created +
+      outcome.pushed +
+      outcome.pulled +
+      outcome.removedLine +
+      outcome.removedTask +
+      outcome.recreatedTask +
+      outcome.resurrectedLine ===
+    0
+  );
 }
 
 function describeFailure(error: unknown): SyncFailure {

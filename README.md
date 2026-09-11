@@ -31,7 +31,14 @@ duplicate, and a short tag unique to each device keeps two devices from ever min
 block id. A task that loses its link is flagged as orphaned after an hour and removed after two
 days unless it is re-linked first.
 
-Next: Feature 6 — task deletion sync.
+**Feature 6: Complete** — Task deletion sync: deleting a task line locally removes its linked
+Todoist task, and deleting a task in Todoist removes its linked line, each after a short grace
+period that gives a lagging vault-sync tool a chance to catch up first. A task moved to a different
+Todoist project is left untouched rather than treated as deleted. A deletion that conflicts with a
+concurrent edit on the other side is resolved by the same recency rule as a title conflict, except
+the newer edit resurrects what the older side deleted instead of the edit being silently lost.
+
+Next: Feature 7 — sync state, priority, description and tags.
 
 ## Connecting to Todoist
 
@@ -108,6 +115,18 @@ updated with a notice that it will be removed in two days, and that date is reco
 plugin's own data, never read back from the notice text. If it is re-linked before then, the notice
 is reverted and nothing more happens; otherwise it is removed once the date passes.
 
+### Task deletion
+
+Deleting a task line in the note removes its linked Todoist task; deleting a task in Todoist
+removes its linked line. Either way, the deletion is only acted on once it has held for 60 seconds
+across passes, the same grace period creating a task already gives a lagging vault-sync tool.
+Moving a task to a different Todoist project is not treated as a deletion: the line and the link
+are both left exactly as they are, and are picked up again if the task ever moves back. A deletion
+that conflicts with a concurrent edit on the other side is resolved by the same recency rule as a
+title conflict, except the newer edit resurrects what the older side deleted — recreating the task
+from an edited line, or re-appending a line (at the end of the note) from an edited task — instead
+of the edit being silently lost.
+
 ## Debug mode
 
 One switch in the settings, off by default, for when something needs diagnosing. It does two things:
@@ -133,8 +152,8 @@ page, so no setting can reveal them. Live Preview shows all of them.
 
 - Only the title syncs. A `- [x]` line is created in Todoist as an open task, because completion
   state is not synced yet
-- Deleting a task is not synced in either direction. A line removed from the note leaves its Todoist
-  task alone, and a task deleted in Todoist leaves its note line alone
+- A task moved to a different Todoist project stops being synced by this plugin until it is moved
+  back; it is not deleted, but its line and the task no longer affect each other in the meantime
 - Tasks created directly in Todoist are not pulled into the note. Only tasks this plugin created are
   followed, which is what "partial two-way sync" means
 - The note and `data.json` are separate files. If they get out of step, through a partial restore or
@@ -230,10 +249,10 @@ The plugin uses a provider abstraction pattern to support multiple task managers
   per-device tag keeps two devices from ever minting the same id in the first place
 - **Orphan lifecycle** — a task that loses its link is flagged, then removed, on a schedule tracked
   entirely in the plugin's own data; the description notice it gets is a courtesy only
+- **Deletion sync** — a linked line missing from the note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
 
 Future versions will add:
 
-- Task deletion sync in both directions (feature 6)
 - More synced fields, starting with priority (feature 7)
 
 ## License
