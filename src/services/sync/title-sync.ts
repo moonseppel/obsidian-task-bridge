@@ -70,6 +70,7 @@ export class TitleSync {
       lines,
       projectId: project.id,
       remoteTasks: toTaskMap(project.tasks),
+      remoteTasksByBlockId: toBlockIdMap(project.tasks),
       takenBlockIds: collectBlockIds(lines),
       localModifiedAt,
       edits: [],
@@ -105,11 +106,46 @@ export class TitleSync {
     const link = task.blockId === null ? undefined : this.links.get(task.blockId);
 
     if (link === undefined) {
-      await this.createTask(line);
+      await this.createOrRelink(line);
       return;
     }
 
     await this.syncAgainstLink(line, link);
+  }
+
+  private async createOrRelink(line: LineUnderSync): Promise<void> {
+    const relinked = this.relinkIfAlreadyAnchored(line);
+
+    if (relinked !== undefined) {
+      await this.syncAgainstLink(line, relinked);
+      return;
+    }
+
+    await this.createTask(line);
+  }
+
+  /**
+   * A block id data.json doesn't recognize might already anchor a task the provider created
+   * earlier — a vault-sync tool can deliver data.json slightly behind the note. Found by
+   * searching the task list already in hand, never by creating a second task for the same line.
+   */
+  private relinkIfAlreadyAnchored(line: LineUnderSync): TaskLink | undefined {
+    const { task, pass } = line;
+
+    if (task.blockId === null) {
+      return undefined;
+    }
+
+    const match = pass.remoteTasksByBlockId.get(task.blockId);
+
+    if (match === undefined) {
+      return undefined;
+    }
+
+    const link: TaskLink = { blockId: task.blockId, providerTaskId: match.id, lastSyncedTitle: match.title };
+    this.links.set(link);
+
+    return link;
   }
 
   /**
@@ -245,6 +281,7 @@ interface SyncPass {
   readonly lines: readonly string[];
   readonly projectId: string;
   readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
+  readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
   readonly takenBlockIds: Set<string>;
   readonly localModifiedAt: number;
   readonly edits: LineEdit[];
@@ -266,6 +303,18 @@ interface ResolvedProject {
 
 function toTaskMap(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
   return new Map(tasks.map((task): [string, ProviderTask] => [task.id, task]));
+}
+
+function toBlockIdMap(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
+  const found = new Map<string, ProviderTask>();
+
+  for (const task of tasks) {
+    if (task.embeddedBlockId !== undefined) {
+      found.set(task.embeddedBlockId, task);
+    }
+  }
+
+  return found;
 }
 
 function addEdit(line: LineUnderSync, replacement: string): void {

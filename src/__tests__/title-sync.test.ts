@@ -324,6 +324,36 @@ describe('TitleSync', () => {
     expect(links.get('ots-orphan')?.providerTaskId).toBe(TASK_ID);
   });
 
+  it('re-links to a task already anchored with this block id instead of creating a duplicate', async () => {
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore();
+    const createTask = jest.fn();
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
+      createTask,
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 0, pulled: 0 });
+    expect(createTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toEqual({
+      blockId: 'ots-a1',
+      providerTaskId: TASK_ID,
+      lastSyncedTitle: 'Buy milk',
+    });
+  });
+
+  it('creates a task as usual when no already-anchored task matches the block id', async () => {
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore();
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: 'other-task', title: 'Unrelated', embeddedBlockId: 'ots-other' }),
+      createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+    });
+
+    expect((await sync.run(PROJECT)).created).toBe(1);
+    expect(links.get('ots-a1')?.providerTaskId).toBe(TASK_ID);
+  });
+
   it('never mints a block id that another line already carries', async () => {
     const note = new FakeNote('- [ ] First ^ots-taken\n- [ ] Second');
     const links = new TaskLinkStore([
