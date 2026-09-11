@@ -2,7 +2,13 @@ import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '.
 import { createBlockId } from './block-id';
 import { OrphanTracker } from './orphan-tracker';
 import { bareBlockIdDescription, orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
-import { extractUserDescription } from './task-description';
+import {
+  DescriptionBlock,
+  extractUserDescription,
+  leadingWhitespace,
+  readDescriptionBlock,
+  renderDescriptionBlock,
+} from './task-description';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, isDone, parseTaskLine } from './task-line';
 
@@ -555,9 +561,15 @@ export class TitleSync {
     }
 
     await this.syncTitleAgainstLink(line, link, remoteTask);
-    // Re-fetched rather than reusing the snapshot above: title-sync may have just updated the
-    // stored link, and done-sync must merge onto that, not silently revert it.
-    await this.syncDoneAgainstLink(line, this.links.get(link.blockId) ?? link, remoteTask);
+    // Re-fetched rather than reusing the snapshot above, and again below: an earlier field's sync
+    // may have just updated the stored link, and the next one must merge onto that, not silently
+    // revert it.
+    await this.syncDoneAgainstLink(line, this.currentLink(link), remoteTask);
+    await this.syncDescriptionAgainstLink(line, this.currentLink(link), remoteTask);
+  }
+
+  private currentLink(link: TaskLink): TaskLink {
+    return this.links.get(link.blockId) ?? link;
   }
 
   private async syncTitleAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
@@ -637,6 +649,36 @@ export class TitleSync {
     }
   }
 
+  private async syncDescriptionAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
+    const localBlock = readDescriptionBlock(line.pass.lines, line.lineNumber);
+    const localText = localBlock.text;
+    const remoteText = extractUserDescription(remoteTask.description);
+    const lastSyncedDescription = link.lastSyncedDescription ?? '';
+    const localChanged = localText !== lastSyncedDescription;
+    const remoteChanged = remoteText !== lastSyncedDescription;
+
+    if (localChanged && remoteChanged) {
+      await this.resolveFieldConflict(
+        line,
+        remoteTask.updatedAt,
+        localText === remoteText,
+        () => this.links.set({ ...link, lastSyncedDescription: remoteText }),
+        () => this.pushDescription(line, link, localText),
+        () => this.pullDescription(line, link, localBlock, remoteText),
+      );
+      return;
+    }
+
+    if (localChanged) {
+      await this.pushDescription(line, link, localText);
+      return;
+    }
+
+    if (remoteChanged) {
+      this.pullDescription(line, link, localBlock, remoteText);
+    }
+  }
+
   /**
    * A linked task missing from the project's fetched list is ambiguous between deleted, moved to a
    * different project, and completed — Todoist's active list excludes a completed task exactly as
@@ -675,13 +717,19 @@ export class TitleSync {
    * to the line simply being removed.
    */
   private async recreateTask(line: LineUnderSync, link: TaskLink): Promise<void> {
+    const descriptionText = readDescriptionBlock(line.pass.lines, line.lineNumber).text;
     const created = await this.provider.createTask({
       title: line.task.title,
       projectId: line.pass.projectId,
-      description: bareBlockIdDescription(link.blockId),
+      description: bareBlockIdDescription(link.blockId, descriptionText),
     });
 
-    this.links.set({ blockId: link.blockId, providerTaskId: created.id, lastSyncedTitle: line.task.title });
+    this.links.set({
+      blockId: link.blockId,
+      providerTaskId: created.id,
+      lastSyncedTitle: line.task.title,
+      lastSyncedDescription: descriptionText,
+    });
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
   }
@@ -720,14 +768,20 @@ export class TitleSync {
     // A block id already on the line but absent from the store is reused, never replaced,
     // so a note can never end up carrying two anchors for one task.
     const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, undefined, this.getDeviceTag());
+    const descriptionText = readDescriptionBlock(pass.lines, line.lineNumber).text;
     const created = await this.provider.createTask({
       title: task.title,
       projectId: pass.projectId,
-      description: bareBlockIdDescription(blockId),
+      description: bareBlockIdDescription(blockId, descriptionText),
     });
 
     pass.takenBlockIds.add(blockId);
-    this.links.set({ blockId, providerTaskId: created.id, lastSyncedTitle: task.title });
+    this.links.set({
+      blockId,
+      providerTaskId: created.id,
+      lastSyncedTitle: task.title,
+      lastSyncedDescription: descriptionText,
+    });
     addEdit(line, formatTaskLine({ ...task, blockId }));
     pass.outcome.created += 1;
   }
@@ -753,6 +807,24 @@ export class TitleSync {
   private pullDone(line: LineUnderSync, link: TaskLink, done: boolean): void {
     this.links.set({ ...link, lastSyncedDone: done });
     addEdit(line, formatTaskLine({ ...line.task, checkbox: done ? 'x' : ' ' }));
+    line.pass.outcome.pulled += 1;
+  }
+
+  private async pushDescription(line: LineUnderSync, link: TaskLink, text: string): Promise<void> {
+    await this.provider.updateTaskDescription(link.providerTaskId, bareBlockIdDescription(link.blockId, text));
+    this.links.set({ ...link, lastSyncedDescription: text });
+    line.pass.outcome.pushed += 1;
+  }
+
+  private pullDescription(line: LineUnderSync, link: TaskLink, currentBlock: DescriptionBlock, text: string): void {
+    this.links.set({ ...link, lastSyncedDescription: text });
+    line.pass.blocks.push({
+      taskLineNumber: line.lineNumber,
+      expectedTaskLine: line.original,
+      startLine: currentBlock.startLine,
+      lineCount: currentBlock.lineCount,
+      replacementLines: renderDescriptionBlock(leadingWhitespace(line.original), text),
+    });
     line.pass.outcome.pulled += 1;
   }
 

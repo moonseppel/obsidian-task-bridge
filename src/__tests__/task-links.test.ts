@@ -63,6 +63,7 @@ describe('TaskLinkStore', () => {
     [{ blockId: 'ots-a1', providerTaskId: '6X' }, 'no last synced title'],
     [{ blockId: 'ots-a1', providerTaskId: 6, lastSyncedTitle: 'x' }, 'a numeric provider id'],
     [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedDone: 'yes' }, 'a non-boolean lastSyncedDone'],
+    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedDescription: 42 }, 'a non-string lastSyncedDescription'],
     ['a string', 'not an object at all'],
   ])('drops an entry with %s', (entry) => {
     expect(TaskLinkStore.fromStored([entry]).size).toBe(0);
@@ -74,6 +75,12 @@ describe('TaskLinkStore', () => {
 
   it('accepts a link that carries a lastSyncedDone', () => {
     const link = { ...LINK, lastSyncedDone: true };
+
+    expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
+  });
+
+  it('accepts a link that carries a lastSyncedDescription', () => {
+    const link = { ...LINK, lastSyncedDescription: 'Oat milk, not regular' };
 
     expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
   });

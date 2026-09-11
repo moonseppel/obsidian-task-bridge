@@ -11,7 +11,8 @@ export interface DescriptionBlock {
   readonly text: string;
 }
 
-function leadingWhitespace(line: string): string {
+/** A task line's own indentation, e.g. to pass to renderDescriptionBlock when pulling a description. */
+export function leadingWhitespace(line: string): string {
   return /^[ \t]*/.exec(line)?.[0] ?? '';
 }
 

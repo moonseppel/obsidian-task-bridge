@@ -11,6 +11,7 @@ export interface TaskLink {
   providerTaskId: string;
   lastSyncedTitle: string;
   lastSyncedDone?: boolean;
+  lastSyncedDescription?: string;
 }
 
 export class TaskLinkStore {
@@ -69,7 +70,8 @@ function isTaskLink(value: unknown): value is TaskLink {
     isNonEmptyString(value.blockId) &&
     isNonEmptyString(value.providerTaskId) &&
     typeof value.lastSyncedTitle === 'string' &&
-    (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean')
+    (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean') &&
+    (value.lastSyncedDescription === undefined || typeof value.lastSyncedDescription === 'string')
   );
 }
 
