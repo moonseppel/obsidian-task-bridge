@@ -332,15 +332,40 @@ describe('TitleSync', () => {
     expect(note.saves).toBe(0);
   });
 
-  it('leaves a line alone when its task is missing from Todoist', async () => {
+  it('removes the line when its linked task was deleted in the provider', async () => {
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
-    const sync = makeSync(note, links, { listTasks: remoteTasks(), listProjects: projectExists });
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve(undefined),
+    });
 
-    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 0, pulled: 0 });
+    expect(await sync.run(PROJECT)).toMatchObject({ removedLine: 1 });
+    expect(note.content).toBe('');
+    expect(links.get('ots-a1')).toBeUndefined();
+  });
+
+  it('leaves the line and the link alone when the missing task turns out to have moved to another project', async () => {
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk' }),
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ removedLine: 0, removedTask: 0 });
     expect(note.content).toBe('- [ ] Buy milk ^ots-a1');
+    expect(links.get('ots-a1')).toEqual({
+      blockId: 'ots-a1',
+      providerTaskId: TASK_ID,
+      lastSyncedTitle: 'Buy milk',
+    });
   });
 
   it('reuses an orphaned block id rather than adding a second anchor to the line', async () => {

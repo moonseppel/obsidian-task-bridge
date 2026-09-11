@@ -54,6 +54,10 @@ export interface SyncOutcome {
   pushed: number;
   pulled: number;
   conflicted: number;
+  /** A note line removed because its linked task was deleted in the provider. */
+  removedLine: number;
+  /** A provider task removed because its linked line was deleted from the note. */
+  removedTask: number;
   projectResolution: ProjectResolution;
 }
 
@@ -142,7 +146,15 @@ export class TitleSync {
       replacements: [],
       removals: [],
       appended: [],
-      outcome: { created: 0, pushed: 0, pulled: 0, conflicted: 0, projectResolution: project.resolution },
+      outcome: {
+        created: 0,
+        pushed: 0,
+        pulled: 0,
+        conflicted: 0,
+        removedLine: 0,
+        removedTask: 0,
+        projectResolution: project.resolution,
+      },
     };
 
     try {
@@ -340,13 +352,18 @@ export class TitleSync {
    */
   private async syncAgainstLink(line: LineUnderSync, link: TaskLink): Promise<void> {
     const remoteTask = line.pass.remoteTasks.get(link.providerTaskId);
-    const remoteTitle = remoteTask?.title;
+
+    if (remoteTask === undefined) {
+      await this.syncAgainstMissingRemoteTask(line, link);
+      return;
+    }
+
+    const remoteTitle = remoteTask.title;
     const localChanged = line.task.title !== link.lastSyncedTitle;
-    const remoteChanged =
-      remoteTitle !== undefined && remoteTitle.length > 0 && remoteTitle !== link.lastSyncedTitle;
+    const remoteChanged = remoteTitle.length > 0 && remoteTitle !== link.lastSyncedTitle;
 
     if (localChanged && remoteChanged) {
-      await this.resolveConflict(line, link, remoteTitle as string, remoteTask?.updatedAt);
+      await this.resolveConflict(line, link, remoteTitle, remoteTask.updatedAt);
       return;
     }
 
@@ -356,8 +373,32 @@ export class TitleSync {
     }
 
     if (remoteChanged) {
-      this.pullTitle(line, link, remoteTitle as string);
+      this.pullTitle(line, link, remoteTitle);
     }
+  }
+
+  /**
+   * A linked task missing from the project's fetched list is ambiguous between deleted and moved
+   * to a different project, so it is looked up directly before anything destructive happens. Not
+   * found confirms a genuine deletion; found elsewhere means the user moved it out of this
+   * plugin's care, so neither the task nor the line is touched and the link is left as it was.
+   */
+  private async syncAgainstMissingRemoteTask(line: LineUnderSync, link: TaskLink): Promise<void> {
+    const foundElsewhere = await this.provider.getTask(link.providerTaskId);
+
+    if (foundElsewhere !== undefined) {
+      return;
+    }
+
+    const localChanged = line.task.title !== link.lastSyncedTitle;
+
+    if (localChanged) {
+      return;
+    }
+
+    addRemoval(line);
+    this.links.delete(link.blockId);
+    line.pass.outcome.removedLine += 1;
   }
 
   /**
@@ -514,4 +555,8 @@ function addEdit(line: LineUnderSync, replacement: string): void {
   }
 
   line.pass.replacements.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
+}
+
+function addRemoval(line: LineUnderSync): void {
+  line.pass.removals.push({ lineNumber: line.lineNumber, expected: line.original });
 }
