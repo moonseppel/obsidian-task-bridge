@@ -421,6 +421,7 @@ export class TitleSync {
           prefix: RESURRECTED_LINE_PREFIX,
           checkbox: RESURRECTED_LINE_CHECKBOX,
           title: remoteTask.title,
+          tags: [],
           blockId: link.blockId,
         }),
       );

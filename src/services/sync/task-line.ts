@@ -3,6 +3,9 @@ const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)])[ \t]+)\[(.)\][ \t]+(.*)$/;
 /** Obsidian block identifiers allow letters, numbers and dashes, and are case-insensitive. */
 const TRAILING_BLOCK_ID = /^(.*?)[ \t]+\^([A-Za-z0-9-]+)[ \t]*$/;
 const ANY_BLOCK_ID = /[ \t]\^([A-Za-z0-9-]+)[ \t]*$/;
+/** One or more trailing `#tag` tokens, recognized only where they run all the way to the end. */
+const TRAILING_TAGS = /((?:[ \t]#[A-Za-z0-9_/-]+)+)[ \t]*$/;
+const TAG_TOKEN = /#([A-Za-z0-9_/-]+)/g;
 
 export interface ParsedTaskLine {
   /** The list marker, kept verbatim so indentation survives. */
@@ -10,6 +13,8 @@ export interface ParsedTaskLine {
   /** The single character inside the checkbox brackets, e.g. ' ' or 'x'. */
   readonly checkbox: string;
   readonly title: string;
+  /** Trailing #tags, in the order they appeared, stripped out of title the same way the block id already is. */
+  readonly tags: readonly string[];
   readonly blockId: string | null;
 }
 
@@ -21,6 +26,22 @@ export function isDone(task: ParsedTaskLine): boolean {
   return task.checkbox !== ' ';
 }
 
+/**
+ * A tag is recognized only where it trails the text, immediately before where the block id would
+ * be; a `#tag` elsewhere in the text (e.g. mid-sentence) is left as ordinary text untouched.
+ */
+function splitTrailingTags(text: string): { rest: string; tags: string[] } {
+  const match = TRAILING_TAGS.exec(text);
+
+  if (match === null) {
+    return { rest: text, tags: [] };
+  }
+
+  const tags = [...match[1].matchAll(TAG_TOKEN)].map((tagMatch) => tagMatch[1]);
+
+  return { rest: text.slice(0, match.index), tags };
+}
+
 export function parseTaskLine(line: string): ParsedTaskLine | null {
   const match = TASK_LINE.exec(line);
 
@@ -30,18 +51,17 @@ export function parseTaskLine(line: string): ParsedTaskLine | null {
 
   const [, prefix, checkbox, remainder] = match;
   const withBlockId = TRAILING_BLOCK_ID.exec(remainder);
+  const [beforeBlockId, blockId] = withBlockId === null ? [remainder, null] : [withBlockId[1], withBlockId[2]];
+  const { rest, tags } = splitTrailingTags(beforeBlockId);
 
-  if (withBlockId === null) {
-    return { prefix, checkbox, title: remainder.trim(), blockId: null };
-  }
-
-  return { prefix, checkbox, title: withBlockId[1].trim(), blockId: withBlockId[2] };
+  return { prefix, checkbox, title: rest.trim(), tags, blockId };
 }
 
 export function formatTaskLine(task: ParsedTaskLine): string {
+  const tagsSuffix = task.tags.map((tag) => ` #${tag}`).join('');
   const anchor = task.blockId === null ? '' : ` ^${task.blockId}`;
 
-  return `${task.prefix}[${task.checkbox}] ${task.title}${anchor}`;
+  return `${task.prefix}[${task.checkbox}] ${task.title}${tagsSuffix}${anchor}`;
 }
 
 /** Every block id in the note, task line or not, so a newly minted one cannot collide. */

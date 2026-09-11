@@ -8,7 +8,7 @@ describe('parseTaskLine', () => {
     ['1. [ ] Buy milk', '1. ', 'Buy milk'],
     ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, blockId: null });
+    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, tags: [], blockId: null });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
@@ -27,6 +27,7 @@ describe('parseTaskLine', () => {
       prefix: '- ',
       checkbox: ' ',
       title: 'Buy milk',
+      tags: [],
       blockId: 'ots-a1b2c3',
     });
   });
@@ -36,6 +37,7 @@ describe('parseTaskLine', () => {
       prefix: '- ',
       checkbox: ' ',
       title: 'Read ^chapter',
+      tags: [],
       blockId: 'ots-a1',
     });
   });
@@ -57,6 +59,47 @@ describe('parseTaskLine', () => {
   ])('rejects %s, which is %s', (line) => {
     expect(parseTaskLine(line)).toBeNull();
   });
+
+  describe('tags', () => {
+    it('splits a single trailing tag off the title', () => {
+      expect(parseTaskLine('- [ ] Renew passport #errands')).toEqual({
+        prefix: '- ',
+        checkbox: ' ',
+        title: 'Renew passport',
+        tags: ['errands'],
+        blockId: null,
+      });
+    });
+
+    it('splits multiple trailing tags off the title, in order', () => {
+      expect(parseTaskLine('- [ ] Renew passport #errands #urgent')?.tags).toEqual(['errands', 'urgent']);
+    });
+
+    it('finds trailing tags before the block id', () => {
+      expect(parseTaskLine('- [ ] Renew passport #errands #urgent ^ots-a1')).toEqual({
+        prefix: '- ',
+        checkbox: ' ',
+        title: 'Renew passport',
+        tags: ['errands', 'urgent'],
+        blockId: 'ots-a1',
+      });
+    });
+
+    it('leaves a mid-sentence tag as ordinary text in the title, not a tag', () => {
+      const task = parseTaskLine('- [ ] Ask about #hashtags in general');
+
+      expect(task?.title).toBe('Ask about #hashtags in general');
+      expect(task?.tags).toEqual([]);
+    });
+
+    it('allows a nested tag with a slash', () => {
+      expect(parseTaskLine('- [ ] Renew passport #todo/urgent')?.tags).toEqual(['todo/urgent']);
+    });
+
+    it('reports no tags when there are none', () => {
+      expect(parseTaskLine('- [ ] Buy milk')?.tags).toEqual([]);
+    });
+  });
 });
 
 describe('isDone', () => {
@@ -71,15 +114,27 @@ describe('isDone', () => {
 
 describe('formatTaskLine', () => {
   it('appends the block id when there is one', () => {
-    expect(formatTaskLine({ prefix: '- ', checkbox: ' ', title: 'Buy milk', blockId: 'ots-a1' })).toBe(
+    expect(formatTaskLine({ prefix: '- ', checkbox: ' ', title: 'Buy milk', tags: [], blockId: 'ots-a1' })).toBe(
       '- [ ] Buy milk ^ots-a1',
     );
   });
 
   it('leaves the line bare when there is no block id', () => {
-    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', blockId: null })).toBe(
+    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', tags: [], blockId: null })).toBe(
       '- [x] Buy milk',
     );
+  });
+
+  it('places tags between the title and the block id', () => {
+    expect(
+      formatTaskLine({
+        prefix: '- ',
+        checkbox: ' ',
+        title: 'Renew passport',
+        tags: ['errands', 'urgent'],
+        blockId: 'ots-a1',
+      }),
+    ).toBe('- [ ] Renew passport #errands #urgent ^ots-a1');
   });
 
   it.each([
@@ -87,6 +142,8 @@ describe('formatTaskLine', () => {
     '    - [x] Nested and done ^ots-b2',
     '3. [ ] Numbered',
     '- [/] Tasks-plugin-style state ^ots-c3',
+    '- [ ] Renew passport #errands #urgent ^ots-a1',
+    '- [ ] Ask about #hashtags in general',
   ])('round trips %s unchanged', (line) => {
     const parsed = parseTaskLine(line);
 
