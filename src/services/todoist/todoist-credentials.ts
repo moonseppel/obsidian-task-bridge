@@ -25,7 +25,6 @@ function describeSetting(): DocumentFragment {
   });
 }
 
-/** Todoist authenticates with a single API token, held by name in Obsidian's secret storage. */
 export class TodoistCredentials implements ProviderCredentials {
   private readonly app: App;
   private readonly save: () => Promise<void>;
