@@ -6,6 +6,7 @@ import {
   TodoistTask,
   TodoistUser,
   describeCause,
+  isDeletedTaskPayload,
   parseJson,
   throwOnErrorStatus,
   toPage,
@@ -67,6 +68,23 @@ export class TodoistApiClient {
 
   async deleteTask(taskId: string): Promise<void> {
     await this.request('DELETE', `/tasks/${encodeURIComponent(taskId)}`);
+  }
+
+  /**
+   * A deleted task's id keeps answering with 200 rather than 404, marked only by `is_deleted` in
+   * the body, so both signals are checked before treating a task as found.
+   */
+  async getTask(taskId: string): Promise<TodoistTask | undefined> {
+    const response = await this.send('GET', `/tasks/${encodeURIComponent(taskId)}`);
+
+    if (response.status === 404) {
+      return undefined;
+    }
+
+    throwOnErrorStatus(response, 'unexpected');
+    const payload = parseJson(response.text);
+
+    return isDeletedTaskPayload(payload) ? undefined : toTodoistTask(payload);
   }
 
   async createProject(name: string): Promise<TodoistProject> {

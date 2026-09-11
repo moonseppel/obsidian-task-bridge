@@ -110,6 +110,20 @@ describeAgainstTodoist('Todoist task round trip', () => {
     expect(ids).not.toContain(created.id);
   });
 
+  it('still fetches a task directly by id', async () => {
+    const created = await client.createTask('Buy milk', project.id);
+
+    await expect(client.getTask(created.id)).resolves.toMatchObject({ id: created.id, content: 'Buy milk' });
+  });
+
+  // Feature 6 depends on this to tell a deleted task from one that merely moved to another project.
+  it('still answers a deleted task with undefined rather than an error', async () => {
+    const created = await client.createTask('Temporary', project.id);
+    await client.deleteTask(created.id);
+
+    await expect(client.getTask(created.id)).resolves.toBeUndefined();
+  });
+
   // The plugin depends on this pair of behaviours to tell an empty project from a deleted one.
   it('still answers an unknown project with an empty task list rather than an error', async () => {
     await expect(client.listTasks(UNKNOWN_PROJECT_ID)).resolves.toEqual([]);

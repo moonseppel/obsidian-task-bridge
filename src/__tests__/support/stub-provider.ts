@@ -8,6 +8,7 @@ export interface StubProviderOptions {
   updateTaskTitle?: (taskId: string, title: string) => Promise<void>;
   updateTaskDescription?: (taskId: string, description: string) => Promise<void>;
   removeTask?: (taskId: string) => Promise<void>;
+  getTask?: (taskId: string) => Promise<ProviderTask | undefined>;
 }
 
 const NOT_STUBBED = (name: string) => (): never => {
@@ -25,5 +26,6 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
     updateTaskTitle: options.updateTaskTitle ?? NOT_STUBBED('updateTaskTitle'),
     updateTaskDescription: options.updateTaskDescription ?? NOT_STUBBED('updateTaskDescription'),
     removeTask: options.removeTask ?? NOT_STUBBED('removeTask'),
+    getTask: options.getTask ?? NOT_STUBBED('getTask'),
   };
 }

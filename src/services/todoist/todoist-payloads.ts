@@ -78,6 +78,11 @@ export function toTodoistProject(payload: unknown): TodoistProject {
   return { id, name: sanitizeTitle(record.name), isInbox: record.inbox_project === true };
 }
 
+/** A deleted task keeps answering GET with 200, never 404 — Todoist marks it in the body instead. */
+export function isDeletedTaskPayload(payload: unknown): boolean {
+  return isRecord(payload) && payload.is_deleted === true;
+}
+
 export function toTodoistTask(payload: unknown): TodoistTask {
   const record = requireRecord(payload, 'A task entry was not an object.');
   const id = readIdentifier(record.id, 'A task entry did not contain a task id.');

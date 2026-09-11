@@ -43,6 +43,8 @@ export interface TaskProvider {
   updateTaskDescription(taskId: string, description: string): Promise<void>;
   /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
   removeTask(taskId: string): Promise<void>;
+  /** A task missing from a project's task list is ambiguous between deleted and moved elsewhere; this tells them apart. */
+  getTask(taskId: string): Promise<ProviderTask | undefined>;
 }
 
 /** The provider's own default, or failing that the first project it lists. */

@@ -398,4 +398,36 @@ describe('TodoistApiClient tasks and projects', () => {
       expect(sentRequest(context).method).toBe('DELETE');
     });
   });
+
+  describe('getTask', () => {
+    it('fetches a single task by id', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await expect(context.client.getTask('t1')).resolves.toEqual({ id: 't1', content: 'Buy milk' });
+      expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1');
+      expect(sentRequest(context).method).toBe('GET');
+    });
+
+    it('reports a task not found by status as undefined rather than throwing', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 404, text: '{}' }));
+
+      await expect(context.client.getTask('t1')).resolves.toBeUndefined();
+    });
+
+    it('reports a deleted task as undefined even though Todoist answers it with 200', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk', is_deleted: true }) }),
+      );
+
+      await expect(context.client.getTask('t1')).resolves.toBeUndefined();
+    });
+
+    it('still reports other error statuses as failures', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 401, text: '{}' }));
+
+      await expect(context.client.getTask('t1')).rejects.toMatchObject({ failure: 'invalid-credentials' });
+    });
+  });
 });

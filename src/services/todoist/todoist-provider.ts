@@ -41,6 +41,12 @@ export class TodoistProvider implements TaskProvider {
   async removeTask(taskId: string): Promise<void> {
     await this.api.deleteTask(taskId);
   }
+
+  async getTask(taskId: string): Promise<ProviderTask | undefined> {
+    const task = await this.api.getTask(taskId);
+
+    return task === undefined ? undefined : toProviderTask(task);
+  }
 }
 
 export function createTodoistProvider(credentials: TodoistCredentials): TodoistProvider {

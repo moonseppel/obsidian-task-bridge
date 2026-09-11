@@ -146,4 +146,20 @@ describe('TodoistProvider task and project mapping', () => {
     await expect(provider.removeTask('t1')).resolves.toBeUndefined();
     expect(deleted).toEqual(['t1']);
   });
+
+  it('presents a task fetched directly by id in provider-neutral shape', async () => {
+    const provider = providerOver({
+      getTask: () => Promise.resolve({ id: 't1', content: 'Buy milk' }),
+    });
+
+    await expect(provider.getTask('t1')).resolves.toEqual({ id: 't1', title: 'Buy milk' });
+  });
+
+  it('reports a task the client could not find as undefined', async () => {
+    const provider = providerOver({
+      getTask: () => Promise.resolve(undefined),
+    });
+
+    await expect(provider.getTask('t1')).resolves.toBeUndefined();
+  });
 });
