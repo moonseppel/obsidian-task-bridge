@@ -368,6 +368,106 @@ describe('TitleSync', () => {
     });
   });
 
+  it('does nothing the first time a linked line goes missing from the note', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn();
+    const sync = makeSync(new FakeNote('# Nothing here'), links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      removeTask,
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ removedTask: 0 });
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toBeDefined();
+  });
+
+  it('still does nothing 59 seconds after a linked line went missing', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn();
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(59_000);
+    await sync.run(PROJECT);
+
+    expect(removeTask).not.toHaveBeenCalled();
+  });
+
+  it('removes the linked task once a missing line has stayed missing for 60 seconds', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ removedTask: 1 });
+    expect(removeTask).toHaveBeenCalledWith(TASK_ID);
+    expect(links.get('ots-a1')).toBeUndefined();
+  });
+
+  it('drops the link without calling the provider when the task is also already gone', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn();
+    const getTask = jest.fn();
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      removeTask,
+      getTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+    await sync.run(PROJECT);
+
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(getTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toBeUndefined();
+  });
+
+  it('stops tracking a missing line that reappears in the note before the grace period is up', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+    note.content = '- [ ] Buy milk ^ots-a1';
+    jest.advanceTimersByTime(60_000);
+    await sync.run(PROJECT);
+
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toBeDefined();
+  });
+
   it('reuses an orphaned block id rather than adding a second anchor to the line', async () => {
     jest.useFakeTimers();
     const note = new FakeNote('- [ ] Buy milk ^ots-orphan');

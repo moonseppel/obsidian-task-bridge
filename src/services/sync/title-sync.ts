@@ -114,6 +114,9 @@ export class TitleSync {
    * disappears from the note before the grace period is up is simply dropped rather than tracked
    * forever. */
   private readonly firstSeenUnrecognized = new Map<string, number>();
+  /** The same debounce, in the other direction: a linked block id must stay missing from the note
+   * for this long, across passes, before its task is treated as genuinely deleted locally. */
+  private readonly firstSeenMissingFromNote = new Map<string, number>();
 
   constructor(
     note: SourceNote,
@@ -159,6 +162,7 @@ export class TitleSync {
 
     try {
       await this.syncEveryLine(pass);
+      await this.syncMissingLinks(pass);
     } finally {
       this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
       // Whatever succeeded is committed even when a later call fails. A task created in the
@@ -235,6 +239,73 @@ export class TitleSync {
         this.firstSeenUnrecognized.delete(blockId);
       }
     }
+  }
+
+  /**
+   * A stored link whose block id no longer appears anywhere in the note is a candidate for a
+   * locally deleted line — checked against every link, not just lines the note still has, since
+   * this is exactly the case where the note no longer has one. Past the grace period, each is
+   * resolved against the project's already-fetched task list.
+   */
+  private async syncMissingLinks(pass: SyncPass): Promise<void> {
+    const stillMissing = new Set<string>();
+
+    for (const link of [...this.links.values()]) {
+      if (pass.takenBlockIds.has(link.blockId)) {
+        this.firstSeenMissingFromNote.delete(link.blockId);
+        continue;
+      }
+
+      stillMissing.add(link.blockId);
+
+      if (this.stillWithinMissingGracePeriod(link.blockId)) {
+        continue;
+      }
+
+      await this.syncAgainstMissingLine(pass, link);
+    }
+
+    for (const blockId of this.firstSeenMissingFromNote.keys()) {
+      if (!stillMissing.has(blockId)) {
+        this.firstSeenMissingFromNote.delete(blockId);
+      }
+    }
+  }
+
+  private stillWithinMissingGracePeriod(blockId: string): boolean {
+    const firstSeenAt = this.firstSeenMissingFromNote.get(blockId);
+
+    if (firstSeenAt === undefined) {
+      this.firstSeenMissingFromNote.set(blockId, Date.now());
+      return true;
+    }
+
+    return Date.now() - firstSeenAt < CREATION_GRACE_PERIOD_MS;
+  }
+
+  /**
+   * The task itself is still checked against the already-fetched list rather than assumed gone:
+   * the line vanishing from the note says nothing about whether the task also did. A task also
+   * missing here is dropped without a lookup, since neither side leaves anything to act on either
+   * way — moved or deleted, there is no line to preserve and no in-project task to remove.
+   */
+  private async syncAgainstMissingLine(pass: SyncPass, link: TaskLink): Promise<void> {
+    const remoteTask = pass.remoteTasks.get(link.providerTaskId);
+
+    if (remoteTask === undefined) {
+      this.links.delete(link.blockId);
+      return;
+    }
+
+    const remoteChanged = remoteTask.title.length > 0 && remoteTask.title !== link.lastSyncedTitle;
+
+    if (remoteChanged) {
+      return;
+    }
+
+    await this.provider.removeTask(link.providerTaskId);
+    this.links.delete(link.blockId);
+    pass.outcome.removedTask += 1;
   }
 
   /**
