@@ -29,4 +29,21 @@ describe('createBlockId', () => {
   it('stays inside the alphabet even when the random source returns its upper bound', () => {
     expect(createBlockId(new Set(), () => 0.999999)).toMatch(/^ots-[a-z0-9]{8}$/);
   });
+
+  it('bakes the device tag onto the end of the id', () => {
+    expect(createBlockId(new Set(), () => 0, 'dev1a')).toBe('ots-aaaaaaaa-dev1a');
+  });
+
+  it('mints today\'s untagged format when no device tag is given', () => {
+    expect(createBlockId(new Set())).toMatch(/^ots-[a-z0-9]{8}$/);
+  });
+
+  it('never collides across two different devices, even with the same rigged random source', () => {
+    const rigged = (): number => 0;
+
+    const fromDeviceOne = createBlockId(new Set(), rigged, 'dev-one');
+    const fromDeviceTwo = createBlockId(new Set(), rigged, 'dev-two');
+
+    expect(fromDeviceOne).not.toBe(fromDeviceTwo);
+  });
 });

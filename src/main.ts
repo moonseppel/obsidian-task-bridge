@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings, ObsidianTaskSyncSettingTab 
 import { ProviderConnection } from './services/provider-connection';
 import { StatusReporter } from './services/status-reporter';
 import { ProviderProject, defaultProjectOf } from './services/task-provider';
+import { getDeviceTag } from './services/sync/device-tag';
 import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
 import { SyncScheduler } from './services/sync/sync-scheduler';
 import { TaskLinkStore } from './services/sync/task-links';
@@ -50,6 +51,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.provider,
     this.taskLinks,
     () => this.saveSettings(),
+    () => getDeviceTag(window.localStorage),
   );
   private readonly scheduler = new SyncScheduler(
     () => void this.syncTasks(),

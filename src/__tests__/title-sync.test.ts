@@ -35,10 +35,17 @@ function makeSync(
   links: TaskLinkStore,
   provider: Parameters<typeof stubProvider>[0],
   onSave: () => void = () => undefined,
+  getDeviceTag?: () => string,
 ): TitleSync {
-  return new TitleSync(note, stubProvider(provider), links, async () => {
-    onSave();
-  });
+  return new TitleSync(
+    note,
+    stubProvider(provider),
+    links,
+    async () => {
+      onSave();
+    },
+    getDeviceTag,
+  );
 }
 
 function remoteTasks(...tasks: ProviderTask[]) {
@@ -71,6 +78,25 @@ describe('TitleSync', () => {
     expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
     const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
     expect(created).toEqual([{ title: 'Buy milk', projectId: PROJECT, description: `^${blockId}` }]);
+  });
+
+  it('bakes the device tag into a freshly minted block id', async () => {
+    const note = new FakeNote('- [ ] Buy milk');
+    const sync = makeSync(
+      note,
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+      },
+      () => undefined,
+      () => 'dev1a',
+    );
+
+    await sync.run(PROJECT);
+
+    expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}-dev1a$/);
   });
 
   it('records the new task against the block id it wrote into the note', async () => {

@@ -123,12 +123,28 @@ if ((globalThis as Record<string, unknown>).document === undefined) {
   (globalThis as Record<string, unknown>).document = { body: createMockElement() };
 }
 
+function inMemoryStorage(): Storage {
+  const values = new Map<string, string>();
+
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+    clear: () => values.clear(),
+    key: (index) => [...values.keys()][index] ?? null,
+    get length() {
+      return values.size;
+    },
+  } as Storage;
+}
+
 if ((globalThis as Record<string, unknown>).window === undefined) {
   (globalThis as Record<string, unknown>).window = {
     setInterval: releasedTimer('setInterval'),
     clearInterval: passThrough('clearInterval'),
     setTimeout: releasedTimer('setTimeout'),
     clearTimeout: passThrough('clearTimeout'),
+    localStorage: inMemoryStorage(),
   };
 }
 

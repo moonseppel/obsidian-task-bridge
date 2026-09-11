@@ -6,9 +6,18 @@ const MAX_ATTEMPTS = 100;
 
 export type RandomSource = () => number;
 
-export function createBlockId(taken: ReadonlySet<string>, random: RandomSource = Math.random): string {
+/**
+ * `deviceTag`, when given, is baked into every id minted here, making the same id vanishingly
+ * unlikely to be minted independently by two different devices. An id minted with no tag (the
+ * default) keeps today's format, so ids minted before this existed remain valid and untouched.
+ */
+export function createBlockId(
+  taken: ReadonlySet<string>,
+  random: RandomSource = Math.random,
+  deviceTag = '',
+): string {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const candidate = `${PREFIX}${randomSuffix(random)}`;
+    const candidate = `${PREFIX}${randomSuffix(random)}${tagSuffix(deviceTag)}`;
 
     if (!taken.has(candidate)) {
       return candidate;
@@ -16,6 +25,10 @@ export function createBlockId(taken: ReadonlySet<string>, random: RandomSource =
   }
 
   throw new Error('Could not mint a block id that is free in this note.');
+}
+
+function tagSuffix(deviceTag: string): string {
+  return deviceTag.length === 0 ? '' : `-${deviceTag}`;
 }
 
 function randomSuffix(random: RandomSource): string {

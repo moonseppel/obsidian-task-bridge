@@ -56,6 +56,7 @@ export class TitleSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
   private readonly saveLinks: () => Promise<void>;
+  private readonly getDeviceTag: () => string;
   /** In memory only, and rebuilt from what's currently in the note each pass, so a block id that
    * disappears from the note before the grace period is up is simply dropped rather than tracked
    * forever. */
@@ -66,11 +67,13 @@ export class TitleSync {
     provider: TaskProvider,
     links: TaskLinkStore,
     saveLinks: () => Promise<void>,
+    getDeviceTag: () => string = () => '',
   ) {
     this.note = note;
     this.provider = provider;
     this.links = links;
     this.saveLinks = saveLinks;
+    this.getDeviceTag = getDeviceTag;
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
@@ -247,7 +250,7 @@ export class TitleSync {
     const { pass, task } = line;
     // A block id already on the line but absent from the store is reused, never replaced,
     // so a note can never end up carrying two anchors for one task.
-    const blockId = task.blockId ?? createBlockId(pass.takenBlockIds);
+    const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, undefined, this.getDeviceTag());
     const created = await this.provider.createTask({
       title: task.title,
       projectId: pass.projectId,
