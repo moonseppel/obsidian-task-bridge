@@ -38,7 +38,14 @@ Todoist project is left untouched rather than treated as deleted. A deletion tha
 concurrent edit on the other side is resolved by the same recency rule as a title conflict, except
 the newer edit resurrects what the older side deleted instead of the edit being silently lost.
 
-Next: Feature 7 — sync state, priority, description and tags.
+**Feature 7: Complete** — State, description and tags sync both ways, alongside title: checking a
+box completes the Todoist task and vice versa; text indented under a task becomes its Todoist
+description, and back; a trailing `#tag` becomes a Todoist label, and back. Each field is compared
+and resolved independently, by the same rules already established for title, and a task Todoist
+shows as completed is now told apart from one that was deleted or moved to another project.
+Priority moves to a later feature alongside the rest of the Tasks-plugin-sourced fields.
+
+Next: Feature 8 — nested tasks.
 
 ## Connecting to Todoist
 
@@ -58,7 +65,8 @@ Pick a source note and a Todoist project in the settings, and every checkbox lin
 kept in step with a task in that project.
 
 ```markdown
-- [ ] Buy milk ^ots-a1b2c3
+- [ ] Buy milk #errands ^ots-a1b2c3
+	Oat milk, not regular
 - [x] Call the dentist ^ots-d4e5f6
 ```
 
@@ -66,6 +74,11 @@ The `^ots-...` suffix is an ordinary Obsidian block identifier. The plugin appen
 it syncs a line, and it is what ties that line to its Todoist task, so the title can change on
 either side without the link breaking. `[[Tasks#^ots-a1b2c3]]` links to that task from anywhere in
 the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
+
+Checking the box completes the Todoist task, and completing it in Todoist checks the box. Text
+indented one level under a task line is its Todoist description; a trailing `#tag`, right before the
+anchor, is a Todoist label. All four fields — title, state, description, tags — sync both ways and
+independently of each other.
 
 The anchor is hidden by default, in reading view and while editing alike, and **Debug mode** in the
 settings brings it back. See [Debug mode](#debug-mode) for what that costs.
@@ -88,13 +101,14 @@ that, and tells you once so the change is never silent.
 
 ### What wins when both sides changed
 
-A change on only one side always wins outright: it is pushed or pulled, no contest. When both
-sides changed to different titles since they last agreed, it is a genuine conflict, and the newer
-edit wins — the source note's modification time against the Todoist task's. When recency can't be
-told, because the remote timestamp is missing or the two are exactly equal, the Obsidian edit wins,
-deterministically, so the outcome never flips back and forth from one sync to the next. When both
-sides happened to change to the *same* title, there is nothing to reconcile and neither side is
-touched.
+Title, state, description and tags are each judged on their own: a conflict on one field never
+affects what happens to another. A change on only one side always wins outright: it is pushed or
+pulled, no contest. When both sides changed a field since they last agreed, and to different
+values, it is a genuine conflict, and the newer edit wins — the source note's modification time
+against the Todoist task's. When recency can't be told, because the remote timestamp is missing or
+the two are exactly equal, the Obsidian edit wins, deterministically, so the outcome never flips
+back and forth from one sync to the next. When both sides happened to change a field to the *same*
+value, there is nothing to reconcile and neither side is touched.
 
 ### Task identity and duplicate avoidance
 

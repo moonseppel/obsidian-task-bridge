@@ -657,6 +657,46 @@ describe('TitleSync', () => {
     });
   });
 
+  describe('cross-field independence', () => {
+    it('resolves a title conflict by recency while a simultaneous, unrelated tag change simply pushes', async () => {
+      const note = new FakeNote('- [ ] Local title #new-tag ^ots-a1');
+      note.modifiedAt = 1_000;
+      const links = new TaskLinkStore([
+        {
+          blockId: 'ots-a1',
+          providerTaskId: TASK_ID,
+          lastSyncedTitle: 'Original title',
+          lastSyncedTags: [],
+        },
+      ]);
+      const pushedTitles: string[] = [];
+      const pushedLabels: Array<readonly string[]> = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Remote title', updatedAt: 2_000 }),
+        updateTaskTitle: (_id, title) => {
+          pushedTitles.push(title);
+          return Promise.resolve();
+        },
+        updateTaskLabels: (_id, labels) => {
+          pushedLabels.push(labels);
+          return Promise.resolve();
+        },
+      });
+
+      const outcome = await sync.run(PROJECT);
+
+      // The title conflict is the only conflict; the tag change is a plain, unrelated push.
+      expect(outcome).toMatchObject({ conflicted: 1, pushed: 1, pulled: 1 });
+      expect(note.content).toBe('- [ ] Remote title #new-tag ^ots-a1');
+      expect(pushedTitles).toEqual([]);
+      expect(pushedLabels).toEqual([['new-tag']]);
+      expect(links.get('ots-a1')).toMatchObject({
+        lastSyncedTitle: 'Remote title',
+        lastSyncedTags: ['new-tag'],
+      });
+    });
+  });
+
   it('removes the line when its linked task was deleted in the provider', async () => {
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore([
