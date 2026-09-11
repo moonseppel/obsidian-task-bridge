@@ -134,4 +134,53 @@ describeAgainstTodoist('Todoist task round trip', () => {
       failure: 'project-missing',
     });
   });
+
+  // Feature 7 depends on this whole group to tell "completed" apart from "deleted" or "moved".
+  describe('completing and reopening a task', () => {
+    it('drops a completed task from the active list, exactly like a deleted one', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      await client.completeTask(created.id);
+
+      const ids = (await client.listTasks(project.id)).map((task) => task.id);
+      expect(ids).not.toContain(created.id);
+    });
+
+    it('still answers a completed task with isCompleted true, not deleted', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      await client.completeTask(created.id);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({
+        id: created.id,
+        isCompleted: true,
+      });
+    });
+
+    it('carries the project id through on a completed task, so a move can still be told apart', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      await client.completeTask(created.id);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ projectId: project.id });
+    });
+
+    it('bumps the last-modified time when completing a task', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      const before = (await client.getTask(created.id))?.updatedAt;
+
+      await client.completeTask(created.id);
+
+      const after = (await client.getTask(created.id))?.updatedAt;
+      expect(after).toEqual(expect.any(Number));
+      expect(after).not.toBe(before);
+    });
+
+    it('reopens a completed task back onto the active list', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      await client.completeTask(created.id);
+      await client.reopenTask(created.id);
+
+      const ids = (await client.listTasks(project.id)).map((task) => task.id);
+      expect(ids).toContain(created.id);
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ isCompleted: false });
+    });
+  });
 });

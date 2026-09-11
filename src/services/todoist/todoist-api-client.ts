@@ -70,6 +70,15 @@ export class TodoistApiClient {
     await this.request('DELETE', `/tasks/${encodeURIComponent(taskId)}`);
   }
 
+  /** Todoist completes a task through this dedicated action, not a general field update. */
+  async completeTask(taskId: string): Promise<void> {
+    await this.request('POST', `/tasks/${encodeURIComponent(taskId)}/close`);
+  }
+
+  async reopenTask(taskId: string): Promise<void> {
+    await this.request('POST', `/tasks/${encodeURIComponent(taskId)}/reopen`);
+  }
+
   /**
    * A deleted task's id keeps answering with 200 rather than 404, marked only by `is_deleted` in
    * the body, so both signals are checked before treating a task as found.

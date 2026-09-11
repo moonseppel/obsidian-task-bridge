@@ -191,8 +191,8 @@ describe('TodoistApiClient tasks and projects', () => {
       const context = clientReplying(() => Promise.resolve(pages.shift() as HttpResponse));
 
       await expect(context.client.listTasks('p1')).resolves.toEqual([
-        { id: 't1', content: 'One' },
-        { id: 't2', content: 'Two' },
+        { id: 't1', content: 'One', isCompleted: false, projectId: '' },
+        { id: 't2', content: 'Two', isCompleted: false, projectId: '' },
       ]);
       expect(context.send.mock.calls[1][0].url).toContain('cursor=cursor-2');
     });
@@ -208,7 +208,9 @@ describe('TodoistApiClient tasks and projects', () => {
     it('strips a line break out of a title so it cannot split a markdown line', async () => {
       const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One\nTwo' }])));
 
-      await expect(context.client.listTasks('p1')).resolves.toEqual([{ id: 't1', content: 'One Two' }]);
+      await expect(context.client.listTasks('p1')).resolves.toEqual([
+        { id: 't1', content: 'One Two', isCompleted: false, projectId: '' },
+      ]);
     });
 
     it('gives up if the server never stops handing back a cursor', async () => {
@@ -284,6 +286,38 @@ describe('TodoistApiClient tasks and projects', () => {
       const [task] = await context.client.listTasks('p1');
       expect(task.embeddedBlockId).toBeUndefined();
     });
+
+    it('reads checked as isCompleted', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', checked: true }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.isCompleted).toBe(true);
+    });
+
+    it('treats a missing checked field as not completed', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.isCompleted).toBe(false);
+    });
+
+    it('reads project_id as projectId', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', project_id: 'p9' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.projectId).toBe('p9');
+    });
+
+    it('leaves projectId empty when project_id is missing', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.projectId).toBe('');
+    });
   });
 
   describe('createTask', () => {
@@ -295,6 +329,8 @@ describe('TodoistApiClient tasks and projects', () => {
       await expect(context.client.createTask('Buy milk', 'p1')).resolves.toEqual({
         id: 't1',
         content: 'Buy milk',
+        isCompleted: false,
+        projectId: '',
       });
 
       const request = sentRequest(context);
@@ -399,13 +435,38 @@ describe('TodoistApiClient tasks and projects', () => {
     });
   });
 
+  describe('completeTask', () => {
+    it('posts to the dedicated close action, accepting the empty body Todoist returns', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 204, text: '' }));
+
+      await expect(context.client.completeTask('t1')).resolves.toBeUndefined();
+      expect(sentRequest(context).method).toBe('POST');
+      expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1/close');
+    });
+  });
+
+  describe('reopenTask', () => {
+    it('posts to the dedicated reopen action, accepting the empty body Todoist returns', async () => {
+      const context = clientReplying(() => Promise.resolve({ status: 204, text: '' }));
+
+      await expect(context.client.reopenTask('t1')).resolves.toBeUndefined();
+      expect(sentRequest(context).method).toBe('POST');
+      expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1/reopen');
+    });
+  });
+
   describe('getTask', () => {
     it('fetches a single task by id', async () => {
       const context = clientReplying(() =>
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await expect(context.client.getTask('t1')).resolves.toEqual({ id: 't1', content: 'Buy milk' });
+      await expect(context.client.getTask('t1')).resolves.toEqual({
+        id: 't1',
+        content: 'Buy milk',
+        isCompleted: false,
+        projectId: '',
+      });
       expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1');
       expect(sentRequest(context).method).toBe('GET');
     });

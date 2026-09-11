@@ -22,6 +22,9 @@ export interface TodoistTask {
   updatedAt?: number;
   /** The Obsidian block id embedded in this task's description, if it carries one. */
   embeddedBlockId?: string;
+  /** Todoist's `checked` field: true once the task is completed. */
+  isCompleted: boolean;
+  projectId: string;
 }
 
 export interface Page {
@@ -92,6 +95,8 @@ export function toTodoistTask(payload: unknown): TodoistTask {
     content: sanitizeTitle(record.content),
     updatedAt: toEpochMs(record.updated_at),
     embeddedBlockId: findEmbeddedBlockId(record.description),
+    isCompleted: record.checked === true,
+    projectId: toProjectId(record.project_id),
   };
 }
 
@@ -129,6 +134,13 @@ function requireRecord(payload: unknown, complaint: string): Record<string, unkn
   }
 
   return payload;
+}
+
+/** Tolerant like toEpochMs below: a missing or malformed project id becomes '', never a thrown error. */
+function toProjectId(value: unknown): string {
+  const id = typeof value === 'number' ? String(value) : value;
+
+  return typeof id === 'string' ? id : '';
 }
 
 /** Tolerant like readIdentifier and toPage: an invalid or missing timestamp becomes undefined, never a thrown error. */

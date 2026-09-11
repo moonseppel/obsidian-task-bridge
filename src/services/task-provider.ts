@@ -19,6 +19,10 @@ export interface ProviderTask {
   updatedAt?: number;
   /** The Obsidian block id embedded in this task's description, if it carries one. */
   embeddedBlockId?: string;
+  /** Whether the task is done. A task missing from `listTasks` may still be completed rather than deleted or moved. */
+  isCompleted: boolean;
+  /** The project this task currently lives in, used to tell "completed but still here" apart from "moved elsewhere". */
+  projectId: string;
 }
 
 export interface NewTask {
@@ -41,6 +45,10 @@ export interface TaskProvider {
   createTask(task: NewTask): Promise<ProviderTask>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;
+  /** Marks the task done. Todoist completes a task through a dedicated action, not a field update. */
+  completeTask(taskId: string): Promise<void>;
+  /** The inverse of completeTask. */
+  reopenTask(taskId: string): Promise<void>;
   /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
   removeTask(taskId: string): Promise<void>;
   /** A task missing from a project's task list is ambiguous between deleted and moved elsewhere; this tells them apart. */

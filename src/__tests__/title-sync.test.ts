@@ -1,9 +1,9 @@
-import { NewTask, ProviderTask } from '../services/task-provider';
+import { NewTask } from '../services/task-provider';
 import { TaskProviderError } from '../services/task-provider-error';
 import { OrphanTracker } from '../services/sync/orphan-tracker';
 import { TaskLinkStore } from '../services/sync/task-links';
 import { NoteEdits, SourceNote, TitleSync, applyLineEdits, applyNoteEdits, appendLines, removeLines } from '../services/sync/title-sync';
-import { stubProvider } from './support/stub-provider';
+import { LooseProviderTask, stubProvider } from './support/stub-provider';
 
 const PROJECT = 'project-1';
 const TASK_ID = '6X4Vw2Hfmg73Q2XR';
@@ -51,7 +51,7 @@ function makeSync(
   );
 }
 
-function remoteTasks(...tasks: ProviderTask[]) {
+function remoteTasks(...tasks: LooseProviderTask[]) {
   return () => Promise.resolve(tasks);
 }
 
