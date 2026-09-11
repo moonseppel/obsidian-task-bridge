@@ -1,7 +1,21 @@
-import { sanitizeForDisplay, sanitizeTitle } from '../../utils/external-text';
-import { isRecord } from '../../utils/type-guards';
+import { sanitizeForDisplay } from '../../utils/external-text';
 import { HttpClient, HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
+import {
+  TodoistProject,
+  TodoistTask,
+  TodoistUser,
+  describeCause,
+  parseJson,
+  throwOnErrorStatus,
+  toPage,
+  toTodoistProject,
+  toTodoistTask,
+  toTodoistUser,
+  withQuery,
+} from './todoist-payloads';
+
+export type { TodoistProject, TodoistTask, TodoistUser } from './todoist-payloads';
 
 const API_BASE_URL = 'https://api.todoist.com/api/v1';
 const JSON_CONTENT_TYPE = 'application/json';
@@ -10,28 +24,6 @@ const PAGE_SIZE = 200;
 const MAX_PAGES = 200;
 
 export type TodoistTokenReader = () => string;
-
-export interface TodoistUser {
-  id: string;
-  fullName: string;
-  email: string;
-}
-
-export interface TodoistProject {
-  id: string;
-  name: string;
-  isInbox: boolean;
-}
-
-export interface TodoistTask {
-  id: string;
-  content: string;
-}
-
-interface Page {
-  results: unknown[];
-  nextCursor: string | null;
-}
 
 export class TodoistApiClient {
   private readonly http: HttpClient;
@@ -47,22 +39,18 @@ export class TodoistApiClient {
   }
 
   async listProjects(): Promise<TodoistProject[]> {
-    const results = await this.getAllPages('/projects', {});
-
-    return results.map(toTodoistProject);
+    return (await this.getAllPages('/projects', {})).map(toTodoistProject);
   }
 
   /** A deleted project answers with an empty list rather than a 404, so absence is ambiguous here. */
   async listTasks(projectId: string): Promise<TodoistTask[]> {
-    const results = await this.getAllPages('/tasks', { project_id: projectId });
-
-    return results.map(toTodoistTask);
+    return (await this.getAllPages('/tasks', { project_id: projectId })).map(toTodoistTask);
   }
 
   async createTask(content: string, projectId: string): Promise<TodoistTask> {
-    const created = await this.post('/tasks', { content, project_id: projectId }, 'project-missing');
-
-    return toTodoistTask(created);
+    return toTodoistTask(
+      await this.post('/tasks', { content, project_id: projectId }, 'project-missing'),
+    );
   }
 
   async updateTaskContent(taskId: string, content: string): Promise<TodoistTask> {
@@ -81,22 +69,17 @@ export class TodoistApiClient {
     await this.request('DELETE', `/projects/${encodeURIComponent(projectId)}`);
   }
 
-  private async getAllPages(
-    path: string,
-    query: Record<string, string>,
-    notFound: TaskProviderFailure = 'unexpected',
-  ): Promise<unknown[]> {
+  private async getAllPages(path: string, query: Record<string, string>): Promise<unknown[]> {
     const results: unknown[] = [];
-    let cursor: string | null = null;
+    let cursor = '';
 
     for (let page = 0; page < MAX_PAGES; page += 1) {
-      const parameters = { ...query, limit: String(PAGE_SIZE), ...(cursor === null ? {} : { cursor }) };
-      const body = toPage(await this.get(withQuery(path, parameters), notFound));
+      const body = toPage(await this.get(withQuery(path, pageQuery(query, cursor))));
 
       results.push(...body.results);
       cursor = body.nextCursor;
 
-      if (cursor === null) {
+      if (cursor.length === 0) {
         return results;
       }
     }
@@ -104,8 +87,8 @@ export class TodoistApiClient {
     throw new TaskProviderError('unexpected', 'The task list did not stop paginating.');
   }
 
-  private async get(path: string, notFound: TaskProviderFailure = 'unexpected'): Promise<unknown> {
-    return this.request('GET', path, undefined, notFound);
+  private async get(path: string): Promise<unknown> {
+    return this.request('GET', path);
   }
 
   private async post(
@@ -144,125 +127,6 @@ export class TodoistApiClient {
   }
 }
 
-function withQuery(path: string, parameters: Record<string, string>): string {
-  const query = Object.entries(parameters)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
-
-  return query.length === 0 ? path : `${path}?${query}`;
-}
-
-function toPage(payload: unknown): Page {
-  if (!isRecord(payload) || !Array.isArray(payload.results)) {
-    throw new TaskProviderError('unexpected', 'A list response did not contain any results.');
-  }
-
-  return {
-    results: payload.results,
-    nextCursor: typeof payload.next_cursor === 'string' && payload.next_cursor.length > 0
-      ? payload.next_cursor
-      : null,
-  };
-}
-
-function throwOnErrorStatus(response: HttpResponse, notFound: TaskProviderFailure): void {
-  if (response.status >= 200 && response.status < 300) {
-    return;
-  }
-
-  throw new TaskProviderError(
-    failureForStatus(response.status, notFound),
-    describeApiError(response.text),
-  );
-}
-
-function failureForStatus(status: number, notFound: TaskProviderFailure): TaskProviderFailure {
-  if (status === 401 || status === 403) {
-    return 'invalid-credentials';
-  }
-
-  if (status === 404) {
-    return notFound;
-  }
-
-  if (status === 429) {
-    return 'rate-limited';
-  }
-
-  return status >= 500 ? 'unreachable' : 'unexpected';
-}
-
-function toTodoistUser(payload: unknown): TodoistUser {
-  if (!isRecord(payload)) {
-    throw new TaskProviderError('unexpected', 'The user response was not an object.');
-  }
-
-  const id = readIdentifier(payload.id);
-
-  if (id.length === 0) {
-    throw new TaskProviderError('unexpected', 'The user response did not contain a user id.');
-  }
-
-  return {
-    id,
-    fullName: sanitizeForDisplay(payload.full_name),
-    email: sanitizeForDisplay(payload.email),
-  };
-}
-
-function toTodoistProject(payload: unknown): TodoistProject {
-  if (!isRecord(payload)) {
-    throw new TaskProviderError('unexpected', 'A project entry was not an object.');
-  }
-
-  const id = readIdentifier(payload.id);
-
-  if (id.length === 0) {
-    throw new TaskProviderError('unexpected', 'A project entry did not contain a project id.');
-  }
-
-  return { id, name: sanitizeTitle(payload.name), isInbox: payload.inbox_project === true };
-}
-
-function toTodoistTask(payload: unknown): TodoistTask {
-  if (!isRecord(payload)) {
-    throw new TaskProviderError('unexpected', 'A task entry was not an object.');
-  }
-
-  const id = readIdentifier(payload.id);
-
-  if (id.length === 0) {
-    throw new TaskProviderError('unexpected', 'A task entry did not contain a task id.');
-  }
-
-  return { id, content: sanitizeTitle(payload.content) };
-}
-
-function readIdentifier(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  return typeof value === 'number' ? String(value) : '';
-}
-
-function describeApiError(body: string): string {
-  try {
-    const payload: unknown = JSON.parse(body);
-    return isRecord(payload) ? sanitizeForDisplay(payload.error) : '';
-  } catch {
-    return '';
-  }
-}
-
-function parseJson(body: string): unknown {
-  try {
-    return JSON.parse(body);
-  } catch {
-    throw new TaskProviderError('unexpected', 'The response was not valid JSON.');
-  }
-}
-
-function describeCause(error: unknown): string {
-  return error instanceof Error ? error.message : '';
+function pageQuery(query: Record<string, string>, cursor: string): Record<string, string> {
+  return { ...query, limit: String(PAGE_SIZE), ...(cursor.length === 0 ? {} : { cursor }) };
 }

@@ -1,13 +1,31 @@
 import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '../task-provider';
 import { createBlockId } from './block-id';
-import { TaskLinkStore } from './task-links';
-import { collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
+import { TaskLink, TaskLinkStore } from './task-links';
+import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 
 /** Replaces one line only if it still reads as it did when the pass started. */
 export interface LineEdit {
   readonly lineNumber: number;
   readonly expected: string;
   readonly replacement: string;
+}
+
+export interface SourceNote {
+  read(): Promise<string>;
+  applyEdits(edits: readonly LineEdit[]): Promise<void>;
+}
+
+/** How the pass arrived at the project it used, which is all a caller needs to report it. */
+export type ProjectResolution =
+  | { kind: 'configured' }
+  | { kind: 'defaulted'; project: ProviderProject }
+  | { kind: 'replaced'; project: ProviderProject };
+
+export interface SyncOutcome {
+  created: number;
+  pushed: number;
+  pulled: number;
+  projectResolution: ProjectResolution;
 }
 
 /** Applies only the lines that still read as they did, so a concurrent edit is never clobbered. */
@@ -21,29 +39,6 @@ export function applyLineEdits(content: string, edits: readonly LineEdit[]): str
   }
 
   return lines.join('\n');
-}
-
-export interface SourceNote {
-  read(): Promise<string>;
-  applyEdits(edits: readonly LineEdit[]): Promise<void>;
-}
-
-export interface SyncOutcome {
-  created: number;
-  pushed: number;
-  pulled: number;
-  /** The project actually used, when it differs from the configured one, so it can be stored. */
-  reassignedTo: ProviderProject | null;
-  /** True when the configured project had vanished, rather than simply never having been set. */
-  replacedMissingProject: boolean;
-}
-
-interface ResolvedProject {
-  id: string;
-  reassignedTo: ProviderProject | null;
-  replacedMissingProject: boolean;
-  /** The tasks already fetched while resolving, so they are not requested twice. */
-  tasks: ProviderTask[] | null;
 }
 
 export class TitleSync {
@@ -67,73 +62,85 @@ export class TitleSync {
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await this.resolveProject(configuredProjectId);
     const lines = (await this.note.read()).split('\n');
-    const remoteTitles = toTitleMap(project.tasks ?? (await this.provider.listTasks(project.id)));
-    const takenBlockIds = collectBlockIds(lines);
-    const outcome: SyncOutcome = {
-      created: 0,
-      pushed: 0,
-      pulled: 0,
-      reassignedTo: project.reassignedTo,
-      replacedMissingProject: project.replacedMissingProject,
+    const pass: SyncPass = {
+      lines,
+      projectId: project.id,
+      remoteTitles: toTitleMap(project.tasks),
+      takenBlockIds: collectBlockIds(lines),
+      edits: [],
+      outcome: { created: 0, pushed: 0, pulled: 0, projectResolution: project.resolution },
     };
-    const edits: LineEdit[] = [];
 
     try {
-      for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-        await this.syncLine(
-          { lines, lineNumber, projectId: project.id, remoteTitles, takenBlockIds, edits, outcome },
-        );
-      }
+      await this.syncEveryLine(pass);
     } finally {
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
-      await this.commit(edits);
+      await this.commit(pass.edits);
     }
 
-    return outcome;
+    return pass.outcome;
   }
 
-  private async syncLine(pass: SyncPass): Promise<void> {
-    const original = pass.lines[pass.lineNumber];
-    const parsed = parseTaskLine(original);
+  private async syncEveryLine(pass: SyncPass): Promise<void> {
+    for (let lineNumber = 0; lineNumber < pass.lines.length; lineNumber += 1) {
+      await this.syncLine(pass, lineNumber);
+    }
+  }
 
-    if (parsed === null || parsed.title.length === 0) {
+  private async syncLine(pass: SyncPass, lineNumber: number): Promise<void> {
+    const original = pass.lines[lineNumber];
+    const task = parseTaskLine(original);
+
+    if (task === null || task.title.length === 0) {
       return;
     }
 
-    const link = parsed.blockId === null ? undefined : this.links.get(parsed.blockId);
+    const line: LineUnderSync = { pass, lineNumber, original, task };
+    const link = task.blockId === null ? undefined : this.links.get(task.blockId);
 
     if (link === undefined) {
-      const created = await this.provider.createTask({ title: parsed.title, projectId: pass.projectId });
-      // A block id already on the line but absent from the store is reused, never replaced,
-      // so a note can never end up carrying two anchors for one task.
-      const blockId = parsed.blockId ?? createBlockId(pass.takenBlockIds);
-
-      pass.takenBlockIds.add(blockId);
-      this.links.set({ blockId, providerTaskId: created.id, lastSyncedTitle: parsed.title });
-      addEdit(pass, original, formatTaskLine({ ...parsed, blockId }));
-      pass.outcome.created += 1;
-
+      await this.createTask(line);
       return;
     }
 
-    if (parsed.title !== link.lastSyncedTitle) {
-      await this.provider.updateTaskTitle(link.providerTaskId, parsed.title);
-      this.links.set({ ...link, lastSyncedTitle: parsed.title });
-      pass.outcome.pushed += 1;
-
+    if (task.title !== link.lastSyncedTitle) {
+      await this.pushTitle(line, link);
       return;
     }
 
-    const remoteTitle = pass.remoteTitles.get(link.providerTaskId);
+    this.pullTitle(line, link);
+  }
+
+  private async createTask(line: LineUnderSync): Promise<void> {
+    const { pass, task } = line;
+    const created = await this.provider.createTask({ title: task.title, projectId: pass.projectId });
+    // A block id already on the line but absent from the store is reused, never replaced,
+    // so a note can never end up carrying two anchors for one task.
+    const blockId = task.blockId ?? createBlockId(pass.takenBlockIds);
+
+    pass.takenBlockIds.add(blockId);
+    this.links.set({ blockId, providerTaskId: created.id, lastSyncedTitle: task.title });
+    addEdit(line, formatTaskLine({ ...task, blockId }));
+    pass.outcome.created += 1;
+  }
+
+  private async pushTitle(line: LineUnderSync, link: TaskLink): Promise<void> {
+    await this.provider.updateTaskTitle(link.providerTaskId, line.task.title);
+    this.links.set({ ...link, lastSyncedTitle: line.task.title });
+    line.pass.outcome.pushed += 1;
+  }
+
+  private pullTitle(line: LineUnderSync, link: TaskLink): void {
+    const remoteTitle = line.pass.remoteTitles.get(link.providerTaskId);
 
     if (remoteTitle === undefined || remoteTitle.length === 0 || remoteTitle === link.lastSyncedTitle) {
       return;
     }
 
     this.links.set({ ...link, lastSyncedTitle: remoteTitle });
-    addEdit(pass, original, formatTaskLine({ ...parsed, title: remoteTitle }));
-    pass.outcome.pulled += 1;
+    addEdit(line, formatTaskLine({ ...line.task, title: remoteTitle }));
+    line.pass.outcome.pulled += 1;
   }
 
   /**
@@ -143,31 +150,35 @@ export class TitleSync {
    */
   private async resolveProject(configuredId: string): Promise<ResolvedProject> {
     if (configuredId.length === 0) {
-      return this.fallBackToDefault(await this.provider.listProjects(), false);
+      return this.fallBackToDefault('defaulted');
     }
 
     const tasks = await this.provider.listTasks(configuredId);
 
     if (tasks.length > 0) {
-      return { id: configuredId, reassignedTo: null, replacedMissingProject: false, tasks };
+      return { id: configuredId, resolution: { kind: 'configured' }, tasks };
     }
 
     const projects = await this.provider.listProjects();
 
     if (projects.some((project) => project.id === configuredId)) {
-      return { id: configuredId, reassignedTo: null, replacedMissingProject: false, tasks };
+      return { id: configuredId, resolution: { kind: 'configured' }, tasks };
     }
 
-    return this.fallBackToDefault(projects, true);
+    return this.fallBackToDefault('replaced', projects);
   }
 
-  private fallBackToDefault(
-    projects: readonly ProviderProject[],
-    replacedMissingProject: boolean,
-  ): ResolvedProject {
-    const fallback = defaultProjectOf(projects);
+  private async fallBackToDefault(
+    kind: 'defaulted' | 'replaced',
+    known?: readonly ProviderProject[],
+  ): Promise<ResolvedProject> {
+    const project = defaultProjectOf(known ?? (await this.provider.listProjects()));
 
-    return { id: fallback.id, reassignedTo: fallback, replacedMissingProject, tasks: null };
+    return {
+      id: project.id,
+      resolution: { kind, project },
+      tasks: await this.provider.listTasks(project.id),
+    };
   }
 
   private async commit(edits: readonly LineEdit[]): Promise<void> {
@@ -181,7 +192,6 @@ export class TitleSync {
 
 interface SyncPass {
   readonly lines: readonly string[];
-  readonly lineNumber: number;
   readonly projectId: string;
   readonly remoteTitles: ReadonlyMap<string, string>;
   readonly takenBlockIds: Set<string>;
@@ -189,14 +199,27 @@ interface SyncPass {
   readonly outcome: SyncOutcome;
 }
 
+interface LineUnderSync {
+  readonly pass: SyncPass;
+  readonly lineNumber: number;
+  readonly original: string;
+  readonly task: ParsedTaskLine;
+}
+
+interface ResolvedProject {
+  readonly id: string;
+  readonly resolution: ProjectResolution;
+  readonly tasks: readonly ProviderTask[];
+}
+
 function toTitleMap(tasks: readonly ProviderTask[]): Map<string, string> {
   return new Map(tasks.map((task): [string, string] => [task.id, task.title]));
 }
 
-function addEdit(pass: SyncPass, expected: string, replacement: string): void {
-  if (replacement === expected) {
+function addEdit(line: LineUnderSync, replacement: string): void {
+  if (replacement === line.original) {
     return;
   }
 
-  pass.edits.push({ lineNumber: pass.lineNumber, expected, replacement });
+  line.pass.edits.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
 }

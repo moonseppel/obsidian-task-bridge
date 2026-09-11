@@ -7,12 +7,8 @@ import {
   TFile,
   ToggleComponent,
 } from 'obsidian';
-import {
-  DEFAULT_SETTINGS,
-  MAX_SYNC_INTERVAL_MINUTES,
-  MIN_SYNC_INTERVAL_MINUTES,
-  ObsidianTaskSyncSettingTab,
-} from '../settings';
+import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../settings';
+import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
 import type ObsidianTaskSyncPlugin from '../main';
 import { ProviderConnection } from '../services/provider-connection';
 import { stubProvider } from './support/stub-provider';
@@ -555,14 +551,22 @@ describe('ObsidianTaskSyncSettingTab debug section', () => {
     expect(setValue).toHaveBeenCalledWith(true);
   });
 
-  it('persists the change and applies it at once', async () => {
-    const { tab, plugin, saveSettings, applyDebugMode } = makeTab('');
+  it('persists the change', async () => {
+    const { tab, plugin, saveSettings } = makeTab('');
     tab.display();
 
     await (tab as unknown as { saveDebugMode(enabled: boolean): Promise<void> }).saveDebugMode(true);
 
+    expect(saveSettings).toHaveBeenCalledWith();
     expect(plugin.settings.debugMode).toBe(true);
-    expect(saveSettings).toHaveBeenCalled();
+  });
+
+  it('applies the change without waiting for a restart', async () => {
+    const { tab, applyDebugMode } = makeTab('');
+    tab.display();
+
+    await (tab as unknown as { saveDebugMode(enabled: boolean): Promise<void> }).saveDebugMode(true);
+
     expect(applyDebugMode).toHaveBeenCalledTimes(1);
   });
 });

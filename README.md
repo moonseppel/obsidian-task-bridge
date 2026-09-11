@@ -138,27 +138,34 @@ page, so no setting can reveal them. Live Preview shows all of them.
 src/
   main.ts           # Plugin lifecycle & wiring
   settings.ts       # Settings interface, defaults, and setting tab
+  stored-data.ts    # Reads and validates what was written to data.json
   services/
     task-provider.ts        # Provider-neutral interface the plugin talks to
     task-provider-error.ts  # Typed connection failures
     provider-connection.ts  # Current connection status and how to re-establish it
+    status-reporter.ts      # Turns sync results and failures into logs and notices
     http/
       http-client.ts          # Transport port
       obsidian-http-client.ts # Adapter over Obsidian's requestUrl
     todoist/
       todoist-api-client.ts   # Todoist REST calls
+      todoist-payloads.ts     # Maps Todoist JSON onto the plugin's own types
       todoist-provider.ts     # Todoist implementation of the provider interface
     sync/
       task-line.ts            # Parses and formats a markdown checkbox line
       block-id.ts             # Mints the block ids that anchor tasks
       task-links.ts           # Block id to provider task id mapping, with its stored form
       title-sync.ts           # The sync pass itself, plus how note edits are applied
+      sync-scheduler.ts       # The poll and the debounce that start a sync
       obsidian-source-note.ts # Adapter over the vault for the configured note
   views/
     source-note-suggest.ts  # Fuzzy note picker for the source-note setting
     project-suggest.ts      # Picker for the Todoist project
+    rendered-anchor.ts      # Hides sync anchors in reading view
+    settings-text.ts        # Wording for the settings tab
   utils/
     logger.ts       # Logging utility
+    sync-interval.ts  # Bounds and parsing for the poll interval
   __tests__/        # Jest tests
   __mocks__/        # Mock definitions for testing
   __integration__/  # Tests that call the real Todoist API

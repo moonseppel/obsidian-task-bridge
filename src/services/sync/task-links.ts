@@ -16,11 +16,16 @@ export class TaskLinkStore {
 
   /** Anything malformed is dropped rather than trusted: a bad link would duplicate a task. */
   static fromStored(stored: unknown): TaskLinkStore {
-    if (!Array.isArray(stored)) {
-      return new TaskLinkStore();
-    }
+    return new TaskLinkStore(toTaskLinks(stored));
+  }
 
-    return new TaskLinkStore(stored.filter(isTaskLink));
+  /** Keeps this instance, so whatever already holds it sees the links that were just loaded. */
+  replaceAll(stored: unknown): void {
+    this.byBlockId.clear();
+
+    for (const link of toTaskLinks(stored)) {
+      this.byBlockId.set(link.blockId, link);
+    }
   }
 
   get(blockId: string): TaskLink | undefined {
@@ -38,6 +43,10 @@ export class TaskLinkStore {
   toStored(): TaskLink[] {
     return [...this.byBlockId.values()];
   }
+}
+
+function toTaskLinks(stored: unknown): TaskLink[] {
+  return Array.isArray(stored) ? stored.filter(isTaskLink) : [];
 }
 
 function isTaskLink(value: unknown): value is TaskLink {

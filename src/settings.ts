@@ -1,9 +1,11 @@
 import { App, PluginSettingTab, SecretComponent, Setting, TFile, normalizePath } from 'obsidian';
 import type ObsidianTaskSyncPlugin from './main';
 import { ConnectionStatus } from './services/provider-connection';
+import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderProject } from './services/task-provider';
 import { describeConnectionStatus } from './utils/connection-status-text';
 import { ProjectSuggest } from './views/project-suggest';
+import * as text from './views/settings-text';
 import { SourceNoteSuggest } from './views/source-note-suggest';
 
 export interface ObsidianTaskSyncSettings {
@@ -24,32 +26,6 @@ export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
   debugMode: false,
 };
 
-export const MIN_SYNC_INTERVAL_MINUTES = 1;
-export const MAX_SYNC_INTERVAL_MINUTES = 1440;
-
-const SOURCE_NOTE_DISPLAY_NAME = 'Task source note';
-const SOURCE_NOTE_DESC = 'The single note whose tasks are synced. Leave empty to sync no tasks.';
-const API_TOKEN_DISPLAY_NAME = 'API token';
-const API_TOKEN_DESC_START =
-  'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
-  'Create a token in Todoist under Settings → Integrations → ';
-const API_TOKEN_LINK_TEXT = 'Developer';
-const API_TOKEN_URL = 'https://app.todoist.com/app/settings/integrations/developer';
-const API_TOKEN_DESC_END =
-  '. The token must be configured on every devices used separately.';
-const CONNECTION_DISPLAY_NAME = 'Connection';
-const PROJECT_DISPLAY_NAME = 'Project';
-const PROJECT_DESC =
-  'Where synced tasks are created. Defaults to the Inbox, and falls back to it if the ' +
-  'chosen project is deleted.';
-const SYNC_DISPLAY_NAME = 'Sync';
-const SYNC_INTERVAL_DISPLAY_NAME = 'Check for changes every';
-const SYNC_INTERVAL_DESC =
-  `How often Todoist is polled for title changes, in minutes ` +
-  `(${MIN_SYNC_INTERVAL_MINUTES}–${MAX_SYNC_INTERVAL_MINUTES}). ` +
-  'Changes made in Obsidian are sent as soon as the note is saved.';
-const DEBUG_DISPLAY_NAME = 'Debug mode';
-const DEBUG_DESC = 'Leave this off unless you are diagnosing a problem.';
 const MISSING_ROW_CLASS = 'obsidian-task-sync-source-missing';
 const INVALID_INPUT_CLASS = 'obsidian-task-sync-source-invalid';
 const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
@@ -57,26 +33,6 @@ const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
 // Obsidian types the secret value as a string but sends null when the field is cleared with "x".
 function toSecretName(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-export function toSyncIntervalMinutes(value: unknown, fallback: number): number {
-  const text = typeof value === 'number' ? String(value) : String(value ?? '').trim();
-  // An empty field means the user is still typing, not that they want the shortest interval.
-  const parsed = text.length === 0 ? Number.NaN : Number(text);
-
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-
-  return Math.min(MAX_SYNC_INTERVAL_MINUTES, Math.max(MIN_SYNC_INTERVAL_MINUTES, Math.round(parsed)));
-}
-
-function describeApiTokenSetting(): DocumentFragment {
-  return createFragment((description) => {
-    description.appendText(API_TOKEN_DESC_START);
-    description.createEl('a', { text: API_TOKEN_LINK_TEXT, href: API_TOKEN_URL });
-    description.appendText(API_TOKEN_DESC_END);
-  });
 }
 
 export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
@@ -116,15 +72,15 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
   private displaySourceNoteSetting(): void {
     this.sourceSetting = new Setting(this.containerEl)
-      .setName(SOURCE_NOTE_DISPLAY_NAME)
-      .setDesc(SOURCE_NOTE_DESC)
+      .setName(text.SOURCE_NOTE_DISPLAY_NAME)
+      .setDesc(text.SOURCE_NOTE_DESC)
       .addSearch((search) => {
         this.sourceInputEl = search.inputEl;
         new SourceNoteSuggest(this.app, search.inputEl, (path) => {
           void this.handleSourceNoteSelection(path);
         });
         search
-          .setPlaceholder('Example: Tasks.md')
+          .setPlaceholder(text.SOURCE_NOTE_PLACEHOLDER)
           .setValue(this.plugin.settings.relativeTaskSourceNotePath)
           .onChange((value) => {
             void this.saveSourceNotePath(value);
@@ -160,11 +116,9 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     }
 
     const missing = this.isSourceNoteMissing();
-    const message =
-      `Note not found at "${this.plugin.settings.relativeTaskSourceNotePath}" — ` +
-      'pick an existing note or clear the field.';
+    const path = this.plugin.settings.relativeTaskSourceNotePath;
 
-    this.sourceSetting.setDesc(missing ? message : SOURCE_NOTE_DESC);
+    this.sourceSetting.setDesc(missing ? text.missingNoteWarning(path) : text.SOURCE_NOTE_DESC);
     this.sourceSetting.settingEl.toggleClass(MISSING_ROW_CLASS, missing);
     this.sourceInputEl?.toggleClass(INVALID_INPUT_CLASS, missing);
   }
@@ -183,8 +137,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
   private displayApiTokenSetting(): void {
     new Setting(this.containerEl)
-      .setName(API_TOKEN_DISPLAY_NAME)
-      .setDesc(describeApiTokenSetting())
+      .setName(text.API_TOKEN_DISPLAY_NAME)
+      .setDesc(text.describeApiTokenSetting())
       .addComponent((el) =>
         new SecretComponent(this.app, el)
           .setValue(this.plugin.settings.todoistApiTokenSecretName)
@@ -198,11 +152,11 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     const unavailableReason = this.describeWhyTestingIsUnavailable();
 
     this.connectionSetting = new Setting(this.containerEl)
-      .setName(CONNECTION_DISPLAY_NAME)
+      .setName(text.CONNECTION_DISPLAY_NAME)
       .setDesc(describeConnectionStatus(this.connectionStatus, this.plugin.connection.providerName))
       .addButton((button) =>
         button
-          .setButtonText('Test connection')
+          .setButtonText(text.TEST_CONNECTION_LABEL)
           .setTooltip(unavailableReason)
           .setDisabled(unavailableReason.length > 0)
           .onClick(() => {
@@ -215,8 +169,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
   private displayProjectSetting(): void {
     new Setting(this.containerEl)
-      .setName(PROJECT_DISPLAY_NAME)
-      .setDesc(PROJECT_DESC)
+      .setName(text.PROJECT_DISPLAY_NAME)
+      .setDesc(text.PROJECT_DESC)
       .addSearch((search) => {
         new ProjectSuggest(
           this.app,
@@ -229,16 +183,16 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
         // No `onChange`: picking a suggestion is the only way to change this, so it can
         // never be left empty and a sync can never stall for want of a project.
         search
-          .setPlaceholder('Inbox')
+          .setPlaceholder(text.PROJECT_PLACEHOLDER)
           .setValue(this.plugin.settings.todoistProjectName);
       });
   }
 
   private displaySyncSettings(): void {
-    new Setting(this.containerEl).setName(SYNC_DISPLAY_NAME).setHeading();
+    new Setting(this.containerEl).setName(text.SYNC_DISPLAY_NAME).setHeading();
     new Setting(this.containerEl)
-      .setName(SYNC_INTERVAL_DISPLAY_NAME)
-      .setDesc(SYNC_INTERVAL_DESC)
+      .setName(text.SYNC_INTERVAL_DISPLAY_NAME)
+      .setDesc(text.SYNC_INTERVAL_DESC)
       .addText((text) =>
         text
           .setPlaceholder(String(DEFAULT_SETTINGS.syncIntervalMinutes))
@@ -251,8 +205,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
   private displayDebugSetting(): void {
     new Setting(this.containerEl)
-      .setName(DEBUG_DISPLAY_NAME)
-      .setDesc(DEBUG_DESC)
+      .setName(text.DEBUG_DISPLAY_NAME)
+      .setDesc(text.DEBUG_DESC)
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.debugMode)
@@ -289,11 +243,11 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
   private describeWhyTestingIsUnavailable(): string {
     if (this.connectionStatus.state === 'connecting') {
-      return 'A connection check is already running.';
+      return text.CONNECTION_BUSY;
     }
 
     return this.plugin.settings.todoistApiTokenSecretName.length === 0
-      ? 'Select an API token first.'
+      ? text.TOKEN_NEEDED_FIRST
       : '';
   }
 

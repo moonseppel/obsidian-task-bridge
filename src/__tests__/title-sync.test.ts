@@ -94,7 +94,12 @@ describe('TitleSync', () => {
     expect(note.content).toContain('- [x] Call the dentist ^ots-');
   });
 
-  it('pushes a title the user changed in Obsidian', async () => {
+  function pushScenario(): {
+    note: FakeNote;
+    links: TaskLinkStore;
+    pushed: Array<[string, string]>;
+    sync: TitleSync;
+  } {
     const note = new FakeNote('- [ ] Buy oat milk ^ots-a1');
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
@@ -108,9 +113,36 @@ describe('TitleSync', () => {
       },
     });
 
-    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0 });
+    return { note, links, pushed, sync };
+  }
+
+  it('sends a title changed in Obsidian to the provider', async () => {
+    const { pushed, sync } = pushScenario();
+
+    await sync.run(PROJECT);
+
     expect(pushed).toEqual([[TASK_ID, 'Buy oat milk']]);
+  });
+
+  it('counts a title changed in Obsidian as pushed', async () => {
+    const { sync } = pushScenario();
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0 });
+  });
+
+  it('records the pushed title as the one both sides now agree on', async () => {
+    const { links, sync } = pushScenario();
+
+    await sync.run(PROJECT);
+
     expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Buy oat milk');
+  });
+
+  it('leaves the pushed line exactly as the user typed it', async () => {
+    const { note, sync } = pushScenario();
+
+    await sync.run(PROJECT);
+
     expect(note.content).toBe('- [ ] Buy oat milk ^ots-a1');
   });
 
@@ -223,8 +255,7 @@ describe('TitleSync', () => {
 
     const outcome = await sync.run(PROJECT);
 
-    expect(outcome.reassignedTo).toEqual(INBOX);
-    expect(outcome.replacedMissingProject).toBe(true);
+    expect(outcome.projectResolution).toEqual({ kind: 'replaced', project: INBOX });
     expect(created).toEqual([{ title: 'Buy milk', projectId: INBOX.id }]);
   });
 
@@ -241,8 +272,7 @@ describe('TitleSync', () => {
 
     const outcome = await sync.run('');
 
-    expect(outcome.reassignedTo).toEqual(INBOX);
-    expect(outcome.replacedMissingProject).toBe(false);
+    expect(outcome.projectResolution).toEqual({ kind: 'defaulted', project: INBOX });
     expect(created).toEqual([{ title: 'Buy milk', projectId: INBOX.id }]);
   });
 
@@ -252,7 +282,10 @@ describe('TitleSync', () => {
       listTasks: remoteTasks(),
     });
 
-    expect((await sync.run('')).reassignedTo).toMatchObject({ id: 'only' });
+    expect((await sync.run('')).projectResolution).toMatchObject({
+      kind: 'defaulted',
+      project: { id: 'only' },
+    });
   });
 
   it('gives up only when the provider lists no projects at all', async () => {

@@ -2,7 +2,6 @@ import * as obsidian from 'obsidian';
 import { App, TFile } from 'obsidian';
 import ObsidianTaskSyncPlugin from '../main';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings } from '../settings';
-import { TaskLinkStore } from '../services/sync/task-links';
 import { isDebugLogging, setDebugLogging } from '../utils/logger';
 import { ProviderConnection } from '../services/provider-connection';
 import { stubProvider } from './support/stub-provider';
@@ -52,12 +51,8 @@ function rejectingWith(failure: TaskProviderFailure): () => Promise<ProviderAcco
 
 function makePlugin(connect = rejectingWith('not-configured')): PluginContext {
   const vault = fakeVault();
-  const plugin = Object.create(ObsidianTaskSyncPlugin.prototype) as ObsidianTaskSyncPlugin;
-  plugin.app = { vault, workspace: {} } as unknown as App;
-  plugin.connection = new ProviderConnection(stubProvider({ connect }));
-  plugin.taskLinks = new TaskLinkStore();
-  plugin.knownProjects = [];
-  plugin.manifest = {
+  const app = { vault, workspace: {} } as unknown as App;
+  const manifest = {
     id: 'obsidian-task-sync',
     name: 'Obsidian Task Sync',
     version: '0.1.0',
@@ -65,6 +60,9 @@ function makePlugin(connect = rejectingWith('not-configured')): PluginContext {
     minAppVersion: '0.15.0',
     description: 'Test plugin',
   };
+  // Constructed rather than hand-assembled, so the plugin's own fields are wired as they are in use.
+  const plugin = new ObsidianTaskSyncPlugin(app, manifest);
+  plugin.connection = new ProviderConnection(stubProvider({ connect }));
 
   const loadData = jest.spyOn(plugin, 'loadData').mockResolvedValue(null);
   const saveData = jest.spyOn(plugin, 'saveData').mockResolvedValue(undefined);
@@ -313,6 +311,8 @@ describe('ObsidianTaskSyncPlugin', () => {
   });
 });
 
+const INBOX_PROJECT = { id: 'inbox-1', name: 'Inbox', isDefault: true };
+
 describe('ObsidianTaskSyncPlugin task sync', () => {
   function syncablePlugin(): PluginContext {
     const context = makePlugin(() => Promise.resolve({ id: 'u1', displayName: 'Jan' }));
@@ -329,8 +329,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
       created: 0,
       pushed: 0,
       pulled: 0,
-      reassignedTo: null,
-      replacedMissingProject: false,
+      projectResolution: { kind: 'configured' },
     });
     (plugin as unknown as { titleSync: { run: jest.Mock } }).titleSync = { run };
 
@@ -372,8 +371,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
       created: 0,
       pushed: 0,
       pulled: 0,
-      reassignedTo: { id: 'inbox-1', name: 'Inbox', isDefault: true },
-      replacedMissingProject: false,
+      projectResolution: { kind: 'defaulted', project: INBOX_PROJECT },
     });
 
     await plugin.syncTasks();
@@ -393,8 +391,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
       created: 0,
       pushed: 0,
       pulled: 0,
-      reassignedTo: { id: 'inbox-1', name: 'Inbox', isDefault: true },
-      replacedMissingProject: true,
+      projectResolution: { kind: 'replaced', project: INBOX_PROJECT },
     });
 
     await plugin.syncTasks();
@@ -414,8 +411,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
       created: 0,
       pushed: 0,
       pulled: 0,
-      reassignedTo: { id: 'inbox-1', name: 'Inbox', isDefault: true },
-      replacedMissingProject: false,
+      projectResolution: { kind: 'defaulted', project: INBOX_PROJECT },
     });
 
     await plugin.syncTasks();
@@ -432,8 +428,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
         created: 0,
         pushed: 0,
         pulled: 0,
-        reassignedTo: null,
-        replacedMissingProject: false,
+        projectResolution: { kind: 'configured' },
       });
     }));
 
@@ -540,24 +535,22 @@ describe('ObsidianTaskSyncPlugin debug mode', () => {
     document.body.removeClass('obsidian-task-sync-debug');
   });
 
-  it('keeps anchors hidden and debug logging off by default', () => {
+  it.each([[false], [true]])('mirrors debug mode %s into debug logging', (debugMode) => {
     const { plugin } = makePlugin();
-    plugin.settings = settingsWith();
+    plugin.settings = settingsWith({ debugMode });
 
     plugin.applyDebugMode();
 
-    expect(isDebugLogging()).toBe(false);
-    expect(bodyClasses().hasClass('obsidian-task-sync-debug')).toBe(false);
+    expect(isDebugLogging()).toBe(debugMode);
   });
 
-  it('reveals anchors and opens up debug logging when switched on', () => {
+  it.each([[false], [true]])('mirrors debug mode %s into anchor visibility', (debugMode) => {
     const { plugin } = makePlugin();
-    plugin.settings = settingsWith({ debugMode: true });
+    plugin.settings = settingsWith({ debugMode });
 
     plugin.applyDebugMode();
 
-    expect(isDebugLogging()).toBe(true);
-    expect(bodyClasses().hasClass('obsidian-task-sync-debug')).toBe(true);
+    expect(bodyClasses().hasClass('obsidian-task-sync-debug')).toBe(debugMode);
   });
 
   it('remembers the stored choice', async () => {
