@@ -1,6 +1,6 @@
 const MILLISECONDS_PER_MINUTE = 60_000;
 /** Long enough that a burst of keystrokes settles into one sync. */
-const DEBOUNCE_MS = 2_000;
+const DEBOUNCE_MS = 10_000;
 
 export type RunSync = () => void;
 export type RegisterInterval = (id: number) => void;

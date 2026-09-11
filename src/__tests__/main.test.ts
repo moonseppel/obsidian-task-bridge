@@ -592,7 +592,7 @@ describe('ObsidianTaskSyncPlugin debug mode', () => {
 });
 
 /** Comfortably past the two second debounce, but nowhere near the polling interval. */
-const SYNC_DEBOUNCE_GRACE_MS = 2_500;
+const SYNC_DEBOUNCE_GRACE_MS = 10_500;
 
 describe('ObsidianTaskSyncPlugin edits made while syncing', () => {
   function settle(): Promise<void> {
