@@ -19,12 +19,12 @@
     {
       "blockId": "ots-jg1w8hw3",
       "providerTaskId": "6hV7qcHJ99mxXg56",
-      "lastSyncedTitle": "Nested parent"
+      "lastSyncedTitle": "Nested parent changed in Todoist"
     },
     {
       "blockId": "ots-3tgglva3",
       "providerTaskId": "6hV7qcQhxJ64PV2c",
-      "lastSyncedTitle": "Nested child"
+      "lastSyncedTitle": "Nested child gets changed"
     }
   ]
 }
