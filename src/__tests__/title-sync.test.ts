@@ -80,7 +80,9 @@ describe('TitleSync', () => {
     expect(await sync.run(PROJECT)).toMatchObject({ created: 1, pushed: 0, pulled: 0 });
     expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
     const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
-    expect(created).toEqual([{ title: 'Buy milk', projectId: PROJECT, description: `^${blockId}` }]);
+    expect(created).toEqual([
+      { title: 'Buy milk', projectId: PROJECT, description: `Obsidian Task Sync ID: ^${blockId}` },
+    ]);
   });
 
   it('bakes the device tag into a freshly minted block id', async () => {
@@ -385,7 +387,9 @@ describe('TitleSync', () => {
     });
 
     expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, recreatedTask: 1, removedLine: 0 });
-    expect(created).toEqual([{ title: 'Buy oat milk', projectId: PROJECT, description: '^ots-a1' }]);
+    expect(created).toEqual([
+      { title: 'Buy oat milk', projectId: PROJECT, description: 'Obsidian Task Sync ID: ^ots-a1' },
+    ]);
     expect(note.content).toBe('- [ ] Buy oat milk ^ots-a1');
     expect(links.get('ots-a1')).toEqual({
       blockId: 'ots-a1',
@@ -988,7 +992,7 @@ describe('TitleSync', () => {
 
     await sync.run(PROJECT);
 
-    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, '^ots-a1');
+    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'Obsidian Task Sync ID: ^ots-a1');
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 });

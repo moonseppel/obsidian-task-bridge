@@ -13,7 +13,11 @@ export function orphanNoticeDescription(blockId: string, removalDueAt: number): 
   );
 }
 
-/** What a freshly created task's description looks like, and what an orphan notice reverts to. */
+/**
+ * What a freshly created task's description looks like, and what an orphan notice reverts to. The
+ * label makes the caret-prefixed id legible to a user looking at the task in the provider, who has
+ * no reason to know what an Obsidian block id is.
+ */
 export function bareBlockIdDescription(blockId: string): string {
-  return `^${blockId}`;
+  return `Obsidian Task Sync ID: ^${blockId}`;
 }

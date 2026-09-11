@@ -18,6 +18,6 @@ describe('orphanNoticeDescription', () => {
 
 describe('bareBlockIdDescription', () => {
   it('is exactly what a freshly created task carries', () => {
-    expect(bareBlockIdDescription('ots-a1b2c3d4')).toBe('^ots-a1b2c3d4');
+    expect(bareBlockIdDescription('ots-a1b2c3d4')).toBe('Obsidian Task Sync ID: ^ots-a1b2c3d4');
   });
 });

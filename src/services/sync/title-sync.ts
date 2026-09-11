@@ -518,7 +518,7 @@ export class TitleSync {
     const created = await this.provider.createTask({
       title: line.task.title,
       projectId: line.pass.projectId,
-      description: `^${link.blockId}`,
+      description: bareBlockIdDescription(link.blockId),
     });
 
     this.links.set({ blockId: link.blockId, providerTaskId: created.id, lastSyncedTitle: line.task.title });
@@ -561,7 +561,7 @@ export class TitleSync {
     const created = await this.provider.createTask({
       title: task.title,
       projectId: pass.projectId,
-      description: `^${blockId}`,
+      description: bareBlockIdDescription(blockId),
     });
 
     pass.takenBlockIds.add(blockId);
