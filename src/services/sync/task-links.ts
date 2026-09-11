@@ -1,10 +1,16 @@
 import { isRecord } from '../../utils/type-guards';
 
-/** Ties one Obsidian block id to one provider task, plus the title both sides last agreed on. */
+/**
+ * Ties one Obsidian block id to one provider task, plus what both sides last agreed on for each
+ * synced field. Fields added after a link may already exist are optional, both because a link
+ * loaded from an older data.json never had them and because "unknown" is itself a safe default:
+ * it just means the next pass treats that field as freshly changed on whichever side set it.
+ */
 export interface TaskLink {
   blockId: string;
   providerTaskId: string;
   lastSyncedTitle: string;
+  lastSyncedDone?: boolean;
 }
 
 export class TaskLinkStore {
@@ -62,7 +68,8 @@ function isTaskLink(value: unknown): value is TaskLink {
     isRecord(value) &&
     isNonEmptyString(value.blockId) &&
     isNonEmptyString(value.providerTaskId) &&
-    typeof value.lastSyncedTitle === 'string'
+    typeof value.lastSyncedTitle === 'string' &&
+    (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean')
   );
 }
 

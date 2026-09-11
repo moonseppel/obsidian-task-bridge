@@ -62,9 +62,20 @@ describe('TaskLinkStore', () => {
     [{ blockId: '', providerTaskId: '6X', lastSyncedTitle: 'x' }, 'an empty block id'],
     [{ blockId: 'ots-a1', providerTaskId: '6X' }, 'no last synced title'],
     [{ blockId: 'ots-a1', providerTaskId: 6, lastSyncedTitle: 'x' }, 'a numeric provider id'],
+    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedDone: 'yes' }, 'a non-boolean lastSyncedDone'],
     ['a string', 'not an object at all'],
   ])('drops an entry with %s', (entry) => {
     expect(TaskLinkStore.fromStored([entry]).size).toBe(0);
+  });
+
+  it('accepts a link with no lastSyncedDone, as a data.json written before feature 7 would have', () => {
+    expect(TaskLinkStore.fromStored([LINK]).get('ots-a1')?.lastSyncedDone).toBeUndefined();
+  });
+
+  it('accepts a link that carries a lastSyncedDone', () => {
+    const link = { ...LINK, lastSyncedDone: true };
+
+    expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
   });
 
   it('keeps the sound entries when only some are malformed', () => {

@@ -334,6 +334,110 @@ describe('TitleSync', () => {
     expect(note.saves).toBe(0);
   });
 
+  describe('state sync', () => {
+    it('completes the task when the line is checked locally', async () => {
+      const note = new FakeNote('- [x] Buy milk ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+      ]);
+      const completed: string[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        completeTask: (id) => {
+          completed.push(id);
+          return Promise.resolve();
+        },
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
+      expect(completed).toEqual([TASK_ID]);
+      expect(links.get('ots-a1')?.lastSyncedDone).toBe(true);
+    });
+
+    it('treats a link with no recorded state as not done, so an already-checked line pushes a completion', async () => {
+      const note = new FakeNote('- [x] Buy milk ^ots-a1');
+      const links = new TaskLinkStore([{ blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
+      const completed: string[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        completeTask: (id) => {
+          completed.push(id);
+          return Promise.resolve();
+        },
+      });
+
+      await sync.run(PROJECT);
+
+      expect(completed).toEqual([TASK_ID]);
+    });
+
+    it('clears the checkbox when the task was reopened in Todoist', async () => {
+      const note = new FakeNote('- [x] Buy milk ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
+      ]);
+      const sync = makeSync(note, links, {
+        // Still present in the active list at all means Todoist now considers it not completed.
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 1 });
+      expect(note.content).toBe('- [ ] Buy milk ^ots-a1');
+      expect(links.get('ots-a1')?.lastSyncedDone).toBe(false);
+    });
+
+    it('settles silently when both sides already dropped the completion, without calling the provider', async () => {
+      const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
+      ]);
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+      expect(links.get('ots-a1')?.lastSyncedDone).toBe(false);
+    });
+
+    it('does nothing when both sides already agree the task is not done', async () => {
+      const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+      ]);
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+      expect(note.saves).toBe(0);
+    });
+
+    it('syncs title and state independently in the same pass', async () => {
+      const note = new FakeNote('- [x] Buy oat milk ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+      ]);
+      const pushedTitles: string[] = [];
+      const completed: string[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        updateTaskTitle: (_id, title) => {
+          pushedTitles.push(title);
+          return Promise.resolve();
+        },
+        completeTask: (id) => {
+          completed.push(id);
+          return Promise.resolve();
+        },
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 2 });
+      expect(pushedTitles).toEqual(['Buy oat milk']);
+      expect(completed).toEqual([TASK_ID]);
+      expect(links.get('ots-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
+    });
+  });
+
   it('removes the line when its linked task was deleted in the provider', async () => {
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore([

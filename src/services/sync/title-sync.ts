@@ -3,7 +3,7 @@ import { createBlockId } from './block-id';
 import { OrphanTracker } from './orphan-tracker';
 import { bareBlockIdDescription, orphanNoticeDescription } from './orphan-notice';
 import { TaskLink, TaskLinkStore } from './task-links';
-import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
+import { ParsedTaskLine, collectBlockIds, formatTaskLine, isDone, parseTaskLine } from './task-line';
 
 /**
  * A vault-sync tool can deliver data.json slightly behind the note, so a block id that only just
@@ -461,8 +461,10 @@ export class TitleSync {
   }
 
   /**
-   * Both sides are checked against the title they last agreed on, rather than only ever asking
-   * whether Obsidian changed, so a genuine conflict can be told apart from a one-sided change.
+   * Every synced field is checked independently against what both sides last agreed on for that
+   * field specifically, rather than only ever asking whether Obsidian changed, so a genuine
+   * conflict on one field can be told apart from a one-sided change and from an unrelated change
+   * on another field entirely.
    */
   private async syncAgainstLink(line: LineUnderSync, link: TaskLink): Promise<void> {
     const remoteTask = line.pass.remoteTasks.get(link.providerTaskId);
@@ -472,12 +474,26 @@ export class TitleSync {
       return;
     }
 
+    await this.syncTitleAgainstLink(line, link, remoteTask);
+    // Re-fetched rather than reusing the snapshot above: title-sync may have just updated the
+    // stored link, and done-sync must merge onto that, not silently revert it.
+    await this.syncDoneAgainstLink(line, this.links.get(link.blockId) ?? link, remoteTask);
+  }
+
+  private async syncTitleAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
     const remoteTitle = remoteTask.title;
     const localChanged = line.task.title !== link.lastSyncedTitle;
     const remoteChanged = remoteTitle.length > 0 && remoteTitle !== link.lastSyncedTitle;
 
     if (localChanged && remoteChanged) {
-      await this.resolveConflict(line, link, remoteTitle, remoteTask.updatedAt);
+      await this.resolveFieldConflict(
+        line,
+        remoteTask.updatedAt,
+        line.task.title === remoteTitle,
+        () => this.links.set({ ...link, lastSyncedTitle: remoteTitle }),
+        () => this.pushTitle(line, link),
+        () => this.pullTitle(line, link, remoteTitle),
+      );
       return;
     }
 
@@ -488,6 +504,42 @@ export class TitleSync {
 
     if (remoteChanged) {
       this.pullTitle(line, link, remoteTitle);
+    }
+  }
+
+  /**
+   * A task's mere presence in the active list this pass fetched means it is not completed, by
+   * construction (Todoist's active list excludes a completed task exactly as it excludes a deleted
+   * one) — so the remote side of this comparison is always "not done" here. A remote completion
+   * that instead made the task disappear from the list is handled separately, in
+   * syncAgainstMissingRemoteTask.
+   */
+  private async syncDoneAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
+    const lastSyncedDone = link.lastSyncedDone ?? false;
+    const localDone = isDone(line.task);
+    const remoteDone = false;
+    const localChanged = localDone !== lastSyncedDone;
+    const remoteChanged = remoteDone !== lastSyncedDone;
+
+    if (localChanged && remoteChanged) {
+      await this.resolveFieldConflict(
+        line,
+        remoteTask.updatedAt,
+        localDone === remoteDone,
+        () => this.links.set({ ...link, lastSyncedDone: remoteDone }),
+        () => this.pushDone(line, link, localDone),
+        () => this.pullDone(line, link, remoteDone),
+      );
+      return;
+    }
+
+    if (localChanged) {
+      await this.pushDone(line, link, localDone);
+      return;
+    }
+
+    if (remoteChanged) {
+      this.pullDone(line, link, remoteDone);
     }
   }
 
@@ -535,30 +587,32 @@ export class TitleSync {
   }
 
   /**
-   * Both sides landed on the same title independently: nothing to reconcile, so it's not a
-   * conflict. Otherwise the newer side wins; when recency can't be told (the remote timestamp is
-   * missing, or the two are exactly equal) the local edit wins, deterministically, so the outcome
-   * never flaps from one pass to the next.
+   * The shape every synced field's conflict follows: both sides landing on the same value
+   * independently is not a conflict, just a silent settle. Otherwise the newer side wins; when
+   * recency can't be told (the remote timestamp is missing, or the two are exactly equal) the
+   * local edit wins, deterministically, so the outcome never flaps from one pass to the next.
    */
-  private async resolveConflict(
+  private async resolveFieldConflict(
     line: LineUnderSync,
-    link: TaskLink,
-    remoteTitle: string,
     remoteUpdatedAt: number | undefined,
+    valuesAgree: boolean,
+    settle: () => void,
+    push: () => Promise<void>,
+    pull: () => void,
   ): Promise<void> {
-    if (line.task.title === remoteTitle) {
-      this.links.set({ ...link, lastSyncedTitle: remoteTitle });
+    if (valuesAgree) {
+      settle();
       return;
     }
 
     line.pass.outcome.conflicted += 1;
 
     if (remoteUpdatedAt !== undefined && remoteUpdatedAt > line.pass.localModifiedAt) {
-      this.pullTitle(line, link, remoteTitle);
+      pull();
       return;
     }
 
-    await this.pushTitle(line, link);
+    await push();
   }
 
   private async createTask(line: LineUnderSync): Promise<void> {
@@ -587,6 +641,18 @@ export class TitleSync {
   private pullTitle(line: LineUnderSync, link: TaskLink, remoteTitle: string): void {
     this.links.set({ ...link, lastSyncedTitle: remoteTitle });
     addEdit(line, formatTaskLine({ ...line.task, title: remoteTitle }));
+    line.pass.outcome.pulled += 1;
+  }
+
+  private async pushDone(line: LineUnderSync, link: TaskLink, done: boolean): Promise<void> {
+    await (done ? this.provider.completeTask(link.providerTaskId) : this.provider.reopenTask(link.providerTaskId));
+    this.links.set({ ...link, lastSyncedDone: done });
+    line.pass.outcome.pushed += 1;
+  }
+
+  private pullDone(line: LineUnderSync, link: TaskLink, done: boolean): void {
+    this.links.set({ ...link, lastSyncedDone: done });
+    addEdit(line, formatTaskLine({ ...line.task, checkbox: done ? 'x' : ' ' }));
     line.pass.outcome.pulled += 1;
   }
 
