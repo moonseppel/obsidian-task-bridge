@@ -1,8 +1,7 @@
 {
   "relativeTaskSourceNotePath": "Test Note.md",
-  "todoistApiTokenSecretName": "todoist-test-token",
-  "todoistProjectId": "6hRvxww6q685Jg2c",
-  "todoistProjectName": "Inbox",
+  "projectId": "6hRvxww6q685Jg2c",
+  "projectName": "Inbox",
   "syncIntervalMinutes": 5,
   "debugMode": false,
   "taskLinks": [
@@ -26,5 +25,20 @@
       "providerTaskId": "6hV7qcQhxJ64PV2c",
       "lastSyncedTitle": "Nested child gets changed"
     }
-  ]
+  ],
+  "knownProjects": [
+    {
+      "id": "6hRvxww6q685Jg2c",
+      "name": "Inbox",
+      "isDefault": true
+    },
+    {
+      "id": "6hVMWXwgxXjHwfpQ",
+      "name": "obsidian-task-sync test 1789121828861",
+      "isDefault": false
+    }
+  ],
+  "providerCredentials": {
+    "apiTokenSecretName": "todoist-test-token"
+  }
 }
