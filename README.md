@@ -22,7 +22,16 @@ Todoist task, and a title changed in Todoist is written back into the note. Task
 Obsidian block ids, syncing runs on save and on a configurable poll, and "Sync now" is in the
 command palette.
 
-Next: Feature 5 — conflict resolution.
+**Feature 5: Complete** — Conflict resolution and task identity: a genuine conflict, where both
+sides changed to different titles, is resolved by recency when both sides' modification times are
+known, and deterministically favors the Obsidian edit when they aren't. Every task this plugin
+creates carries the originating block id in its Todoist description, so a line whose link is
+missing or stale re-links to that task — after a short grace period — instead of creating a
+duplicate, and a short tag unique to each device keeps two devices from ever minting the same
+block id. A task that loses its link is flagged as orphaned after an hour and removed after two
+days unless it is re-linked first.
+
+Next: Feature 6 — task deletion sync.
 
 ## Connecting to Todoist
 
@@ -72,9 +81,32 @@ that, and tells you once so the change is never silent.
 
 ### What wins when both sides changed
 
-Nothing clever, by design. Within one pass a change made in Obsidian is sent to Todoist and the
-Todoist title is discarded. Across passes the later sync wins, regardless of when either edit was
-actually made. Real conflict resolution arrives in feature 5.
+A change on only one side always wins outright: it is pushed or pulled, no contest. When both
+sides changed to different titles since they last agreed, it is a genuine conflict, and the newer
+edit wins — the source note's modification time against the Todoist task's. When recency can't be
+told, because the remote timestamp is missing or the two are exactly equal, the Obsidian edit wins,
+deterministically, so the outcome never flips back and forth from one sync to the next. When both
+sides happened to change to the *same* title, there is nothing to reconcile and neither side is
+touched.
+
+### Task identity and duplicate avoidance
+
+Every task this plugin creates carries the block id that created it as the last line of its
+Todoist description, findable even if you add your own notes to the description afterward. If a
+line's block id isn't yet recognized, the project's task list is checked first for a task whose
+description already carries that id — and re-linked to it — before a new one is created, and even
+then only after 60 seconds of the id staying unmatched. That grace period is what keeps a
+vault-sync tool that delivers `data.json` slightly behind the note from creating a duplicate task.
+A short tag generated once per device and kept out of `data.json` is baked into every block id this
+device mints from then on, so the same id is never minted independently by two devices.
+
+### Orphaned tasks
+
+A task that carries this plugin's block id but has no live link back to it — because the line was
+edited out from under it, or `data.json` was reset — is orphaned. After an hour, its description is
+updated with a notice that it will be removed in two days, and that date is recorded in the
+plugin's own data, never read back from the notice text. If it is re-linked before then, the notice
+is reverted and nothing more happens; otherwise it is removed once the date passes.
 
 ## Debug mode
 
@@ -106,7 +138,9 @@ page, so no setting can reveal them. Live Preview shows all of them.
 - Tasks created directly in Todoist are not pulled into the note. Only tasks this plugin created are
   followed, which is what "partial two-way sync" means
 - The note and `data.json` are separate files. If they get out of step, through a partial restore or
-  a third-party vault sync, a line can lose its link and be created in Todoist a second time
+  a third-party vault sync running slightly behind, task identity and the 60-second grace period
+  usually re-link the line to its existing task rather than duplicating it — but a link that never
+  catches up still ends up creating a second task eventually
 
 ## Installation
 
@@ -156,7 +190,10 @@ src/
     sync/
       task-line.ts            # Parses and formats a markdown checkbox line
       block-id.ts             # Mints the block ids that anchor tasks
+      device-tag.ts           # The per-device tag baked into freshly minted block ids
       task-links.ts           # Block id to provider task id mapping, with its stored form
+      orphan-tracker.ts       # Tracks how long a task has been orphaned, and its removal date
+      orphan-notice.ts        # The courtesy description notice for a flagged orphan
       title-sync.ts           # The sync pass itself, plus how note edits are applied
       sync-scheduler.ts       # The poll and the debounce that start a sync
       obsidian-source-note.ts # Adapter over the vault for the configured note
@@ -188,11 +225,16 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and
   `data.json` maps that id to the provider's task id plus the title both sides last agreed on. The
   provider's id never enters the note, so switching providers rewrites one file rather than every note
+- **Duplicate avoidance** — the same block id is also embedded in the provider task's description,
+  so a line data.json has lost track of can be found and re-linked instead of duplicated, and a
+  per-device tag keeps two devices from ever minting the same id in the first place
+- **Orphan lifecycle** — a task that loses its link is flagged, then removed, on a schedule tracked
+  entirely in the plugin's own data; the description notice it gets is a courtesy only
 
 Future versions will add:
 
-- Conflict resolution for simultaneous edits (feature 5)
-- More synced fields, starting with priority (feature 6)
+- Task deletion sync in both directions (feature 6)
+- More synced fields, starting with priority (feature 7)
 
 ## License
 
@@ -213,8 +255,10 @@ Tests cover:
 - Source-note picker filtering, and rename/delete tracking of the configured note
 - The Todoist client's request shape and its mapping of API failures
 - Connection status handling and how it is reported in the settings tab
-- Task line parsing, block id minting, and the link store's tolerance of corrupt data
-- The sync pass in both directions, including what it keeps when a call fails midway
+- Task line parsing, block id minting (including the per-device tag), and the link store's
+  tolerance of corrupt data
+- The sync pass in both directions, conflict resolution by recency, re-linking and the creation
+  grace period, and the orphaned-task lifecycle — including what it keeps when a call fails midway
 
 ### Integration tests
 
