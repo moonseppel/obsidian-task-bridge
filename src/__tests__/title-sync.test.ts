@@ -368,6 +368,32 @@ describe('TitleSync', () => {
     });
   });
 
+  it('recreates the task when it was deleted remotely but the line carries an edited title', async () => {
+    const note = new FakeNote('- [ ] Buy oat milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const created: NewTask[] = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve(undefined),
+      createTask: (task) => {
+        created.push(task);
+        return Promise.resolve({ id: 'new-task-id', title: task.title });
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, recreatedTask: 1, removedLine: 0 });
+    expect(created).toEqual([{ title: 'Buy oat milk', projectId: PROJECT, description: '^ots-a1' }]);
+    expect(note.content).toBe('- [ ] Buy oat milk ^ots-a1');
+    expect(links.get('ots-a1')).toEqual({
+      blockId: 'ots-a1',
+      providerTaskId: 'new-task-id',
+      lastSyncedTitle: 'Buy oat milk',
+    });
+  });
+
   it('does nothing the first time a linked line goes missing from the note', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([

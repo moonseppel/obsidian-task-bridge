@@ -58,6 +58,8 @@ export interface SyncOutcome {
   removedLine: number;
   /** A provider task removed because its linked line was deleted from the note. */
   removedTask: number;
+  /** A task recreated because it was deleted remotely while its line carried a newer local edit. */
+  recreatedTask: number;
   projectResolution: ProjectResolution;
 }
 
@@ -156,6 +158,7 @@ export class TitleSync {
         conflicted: 0,
         removedLine: 0,
         removedTask: 0,
+        recreatedTask: 0,
         projectResolution: project.resolution,
       },
     };
@@ -464,12 +467,31 @@ export class TitleSync {
     const localChanged = line.task.title !== link.lastSyncedTitle;
 
     if (localChanged) {
+      await this.recreateTask(line, link);
       return;
     }
 
     addRemoval(line);
     this.links.delete(link.blockId);
     line.pass.outcome.removedLine += 1;
+  }
+
+  /**
+   * The remote side has no timestamp to compare once its task is gone, so per the same
+   * missing-timestamp rule a plain title conflict already follows, the local edit wins: a fresh
+   * task is created from the line's current title and re-linked, rather than the edit being lost
+   * to the line simply being removed.
+   */
+  private async recreateTask(line: LineUnderSync, link: TaskLink): Promise<void> {
+    const created = await this.provider.createTask({
+      title: line.task.title,
+      projectId: line.pass.projectId,
+      description: `^${link.blockId}`,
+    });
+
+    this.links.set({ blockId: link.blockId, providerTaskId: created.id, lastSyncedTitle: line.task.title });
+    line.pass.outcome.conflicted += 1;
+    line.pass.outcome.recreatedTask += 1;
   }
 
   /**
