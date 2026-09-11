@@ -184,6 +184,41 @@ describe('TitleSync', () => {
     expect(note.content).toBe('- [ ] Local wins ^ots-a1');
   });
 
+  it('pulls the remote title when it is the newer of two conflicting edits', async () => {
+    const note = new FakeNote('- [ ] Local wins ^ots-a1');
+    note.modifiedAt = 1_000;
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
+    ]);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Remote wins', updatedAt: 2_000 }),
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 0, pulled: 1, conflicted: 1 });
+    expect(note.content).toBe('- [ ] Remote wins ^ots-a1');
+    expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Remote wins');
+  });
+
+  it('pushes the local title when it is the newer of two conflicting edits', async () => {
+    const note = new FakeNote('- [ ] Local wins ^ots-a1');
+    note.modifiedAt = 2_000;
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
+    ]);
+    const pushed: string[] = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Remote wins', updatedAt: 1_000 }),
+      updateTaskTitle: (_id, title) => {
+        pushed.push(title);
+        return Promise.resolve();
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0, conflicted: 1 });
+    expect(pushed).toEqual(['Local wins']);
+    expect(note.content).toBe('- [ ] Local wins ^ots-a1');
+  });
+
   it('is not a conflict when both sides changed to the same title', async () => {
     const note = new FakeNote('- [ ] Same title ^ots-a1');
     const links = new TaskLinkStore([

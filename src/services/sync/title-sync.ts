@@ -69,7 +69,7 @@ export class TitleSync {
     const pass: SyncPass = {
       lines,
       projectId: project.id,
-      remoteTitles: toTitleMap(project.tasks),
+      remoteTasks: toTaskMap(project.tasks),
       takenBlockIds: collectBlockIds(lines),
       localModifiedAt,
       edits: [],
@@ -117,13 +117,14 @@ export class TitleSync {
    * whether Obsidian changed, so a genuine conflict can be told apart from a one-sided change.
    */
   private async syncAgainstLink(line: LineUnderSync, link: TaskLink): Promise<void> {
-    const remoteTitle = line.pass.remoteTitles.get(link.providerTaskId);
+    const remoteTask = line.pass.remoteTasks.get(link.providerTaskId);
+    const remoteTitle = remoteTask?.title;
     const localChanged = line.task.title !== link.lastSyncedTitle;
     const remoteChanged =
       remoteTitle !== undefined && remoteTitle.length > 0 && remoteTitle !== link.lastSyncedTitle;
 
     if (localChanged && remoteChanged) {
-      await this.resolveConflict(line, link, remoteTitle as string);
+      await this.resolveConflict(line, link, remoteTitle as string, remoteTask?.updatedAt);
       return;
     }
 
@@ -137,15 +138,30 @@ export class TitleSync {
     }
   }
 
-  /** Both sides landed on the same title independently: nothing to reconcile, so it's not a conflict. */
-  private async resolveConflict(line: LineUnderSync, link: TaskLink, remoteTitle: string): Promise<void> {
+  /**
+   * Both sides landed on the same title independently: nothing to reconcile, so it's not a
+   * conflict. Otherwise the newer side wins; when recency can't be told (the remote timestamp is
+   * missing, or the two are exactly equal) the local edit wins, deterministically, so the outcome
+   * never flaps from one pass to the next.
+   */
+  private async resolveConflict(
+    line: LineUnderSync,
+    link: TaskLink,
+    remoteTitle: string,
+    remoteUpdatedAt: number | undefined,
+  ): Promise<void> {
     if (line.task.title === remoteTitle) {
       this.links.set({ ...link, lastSyncedTitle: remoteTitle });
       return;
     }
 
     line.pass.outcome.conflicted += 1;
-    // Resolved via push for now; recency-based resolution follows in a later slice.
+
+    if (remoteUpdatedAt !== undefined && remoteUpdatedAt > line.pass.localModifiedAt) {
+      this.pullTitle(line, link, remoteTitle);
+      return;
+    }
+
     await this.pushTitle(line, link);
   }
 
@@ -224,7 +240,7 @@ export class TitleSync {
 interface SyncPass {
   readonly lines: readonly string[];
   readonly projectId: string;
-  readonly remoteTitles: ReadonlyMap<string, string>;
+  readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
   readonly takenBlockIds: Set<string>;
   readonly localModifiedAt: number;
   readonly edits: LineEdit[];
@@ -244,8 +260,8 @@ interface ResolvedProject {
   readonly tasks: readonly ProviderTask[];
 }
 
-function toTitleMap(tasks: readonly ProviderTask[]): Map<string, string> {
-  return new Map(tasks.map((task): [string, string] => [task.id, task.title]));
+function toTaskMap(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
+  return new Map(tasks.map((task): [string, ProviderTask] => [task.id, task]));
 }
 
 function addEdit(line: LineUnderSync, replacement: string): void {
