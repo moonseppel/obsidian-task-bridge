@@ -1,5 +1,5 @@
 import { TFile, Vault } from 'obsidian';
-import { LineEdit, SourceNote, applyLineEdits } from './title-sync';
+import { NoteEdits, SourceNote, applyNoteEdits } from './title-sync';
 
 export type SourceFileReader = () => TFile | null;
 
@@ -21,9 +21,9 @@ export class ObsidianSourceNote implements SourceNote {
     return this.requireFile().stat.mtime;
   }
 
-  async applyEdits(edits: readonly LineEdit[]): Promise<void> {
+  async applyEdits(edits: NoteEdits): Promise<void> {
     // `process` rather than `modify`, so a concurrent write cannot lose either side's changes.
-    await this.vault.process(this.requireFile(), (content) => applyLineEdits(content, edits));
+    await this.vault.process(this.requireFile(), (content) => applyNoteEdits(content, edits));
   }
 
   private requireFile(): TFile {

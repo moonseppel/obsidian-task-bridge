@@ -23,11 +23,24 @@ export interface LineEdit {
   readonly replacement: string;
 }
 
+/** Drops one line outright, only if it still reads as it did when the pass started. */
+export interface LineRemoval {
+  readonly lineNumber: number;
+  readonly expected: string;
+}
+
+/** Everything one pass wants done to the note, applied together in the same atomic write. */
+export interface NoteEdits {
+  readonly replacements: readonly LineEdit[];
+  readonly removals: readonly LineRemoval[];
+  readonly appended: readonly string[];
+}
+
 export interface SourceNote {
   read(): Promise<string>;
   /** Epoch ms the note was last modified, so a conflict can be resolved by recency. */
   lastModified(): Promise<number>;
-  applyEdits(edits: readonly LineEdit[]): Promise<void>;
+  applyEdits(edits: NoteEdits): Promise<void>;
 }
 
 /** How the pass arrived at the project it used, which is all a caller needs to report it. */
@@ -55,6 +68,35 @@ export function applyLineEdits(content: string, edits: readonly LineEdit[]): str
   }
 
   return lines.join('\n');
+}
+
+/** Drops only the lines that still read as they did, the same safety net replacements get. */
+export function removeLines(content: string, removals: readonly LineRemoval[]): string {
+  const lines = content.split('\n');
+  const toRemove = new Set(
+    removals
+      .filter((removal) => lines[removal.lineNumber] === removal.expected)
+      .map((removal) => removal.lineNumber),
+  );
+
+  return lines.filter((_line, index) => !toRemove.has(index)).join('\n');
+}
+
+/** Appends whole new lines at the end of the note, e.g. to resurrect a line a conflict decided to keep. */
+export function appendLines(content: string, lines: readonly string[]): string {
+  if (lines.length === 0) {
+    return content;
+  }
+
+  return content.length === 0 ? lines.join('\n') : [content, ...lines].join('\n');
+}
+
+/** Composes today's replacements with removals and appends, applied together in one atomic write. */
+export function applyNoteEdits(content: string, edits: NoteEdits): string {
+  const replaced = applyLineEdits(content, edits.replacements);
+  const withRemovals = removeLines(replaced, edits.removals);
+
+  return appendLines(withRemovals, edits.appended);
 }
 
 export class TitleSync {
@@ -97,7 +139,9 @@ export class TitleSync {
       takenBlockIds: collectBlockIds(lines),
       localModifiedAt,
       pendingBlockIds: new Set(),
-      edits: [],
+      replacements: [],
+      removals: [],
+      appended: [],
       outcome: { created: 0, pushed: 0, pulled: 0, conflicted: 0, projectResolution: project.resolution },
     };
 
@@ -107,7 +151,7 @@ export class TitleSync {
       this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
-      await this.commit(pass.edits);
+      await this.commit(pass);
       // Runs after the pass's own work is safely committed, so a transient failure here
       // (flagging or removing an orphan) never blocks what already succeeded from being saved.
       await this.updateOrphanTracking(pass.remoteTasks.values());
@@ -410,8 +454,10 @@ export class TitleSync {
     };
   }
 
-  private async commit(edits: readonly LineEdit[]): Promise<void> {
-    if (edits.length > 0) {
+  private async commit(pass: SyncPass): Promise<void> {
+    const edits: NoteEdits = { replacements: pass.replacements, removals: pass.removals, appended: pass.appended };
+
+    if (edits.replacements.length + edits.removals.length + edits.appended.length > 0) {
       await this.note.applyEdits(edits);
     }
 
@@ -427,7 +473,9 @@ interface SyncPass {
   readonly takenBlockIds: Set<string>;
   readonly localModifiedAt: number;
   readonly pendingBlockIds: Set<string>;
-  readonly edits: LineEdit[];
+  readonly replacements: LineEdit[];
+  readonly removals: LineRemoval[];
+  readonly appended: string[];
   readonly outcome: SyncOutcome;
 }
 
@@ -465,5 +513,5 @@ function addEdit(line: LineUnderSync, replacement: string): void {
     return;
   }
 
-  line.pass.edits.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
+  line.pass.replacements.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
 }

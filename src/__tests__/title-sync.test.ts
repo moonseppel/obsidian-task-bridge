@@ -2,7 +2,7 @@ import { NewTask, ProviderTask } from '../services/task-provider';
 import { TaskProviderError } from '../services/task-provider-error';
 import { OrphanTracker } from '../services/sync/orphan-tracker';
 import { TaskLinkStore } from '../services/sync/task-links';
-import { LineEdit, SourceNote, TitleSync, applyLineEdits } from '../services/sync/title-sync';
+import { NoteEdits, SourceNote, TitleSync, applyLineEdits, applyNoteEdits, appendLines, removeLines } from '../services/sync/title-sync';
 import { stubProvider } from './support/stub-provider';
 
 const PROJECT = 'project-1';
@@ -25,9 +25,9 @@ class FakeNote implements SourceNote {
     return this.modifiedAt;
   }
 
-  async applyEdits(edits: readonly LineEdit[]): Promise<void> {
+  async applyEdits(edits: NoteEdits): Promise<void> {
     this.saves += 1;
-    this.content = applyLineEdits(this.content, edits);
+    this.content = applyNoteEdits(this.content, edits);
   }
 }
 
@@ -798,5 +798,66 @@ describe('applyLineEdits', () => {
     const edits = [{ lineNumber: 9, expected: '- [ ] Gone', replacement: '- [ ] New' }];
 
     expect(applyLineEdits('- [ ] Only line', edits)).toBe('- [ ] Only line');
+  });
+});
+
+describe('removeLines', () => {
+  it('drops a line that still reads as expected', () => {
+    const removals = [{ lineNumber: 1, expected: '- [ ] Second' }];
+
+    expect(removeLines('- [ ] First\n- [ ] Second\n- [ ] Third', removals)).toBe('- [ ] First\n- [ ] Third');
+  });
+
+  it('leaves a line the user edited in the meantime untouched', () => {
+    const removals = [{ lineNumber: 0, expected: '- [ ] Old' }];
+
+    expect(removeLines('- [ ] Typed something else', removals)).toBe('- [ ] Typed something else');
+  });
+
+  it('drops several lines by index in one call', () => {
+    const removals = [
+      { lineNumber: 0, expected: '- [ ] First' },
+      { lineNumber: 2, expected: '- [ ] Third' },
+    ];
+
+    expect(removeLines('- [ ] First\n- [ ] Second\n- [ ] Third', removals)).toBe('- [ ] Second');
+  });
+
+  it('leaves the note empty when its only line is removed', () => {
+    const removals = [{ lineNumber: 0, expected: '- [ ] Only line' }];
+
+    expect(removeLines('- [ ] Only line', removals)).toBe('');
+  });
+});
+
+describe('appendLines', () => {
+  it('adds a new line at the end of a non-empty note', () => {
+    expect(appendLines('- [ ] First', ['- [ ] Second'])).toBe('- [ ] First\n- [ ] Second');
+  });
+
+  it('does not leave a leading blank line when the note started empty', () => {
+    expect(appendLines('', ['- [ ] First'])).toBe('- [ ] First');
+  });
+
+  it('leaves the note untouched when there is nothing to append', () => {
+    expect(appendLines('- [ ] First', [])).toBe('- [ ] First');
+  });
+});
+
+describe('applyNoteEdits', () => {
+  it('applies replacements, removals and appends together', () => {
+    const edits: NoteEdits = {
+      replacements: [{ lineNumber: 0, expected: '- [ ] First', replacement: '- [ ] First edited' }],
+      removals: [{ lineNumber: 1, expected: '- [ ] Second' }],
+      appended: ['- [ ] Third'],
+    };
+
+    expect(applyNoteEdits('- [ ] First\n- [ ] Second', edits)).toBe('- [ ] First edited\n- [ ] Third');
+  });
+
+  it('does nothing when every list is empty', () => {
+    const edits: NoteEdits = { replacements: [], removals: [], appended: [] };
+
+    expect(applyNoteEdits('- [ ] Only line', edits)).toBe('- [ ] Only line');
   });
 });
