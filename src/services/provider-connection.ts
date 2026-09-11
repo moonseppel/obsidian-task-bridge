@@ -20,8 +20,12 @@ export class ProviderConnection {
     return this.currentStatus;
   }
 
+  get defaultProjectName(): string {
+    return this.provider.description.defaultProjectName;
+  }
+
   get providerName(): string {
-    return this.provider.displayName;
+    return this.provider.description.displayName;
   }
 
   async connect(): Promise<ConnectionStatus> {

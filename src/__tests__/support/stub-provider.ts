@@ -15,7 +15,7 @@ const NOT_STUBBED = (name: string) => (): never => {
 /** Every port method, so a test only has to spell out the ones it actually exercises. */
 export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
   return {
-    displayName: 'Todoist',
+    description: { displayName: 'Todoist', defaultProjectName: 'Inbox' },
     connect: options.connect ?? NOT_STUBBED('connect'),
     listProjects: options.listProjects ?? NOT_STUBBED('listProjects'),
     listTasks: options.listTasks ?? NOT_STUBBED('listTasks'),

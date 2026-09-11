@@ -8,6 +8,7 @@ import {
   ToggleComponent,
 } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../settings';
+import { TodoistCredentials } from '../services/todoist/todoist-credentials';
 import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
 import type ObsidianTaskSyncPlugin from '../main';
 import { ProviderConnection } from '../services/provider-connection';
@@ -36,6 +37,7 @@ interface TabContext {
   refreshKnownProjects: jest.Mock;
   ensureProjectSelected: jest.Mock;
   knownProjects: ProviderProject[];
+  credentials: TodoistCredentials;
   connection: ProviderConnection;
   existingPaths: string[];
 }
@@ -62,6 +64,7 @@ function makeTab(
   const connectToTaskProvider = jest.fn().mockImplementation(() => connection.connect());
   const restartSyncSchedule = jest.fn();
   const applyDebugMode = jest.fn();
+  const credentials = new TodoistCredentials(app, () => saveSettings());
   const refreshKnownProjects = jest.fn().mockResolvedValue(undefined);
   const ensureProjectSelected = jest.fn().mockResolvedValue(undefined);
   const knownProjects: ProviderProject[] = [];
@@ -76,6 +79,7 @@ function makeTab(
     refreshKnownProjects,
     ensureProjectSelected,
     knownProjects,
+    credentials,
   } as unknown as ObsidianTaskSyncPlugin;
 
   return {
@@ -90,6 +94,7 @@ function makeTab(
     refreshKnownProjects,
     ensureProjectSelected,
     knownProjects,
+    credentials,
   };
 }
 
@@ -148,9 +153,6 @@ describe('DEFAULT_SETTINGS', () => {
     expect(DEFAULT_SETTINGS.relativeTaskSourceNotePath).toBe('');
   });
 
-  it('has no API token secret selected', () => {
-    expect(DEFAULT_SETTINGS.todoistApiTokenSecretName).toBe('');
-  });
 });
 
 describe('ObsidianTaskSyncSettingTab', () => {
@@ -288,7 +290,7 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
   it('pre-selects the stored secret', () => {
     const setValue = jest.spyOn(SecretComponent.prototype, 'setValue');
     const { tab, plugin } = makeTab('');
-    plugin.settings.todoistApiTokenSecretName = 'todoist-api-token';
+    plugin.credentials.restore({ apiTokenSecretName: 'todoist-api-token' });
 
     tab.display();
 
@@ -349,7 +351,7 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
 
     await changeTokenSecret(tab, 'todoist-api-token');
 
-    expect(plugin.settings.todoistApiTokenSecretName).toBe('todoist-api-token');
+    expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: 'todoist-api-token' });
   });
 
   it('persists the choice of secret', async () => {
@@ -362,16 +364,16 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
 
   it('forgets the secret when the field is cleared, which reports null rather than an empty string', async () => {
     const { tab, plugin } = makeTab('');
-    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+    plugin.credentials.restore({ apiTokenSecretName: 'todoist-test' });
 
     await changeTokenSecret(tab, null as unknown as string);
 
-    expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+    expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: '' });
   });
 
   it('re-checks the connection when the field is cleared', async () => {
     const { tab, plugin, connectToTaskProvider } = makeTab('');
-    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+    plugin.credentials.restore({ apiTokenSecretName: 'todoist-test' });
 
     await changeTokenSecret(tab, null as unknown as string);
 
@@ -380,11 +382,11 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
 
   it('forgets the secret when it is deleted from the secret list', async () => {
     const { tab, plugin } = makeTab('');
-    plugin.settings.todoistApiTokenSecretName = 'todoist-test';
+    plugin.credentials.restore({ apiTokenSecretName: 'todoist-test' });
 
     await changeTokenSecret(tab, '');
 
-    expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+    expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: '' });
   });
 
   it('disables the connection test while no API token is selected', () => {
@@ -402,7 +404,7 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
   it('enables the connection test once a secret is selected', () => {
     const setDisabled = jest.spyOn(ButtonComponent.prototype, 'setDisabled');
     const { tab, plugin } = makeTab('');
-    plugin.settings.todoistApiTokenSecretName = 'todoist-api-token';
+    plugin.credentials.restore({ apiTokenSecretName: 'todoist-api-token' });
 
     tab.display();
 
@@ -444,19 +446,19 @@ describe('ObsidianTaskSyncSettingTab sync section', () => {
 
   it('gives the project field no change handler, so it can never be emptied', () => {
     const { tab, plugin, saveSettings } = makeTab('');
-    plugin.settings.todoistProjectId = 'p1';
-    plugin.settings.todoistProjectName = 'Errands';
+    plugin.settings.projectId = 'p1';
+    plugin.settings.projectName = 'Errands';
 
     tab.display();
 
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(plugin.settings.todoistProjectId).toBe('p1');
+    expect(plugin.settings.projectId).toBe('p1');
   });
 
   it('shows the stored project name once one is chosen', () => {
     const { tab, plugin } = makeTab('');
-    plugin.settings.todoistProjectId = 'p1';
-    plugin.settings.todoistProjectName = 'Errands';
+    plugin.settings.projectId = 'p1';
+    plugin.settings.projectName = 'Errands';
     const setValue = jest.spyOn(SearchComponent.prototype, 'setValue');
 
     tab.display();
@@ -472,8 +474,8 @@ describe('ObsidianTaskSyncSettingTab sync section', () => {
       handleProjectSelection(project: { id: string; name: string }): Promise<void>;
     }).handleProjectSelection({ id: 'p1', name: 'Errands' });
 
-    expect(plugin.settings.todoistProjectId).toBe('p1');
-    expect(plugin.settings.todoistProjectName).toBe('Errands');
+    expect(plugin.settings.projectId).toBe('p1');
+    expect(plugin.settings.projectName).toBe('Errands');
     expect(saveSettings).toHaveBeenCalled();
   });
 
@@ -605,15 +607,13 @@ describe('ObsidianTaskSyncSettingTab project list', () => {
     expect(refreshKnownProjects).toHaveBeenCalledTimes(2);
   });
 
-  it('refreshes when a different API token is chosen', async () => {
+  it('refreshes after the provider reports new credentials', async () => {
     const { tab, refreshKnownProjects } = makeTab('');
     tab.display();
     await flushPendingWork();
     refreshKnownProjects.mockClear();
 
-    await (tab as unknown as {
-      handleApiTokenSecretChange(secretName: unknown): Promise<void>;
-    }).handleApiTokenSecretChange('another-token');
+    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
 
     expect(refreshKnownProjects).toHaveBeenCalledTimes(1);
   });
@@ -631,12 +631,10 @@ describe('ObsidianTaskSyncSettingTab project list', () => {
 });
 
 describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
-  it('picks a project as soon as a token is entered, without waiting for a restart', async () => {
+  it('picks a project as soon as credentials arrive, without waiting for a restart', async () => {
     const { tab, ensureProjectSelected } = makeTab('');
 
-    await (tab as unknown as {
-      handleApiTokenSecretChange(secretName: unknown): Promise<void>;
-    }).handleApiTokenSecretChange('todoist-token');
+    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
 
     expect(ensureProjectSelected).toHaveBeenCalledTimes(1);
   });
@@ -644,9 +642,7 @@ describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
   it('refreshes the list before choosing, so the same list is not fetched twice', async () => {
     const { tab, refreshKnownProjects, ensureProjectSelected } = makeTab('');
 
-    await (tab as unknown as {
-      handleApiTokenSecretChange(secretName: unknown): Promise<void>;
-    }).handleApiTokenSecretChange('todoist-token');
+    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
 
     expect(refreshKnownProjects.mock.invocationCallOrder[0]).toBeLessThan(
       ensureProjectSelected.mock.invocationCallOrder[0],

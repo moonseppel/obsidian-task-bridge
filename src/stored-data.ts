@@ -16,12 +16,9 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
       record.relativeTaskSourceNotePath,
       DEFAULT_SETTINGS.relativeTaskSourceNotePath,
     ),
-    todoistApiTokenSecretName: readText(
-      record.todoistApiTokenSecretName,
-      DEFAULT_SETTINGS.todoistApiTokenSecretName,
-    ),
-    todoistProjectId: readText(record.todoistProjectId, DEFAULT_SETTINGS.todoistProjectId),
-    todoistProjectName: readText(record.todoistProjectName, DEFAULT_SETTINGS.todoistProjectName),
+    // The pre-rename keys are still read, so a vault written before the move keeps its project.
+    projectId: readText(record.projectId ?? record.todoistProjectId, DEFAULT_SETTINGS.projectId),
+    projectName: readText(record.projectName ?? record.todoistProjectName, DEFAULT_SETTINGS.projectName),
     syncIntervalMinutes: toSyncIntervalMinutes(
       record.syncIntervalMinutes,
       DEFAULT_SETTINGS.syncIntervalMinutes,
@@ -33,6 +30,20 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
 /** Anything malformed is dropped: a bad entry would offer the user a project that cannot exist. */
 export function toKnownProjects(stored: unknown): ProviderProject[] {
   return Array.isArray(stored) ? stored.filter(isProviderProject) : [];
+}
+
+/**
+ * The provider owns the shape of its own credentials, so this only locates the blob. The legacy
+ * top-level key is still read, so a vault written before the move keeps its token selection.
+ */
+export function readProviderCredentials(stored: unknown): unknown {
+  const stored_ = isRecord(stored) ? stored : {};
+
+  if (isRecord(stored_.providerCredentials)) {
+    return stored_.providerCredentials;
+  }
+
+  return { apiTokenSecretName: stored_.todoistApiTokenSecretName };
 }
 
 export function readStoredField(stored: unknown, field: string): unknown {

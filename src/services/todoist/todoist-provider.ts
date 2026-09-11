@@ -1,11 +1,10 @@
-import { App } from 'obsidian';
 import { ObsidianHttpClient } from '../http/obsidian-http-client';
 import { NewTask, ProviderAccount, ProviderProject, ProviderTask, TaskProvider } from '../task-provider';
-import { TaskProviderError } from '../task-provider-error';
 import { TodoistApiClient, TodoistProject, TodoistTask, TodoistUser } from './todoist-api-client';
+import { TodoistCredentials } from './todoist-credentials';
 
 export class TodoistProvider implements TaskProvider {
-  readonly displayName = 'Todoist';
+  readonly description = { displayName: 'Todoist', defaultProjectName: 'Inbox' };
   private readonly api: TodoistApiClient;
 
   constructor(api: TodoistApiClient) {
@@ -35,19 +34,8 @@ export class TodoistProvider implements TaskProvider {
   }
 }
 
-export function createTodoistProvider(app: App, readSecretName: () => string): TodoistProvider {
-  const readToken = (): string => {
-    const secretName = readSecretName();
-    const token = secretName.length === 0 ? null : app.secretStorage.getSecret(secretName);
-
-    if (token === null || token.length === 0) {
-      throw new TaskProviderError('not-configured');
-    }
-
-    return token;
-  };
-
-  return new TodoistProvider(new TodoistApiClient(new ObsidianHttpClient(), readToken));
+export function createTodoistProvider(credentials: TodoistCredentials): TodoistProvider {
+  return new TodoistProvider(new TodoistApiClient(new ObsidianHttpClient(), () => credentials.readToken()));
 }
 
 function toProviderProject(project: TodoistProject): ProviderProject {

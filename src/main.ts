@@ -7,8 +7,10 @@ import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
 import { SyncScheduler } from './services/sync/sync-scheduler';
 import { TaskLinkStore } from './services/sync/task-links';
 import { ProjectResolution, TitleSync } from './services/sync/title-sync';
+import { TodoistCredentials } from './services/todoist/todoist-credentials';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
-import { toKnownProjects, toSettings, readStoredField } from './stored-data';
+import { readProviderCredentials, toKnownProjects, toSettings } from './stored-data';
+import { readStoredField } from './stored-data';
 import { sanitizeForDisplay } from './utils/external-text';
 import { Logger, setDebugLogging } from './utils/logger';
 import { hideRenderedAnchors } from './views/rendered-anchor';
@@ -39,10 +41,8 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   taskLinks = new TaskLinkStore();
   /** The last project list seen, so the picker still offers choices while offline. */
   knownProjects: ProviderProject[] = [];
-  private readonly provider = createTodoistProvider(
-    this.app,
-    () => this.settings.todoistApiTokenSecretName,
-  );
+  readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
+  private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce);
   private readonly titleSync = new TitleSync(
@@ -107,7 +107,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
    * a connection is established, so pasting a token fills the field in without a restart.
    */
   async ensureProjectSelected(): Promise<void> {
-    if (this.settings.todoistProjectId.length > 0) {
+    if (this.settings.projectId.length > 0) {
       return;
     }
 
@@ -136,7 +136,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.noteChangedWhileSyncing = false;
 
     try {
-      const outcome = await this.titleSync.run(this.settings.todoistProjectId);
+      const outcome = await this.titleSync.run(this.settings.projectId);
       await this.adoptResolvedProject(outcome.projectResolution);
       this.reporter.reportSyncOutcome(outcome);
     } catch (error) {
@@ -159,6 +159,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     }
 
     this.settings = toSettings(stored);
+    this.credentials.restore(readProviderCredentials(stored));
     this.taskLinks.replaceAll(readStoredField(stored, 'taskLinks'));
     this.knownProjects = toKnownProjects(readStoredField(stored, 'knownProjects'));
   }
@@ -168,6 +169,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       ...this.settings,
       taskLinks: this.taskLinks.toStored(),
       knownProjects: this.knownProjects,
+      providerCredentials: this.credentials.toStored(),
     });
   }
 
@@ -220,7 +222,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       return;
     }
 
-    const previousName = this.settings.todoistProjectName;
+    const previousName = this.settings.projectName;
     await this.storeProject(resolution.project);
 
     if (resolution.kind === 'replaced') {
@@ -229,8 +231,8 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   private async storeProject(project: ProviderProject): Promise<void> {
-    this.settings.todoistProjectId = project.id;
-    this.settings.todoistProjectName = project.name;
+    this.settings.projectId = project.id;
+    this.settings.projectName = project.name;
     await this.saveSettings();
     logger.info('Project selected', sanitizeForDisplay(project.name));
   }

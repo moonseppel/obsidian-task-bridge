@@ -141,6 +141,7 @@ src/
   stored-data.ts    # Reads and validates what was written to data.json
   services/
     task-provider.ts        # Provider-neutral interface the plugin talks to
+    provider-credentials.ts # How a provider authenticates, which it renders itself
     task-provider-error.ts  # Typed connection failures
     provider-connection.ts  # Current connection status and how to re-establish it
     status-reporter.ts      # Turns sync results and failures into logs and notices
@@ -149,6 +150,7 @@ src/
       obsidian-http-client.ts # Adapter over Obsidian's requestUrl
     todoist/
       todoist-api-client.ts   # Todoist REST calls
+      todoist-credentials.ts  # The API token row and the token behind it
       todoist-payloads.ts     # Maps Todoist JSON onto the plugin's own types
       todoist-provider.ts     # Todoist implementation of the provider interface
     sync/
@@ -180,6 +182,7 @@ manifest.json       # Obsidian plugin metadata
 The plugin uses a provider abstraction pattern to support multiple task managers.
 
 - **Task manager provider interface** — `TaskProvider` is the only thing the plugin talks to; everything Todoist-specific is confined to `src/services/todoist/`
+- **Providers authenticate themselves** — how a provider is authenticated varies too much to model centrally, so the provider draws its own credential rows and owns the values behind them; the settings tab only asks whether it is ready to connect
 - **Transport port** — provider clients speak to an `HttpClient` rather than to a concrete transport, so the plugin can use Obsidian's `requestUrl` (CORS-free, works on desktop and mobile) while the integration tests drive the identical code over `fetch`
 - **Clear error handling and user feedback** — failures are typed (`not-configured`, `project-missing`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
 - **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and

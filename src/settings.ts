@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, SecretComponent, Setting, TFile, normalizePath } from 'obsidian';
+import { App, PluginSettingTab, Setting, TFile, normalizePath } from 'obsidian';
 import type ObsidianTaskSyncPlugin from './main';
 import { ConnectionStatus } from './services/provider-connection';
 import { toSyncIntervalMinutes } from './utils/sync-interval';
@@ -10,18 +10,16 @@ import { SourceNoteSuggest } from './views/source-note-suggest';
 
 export interface ObsidianTaskSyncSettings {
   relativeTaskSourceNotePath: string;
-  todoistApiTokenSecretName: string;
-  todoistProjectId: string;
-  todoistProjectName: string;
+  projectId: string;
+  projectName: string;
   syncIntervalMinutes: number;
   debugMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
   relativeTaskSourceNotePath: '',
-  todoistApiTokenSecretName: '',
-  todoistProjectId: '',
-  todoistProjectName: '',
+  projectId: '',
+  projectName: '',
   syncIntervalMinutes: 5,
   debugMode: false,
 };
@@ -29,11 +27,6 @@ export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
 const MISSING_ROW_CLASS = 'obsidian-task-sync-source-missing';
 const INVALID_INPUT_CLASS = 'obsidian-task-sync-source-invalid';
 const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
-
-// Obsidian types the secret value as a string but sends null when the field is cleared with "x".
-function toSecretName(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   private readonly plugin: ObsidianTaskSyncPlugin;
@@ -56,7 +49,7 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
 
     this.containerEl.empty();
     this.displaySourceNoteSetting();
-    this.displayTodoistSettings();
+    this.displayProviderSettings();
     this.displaySyncSettings();
     this.displayDebugSetting();
   }
@@ -128,24 +121,11 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     return path.length > 0 && !(this.app.vault.getAbstractFileByPath(path) instanceof TFile);
   }
 
-  private displayTodoistSettings(): void {
+  private displayProviderSettings(): void {
     new Setting(this.containerEl).setName(this.plugin.connection.providerName).setHeading();
-    this.displayApiTokenSetting();
+    this.plugin.credentials.display(this.containerEl, { onCredentialsChanged: () => this.reconnect() });
     this.displayConnectionSetting();
     this.displayProjectSetting();
-  }
-
-  private displayApiTokenSetting(): void {
-    new Setting(this.containerEl)
-      .setName(text.API_TOKEN_DISPLAY_NAME)
-      .setDesc(text.describeApiTokenSetting())
-      .addComponent((el) =>
-        new SecretComponent(this.app, el)
-          .setValue(this.plugin.settings.todoistApiTokenSecretName)
-          .onChange((secretName: unknown) => {
-            void this.handleApiTokenSecretChange(secretName);
-          }),
-      );
   }
 
   private displayConnectionSetting(): void {
@@ -170,7 +150,7 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   private displayProjectSetting(): void {
     new Setting(this.containerEl)
       .setName(text.PROJECT_DISPLAY_NAME)
-      .setDesc(text.PROJECT_DESC)
+      .setDesc(text.projectDescription(this.defaultProjectName))
       .addSearch((search) => {
         new ProjectSuggest(
           this.app,
@@ -183,8 +163,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
         // No `onChange`: picking a suggestion is the only way to change this, so it can
         // never be left empty and a sync can never stall for want of a project.
         search
-          .setPlaceholder(text.PROJECT_PLACEHOLDER)
-          .setValue(this.plugin.settings.todoistProjectName);
+          .setPlaceholder(this.defaultProjectName)
+          .setValue(this.plugin.settings.projectName);
       });
   }
 
@@ -192,7 +172,7 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     new Setting(this.containerEl).setName(text.SYNC_DISPLAY_NAME).setHeading();
     new Setting(this.containerEl)
       .setName(text.SYNC_INTERVAL_DISPLAY_NAME)
-      .setDesc(text.SYNC_INTERVAL_DESC)
+      .setDesc(text.syncIntervalDescription(this.plugin.connection.providerName))
       .addText((text) =>
         text
           .setPlaceholder(String(DEFAULT_SETTINGS.syncIntervalMinutes))
@@ -235,8 +215,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
   }
 
   private async handleProjectSelection(project: ProviderProject): Promise<void> {
-    this.plugin.settings.todoistProjectId = project.id;
-    this.plugin.settings.todoistProjectName = project.name;
+    this.plugin.settings.projectId = project.id;
+    this.plugin.settings.projectName = project.name;
     await this.plugin.saveSettings();
     this.display();
   }
@@ -246,18 +226,18 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
       return text.CONNECTION_BUSY;
     }
 
-    return this.plugin.settings.todoistApiTokenSecretName.length === 0
-      ? text.TOKEN_NEEDED_FIRST
-      : '';
+    return this.plugin.credentials.describeWhatIsMissing();
+  }
+
+  private get defaultProjectName(): string {
+    return this.plugin.connection.defaultProjectName;
   }
 
   private get connectionStatus(): ConnectionStatus {
     return this.plugin.connection.status;
   }
 
-  private async handleApiTokenSecretChange(secretName: unknown): Promise<void> {
-    this.plugin.settings.todoistApiTokenSecretName = toSecretName(secretName);
-    await this.plugin.saveSettings();
+  private async reconnect(): Promise<void> {
     // Refreshed first, so choosing the default below does not ask for the same list twice.
     await this.plugin.refreshKnownProjects();
     await this.plugin.connectToTaskProvider();

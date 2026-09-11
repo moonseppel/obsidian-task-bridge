@@ -167,28 +167,37 @@ describe('ObsidianTaskSyncPlugin', () => {
     });
 
     it('writes settings through saveData', async () => {
-      const settings = settingsWith({
-        relativeTaskSourceNotePath: 'Done.md',
-        todoistApiTokenSecretName: 'todoist-token',
-      });
+      const settings = settingsWith({ relativeTaskSourceNotePath: 'Done.md' });
       const { plugin, saveData } = makePlugin();
       plugin.settings = settings;
       await plugin.saveSettings();
-      expect(saveData).toHaveBeenCalledWith({ ...settings, taskLinks: [], knownProjects: [] });
+      expect(saveData).toHaveBeenCalledWith({
+        ...settings,
+        taskLinks: [],
+        knownProjects: [],
+        providerCredentials: { apiTokenSecretName: '' },
+      });
     });
 
-    it('loads the persisted token secret name', async () => {
+    it('loads the credentials the provider stored last time', async () => {
+      const { plugin, loadData } = makePlugin();
+      loadData.mockResolvedValue({ providerCredentials: { apiTokenSecretName: 'todoist-token' } });
+      await plugin.loadSettings();
+      expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: 'todoist-token' });
+    });
+
+    it('still reads a token secret stored before the credentials moved behind the provider', async () => {
       const { plugin, loadData } = makePlugin();
       loadData.mockResolvedValue({ todoistApiTokenSecretName: 'todoist-token' });
       await plugin.loadSettings();
-      expect(plugin.settings.todoistApiTokenSecretName).toBe('todoist-token');
+      expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: 'todoist-token' });
     });
 
-    it('falls back to the default when the persisted token secret name is not text', async () => {
+    it('starts with no credentials when the stored ones are not text', async () => {
       const { plugin, loadData } = makePlugin();
-      loadData.mockResolvedValue({ todoistApiTokenSecretName: 42 });
+      loadData.mockResolvedValue({ providerCredentials: { apiTokenSecretName: 42 } });
       await plugin.loadSettings();
-      expect(plugin.settings.todoistApiTokenSecretName).toBe('');
+      expect(plugin.credentials.toStored()).toEqual({ apiTokenSecretName: '' });
     });
   });
 
@@ -318,7 +327,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
     const context = makePlugin(() => Promise.resolve({ id: 'u1', displayName: 'Jan' }));
     context.plugin.settings = settingsWith({
       relativeTaskSourceNotePath: 'Tasks.md',
-      todoistProjectId: 'p1',
+      projectId: 'p1',
     });
 
     return context;
@@ -347,7 +356,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
 
   it('skips syncing while no source note is configured', async () => {
     const { plugin } = syncablePlugin();
-    plugin.settings = settingsWith({ todoistProjectId: 'p1' });
+    plugin.settings = settingsWith({ projectId: 'p1' });
     const { run } = titleSyncOf(plugin);
 
     await plugin.syncTasks();
@@ -376,8 +385,8 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
 
     await plugin.syncTasks();
 
-    expect(plugin.settings.todoistProjectId).toBe('inbox-1');
-    expect(plugin.settings.todoistProjectName).toBe('Inbox');
+    expect(plugin.settings.projectId).toBe('inbox-1');
+    expect(plugin.settings.projectName).toBe('Inbox');
     expect(saveData).toHaveBeenCalled();
   });
 
@@ -386,7 +395,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
       .spyOn(obsidian, 'Notice')
       .mockImplementation(() => undefined as unknown as obsidian.Notice);
     const { plugin } = syncablePlugin();
-    plugin.settings.todoistProjectName = 'Errands';
+    plugin.settings.projectName = 'Errands';
     titleSyncOf(plugin).run.mockResolvedValue({
       created: 0,
       pushed: 0,
@@ -620,7 +629,7 @@ describe('ObsidianTaskSyncPlugin edits made while syncing', () => {
 
     context.plugin.settings = settingsWith({
       relativeTaskSourceNotePath: 'Tasks.md',
-      todoistProjectId: 'p1',
+      projectId: 'p1',
     });
     jest.useFakeTimers();
 
@@ -748,8 +757,8 @@ describe('ObsidianTaskSyncPlugin choosing a default project', () => {
 
     await plugin.ensureProjectSelected();
 
-    expect(plugin.settings.todoistProjectId).toBe('inbox-1');
-    expect(plugin.settings.todoistProjectName).toBe('Inbox');
+    expect(plugin.settings.projectId).toBe('inbox-1');
+    expect(plugin.settings.projectName).toBe('Inbox');
   });
 
   it('uses the remembered list rather than asking again', async () => {
@@ -759,16 +768,16 @@ describe('ObsidianTaskSyncPlugin choosing a default project', () => {
 
     await plugin.ensureProjectSelected();
 
-    expect(plugin.settings.todoistProjectId).toBe('inbox-1');
+    expect(plugin.settings.projectId).toBe('inbox-1');
   });
 
   it('leaves a project the user already chose alone', async () => {
     const { plugin } = pluginWithProjects([INBOX]);
-    plugin.settings = settingsWith({ todoistProjectId: 'p1', todoistProjectName: 'Errands' });
+    plugin.settings = settingsWith({ projectId: 'p1', projectName: 'Errands' });
 
     await plugin.ensureProjectSelected();
 
-    expect(plugin.settings.todoistProjectName).toBe('Errands');
+    expect(plugin.settings.projectName).toBe('Errands');
   });
 
   it('leaves the field empty rather than failing when the list cannot be fetched', async () => {
@@ -779,6 +788,6 @@ describe('ObsidianTaskSyncPlugin choosing a default project', () => {
     };
 
     await expect(plugin.ensureProjectSelected()).resolves.toBeUndefined();
-    expect(plugin.settings.todoistProjectId).toBe('');
+    expect(plugin.settings.projectId).toBe('');
   });
 });

@@ -22,8 +22,14 @@ export interface NewTask {
   projectId: string;
 }
 
-export interface TaskProvider {
+/** The few words the settings tab needs to speak about this provider without naming it. */
+export interface ProviderDescription {
   readonly displayName: string;
+  readonly defaultProjectName: string;
+}
+
+export interface TaskProvider {
+  readonly description: ProviderDescription;
   connect(): Promise<ProviderAccount>;
   listProjects(): Promise<ProviderProject[]>;
   listTasks(projectId: string): Promise<ProviderTask[]>;
