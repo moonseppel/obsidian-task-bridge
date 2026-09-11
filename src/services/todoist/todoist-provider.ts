@@ -36,6 +36,11 @@ export class TodoistProvider implements TaskProvider {
   async updateTaskDescription(taskId: string, description: string): Promise<void> {
     await this.api.updateTaskDescription(taskId, description);
   }
+
+  /** Todoist offers no trash for tasks, so removal here is always the permanent delete. */
+  async removeTask(taskId: string): Promise<void> {
+    await this.api.deleteTask(taskId);
+  }
 }
 
 export function createTodoistProvider(credentials: TodoistCredentials): TodoistProvider {

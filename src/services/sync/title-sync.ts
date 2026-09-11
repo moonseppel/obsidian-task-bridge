@@ -105,10 +105,12 @@ export class TitleSync {
       await this.syncEveryLine(pass);
     } finally {
       this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
-      await this.updateOrphanTracking(pass.remoteTasks.values());
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
       await this.commit(pass.edits);
+      // Runs after the pass's own work is safely committed, so a transient failure here
+      // (flagging or removing an orphan) never blocks what already succeeded from being saved.
+      await this.updateOrphanTracking(pass.remoteTasks.values());
     }
 
     return pass.outcome;
@@ -200,8 +202,14 @@ export class TitleSync {
         continue;
       }
 
-      stillOrphaned.add(task.id);
       this.orphans.track(task.id, now);
+
+      if (await this.removeIfDue(task.id, now)) {
+        // Excluded from stillOrphaned rather than tracked: it is gone, not merely orphaned.
+        continue;
+      }
+
+      stillOrphaned.add(task.id);
       await this.flagIfDue(task.id, task.embeddedBlockId, now);
     }
 
@@ -226,6 +234,19 @@ export class TitleSync {
     const removalDueAt = now + ORPHAN_REMOVAL_GRACE_MS;
     await this.provider.updateTaskDescription(providerTaskId, orphanNoticeDescription(blockId, removalDueAt));
     this.orphans.flag(providerTaskId, removalDueAt);
+  }
+
+  /** Returns true once the task's recorded removal date has passed and it has been removed. */
+  private async removeIfDue(providerTaskId: string, now: number): Promise<boolean> {
+    const record = this.orphans.get(providerTaskId);
+
+    if (record?.removalDueAt === undefined || now < record.removalDueAt) {
+      return false;
+    }
+
+    await this.provider.removeTask(providerTaskId);
+
+    return true;
   }
 
   /**

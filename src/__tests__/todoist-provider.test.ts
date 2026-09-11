@@ -133,4 +133,17 @@ describe('TodoistProvider task and project mapping', () => {
     await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^ots-a1')).resolves.toBeUndefined();
     expect(updated).toEqual([['t1', 'Now orphaned.\n^ots-a1']]);
   });
+
+  it('removes a task by deleting it, since Todoist offers no trash for tasks', async () => {
+    const deleted: string[] = [];
+    const provider = providerOver({
+      deleteTask: (id: string) => {
+        deleted.push(id);
+        return Promise.resolve();
+      },
+    });
+
+    await expect(provider.removeTask('t1')).resolves.toBeUndefined();
+    expect(deleted).toEqual(['t1']);
+  });
 });

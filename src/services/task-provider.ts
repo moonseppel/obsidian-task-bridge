@@ -41,6 +41,8 @@ export interface TaskProvider {
   createTask(task: NewTask): Promise<ProviderTask>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;
+  /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
+  removeTask(taskId: string): Promise<void>;
 }
 
 /** The provider's own default, or failing that the first project it lists. */

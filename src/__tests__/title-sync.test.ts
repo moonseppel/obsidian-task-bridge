@@ -703,6 +703,56 @@ describe('TitleSync', () => {
 
     expect(orphans.get(TASK_ID)?.removalDueAt).toBe(Date.now() + 2 * 24 * 60 * 60_000);
   });
+
+  it('does nothing when a flagged orphan\'s removal date is still in the future', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(10_000);
+    const orphans = new OrphanTracker();
+    orphans.track(TASK_ID, 0);
+    orphans.flag(TASK_ID, 20_000);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        removeTask,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(orphans.get(TASK_ID)).toBeDefined();
+  });
+
+  it('removes a flagged orphan once its removal date has passed, and clears its tracking', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(20_000);
+    const orphans = new OrphanTracker();
+    orphans.track(TASK_ID, 0);
+    orphans.flag(TASK_ID, 20_000);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        removeTask,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(removeTask).toHaveBeenCalledWith(TASK_ID);
+    expect(orphans.get(TASK_ID)).toBeUndefined();
+  });
 });
 
 describe('applyLineEdits', () => {
