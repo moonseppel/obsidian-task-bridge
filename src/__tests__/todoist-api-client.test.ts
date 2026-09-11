@@ -216,6 +216,32 @@ describe('TodoistApiClient tasks and projects', () => {
 
       await expect(context.client.listTasks('p1')).rejects.toMatchObject({ failure: 'unexpected' });
     });
+
+    it('exposes a valid updated_at as epoch ms', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', updated_at: '2024-01-02T03:04:05.000Z' }])),
+      );
+
+      await expect(context.client.listTasks('p1')).resolves.toMatchObject([
+        { updatedAt: Date.parse('2024-01-02T03:04:05.000Z') },
+      ]);
+    });
+
+    it('leaves updatedAt undefined when updated_at is missing', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.updatedAt).toBeUndefined();
+    });
+
+    it('leaves updatedAt undefined when updated_at cannot be parsed as a date', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', updated_at: 'not-a-date' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.updatedAt).toBeUndefined();
+    });
   });
 
   describe('createTask', () => {

@@ -43,7 +43,7 @@ function toProviderProject(project: TodoistProject): ProviderProject {
 }
 
 function toProviderTask(task: TodoistTask): ProviderTask {
-  return { id: task.id, title: task.content };
+  return { id: task.id, title: task.content, updatedAt: task.updatedAt };
 }
 
 function describeUser(user: TodoistUser): string {

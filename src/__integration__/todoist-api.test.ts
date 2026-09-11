@@ -73,7 +73,15 @@ describeAgainstTodoist('Todoist task round trip', () => {
     await client.updateTaskContent(created.id, 'Buy oat milk');
     const tasks = await client.listTasks(project.id);
 
-    expect(tasks).toContainEqual({ id: created.id, content: 'Buy oat milk' });
+    expect(tasks).toContainEqual(expect.objectContaining({ id: created.id, content: 'Buy oat milk' }));
+  });
+
+  it('carries a parseable last-modified time on a real task', async () => {
+    const created = await client.createTask('Buy milk', project.id);
+    const tasks = await client.listTasks(project.id);
+    const task = tasks.find((entry) => entry.id === created.id);
+
+    expect(task?.updatedAt).toEqual(expect.any(Number));
   });
 
   it('stops listing a task once it is deleted', async () => {

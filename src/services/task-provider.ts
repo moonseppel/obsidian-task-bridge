@@ -15,6 +15,8 @@ export interface ProviderProject {
 export interface ProviderTask {
   id: string;
   title: string;
+  /** Epoch ms the task was last modified, when the provider exposes one. */
+  updatedAt?: number;
 }
 
 export interface NewTask {

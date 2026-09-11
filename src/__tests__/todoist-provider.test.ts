@@ -67,6 +67,14 @@ describe('TodoistProvider task and project mapping', () => {
     await expect(provider.listTasks('p1')).resolves.toEqual([{ id: 't1', title: 'Buy milk' }]);
   });
 
+  it('carries the task last-modified time through to the provider-neutral shape', async () => {
+    const provider = providerOver({
+      listTasks: () => Promise.resolve([{ id: 't1', content: 'Buy milk', updatedAt: 1700000000000 }]),
+    });
+
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ updatedAt: 1700000000000 }]);
+  });
+
   it('creates a task from a title and a project', async () => {
     const created: Array<[string, string]> = [];
     const provider = providerOver({

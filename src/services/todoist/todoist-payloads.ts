@@ -18,6 +18,8 @@ export interface TodoistProject {
 export interface TodoistTask {
   id: string;
   content: string;
+  /** Epoch ms the task was last modified, when Todoist's answer parses as a date. */
+  updatedAt?: number;
 }
 
 export interface Page {
@@ -78,7 +80,7 @@ export function toTodoistTask(payload: unknown): TodoistTask {
   const record = requireRecord(payload, 'A task entry was not an object.');
   const id = readIdentifier(record.id, 'A task entry did not contain a task id.');
 
-  return { id, content: sanitizeTitle(record.content) };
+  return { id, content: sanitizeTitle(record.content), updatedAt: toEpochMs(record.updated_at) };
 }
 
 export function parseJson(body: string): unknown {
@@ -115,6 +117,17 @@ function requireRecord(payload: unknown, complaint: string): Record<string, unkn
   }
 
   return payload;
+}
+
+/** Tolerant like readIdentifier and toPage: an invalid or missing timestamp becomes undefined, never a thrown error. */
+function toEpochMs(value: unknown): number | undefined {
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
+  }
+
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function readIdentifier(value: unknown, complaint: string): string {
