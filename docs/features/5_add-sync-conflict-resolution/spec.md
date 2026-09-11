@@ -53,8 +53,5 @@
 
 ## Non-Features
 
-1. The task's description is a courtesy notice only. The plugin's own stored data, never the
-   description text, decides whether a task is flagged as an orphan and when it is removed.
-2. A task line removed from the source note is not covered here — the note and the task provider
-   are not reconciled that way in this feature. That, and a task removed on the provider's side
-   reaching back into Obsidian, are full two-way deletion sync, planned for feature 8.
+1. The task's description is a courtesy notice only. The plugin's own stored data, never the description text, decides whether a task is flagged as an orphan and when it is removed.
+2. A task line removed from the source note is not covered here — the note and the task provider are not reconciled that way in this feature. That, and a task removed on the provider's side reaching back into Obsidian, are full two-way deletion sync, planned for feature 6.
