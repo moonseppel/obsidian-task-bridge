@@ -3,6 +3,13 @@ import { createBlockId } from './block-id';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 
+/**
+ * A vault-sync tool can deliver data.json slightly behind the note, so a block id that only just
+ * became unrecognized is given this long to turn up in a re-link lookup before it is treated as
+ * a genuinely new task.
+ */
+const CREATION_GRACE_PERIOD_MS = 60_000;
+
 /** Replaces one line only if it still reads as it did when the pass started. */
 export interface LineEdit {
   readonly lineNumber: number;
@@ -49,6 +56,10 @@ export class TitleSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
   private readonly saveLinks: () => Promise<void>;
+  /** In memory only, and rebuilt from what's currently in the note each pass, so a block id that
+   * disappears from the note before the grace period is up is simply dropped rather than tracked
+   * forever. */
+  private readonly firstSeenUnrecognized = new Map<string, number>();
 
   constructor(
     note: SourceNote,
@@ -73,6 +84,7 @@ export class TitleSync {
       remoteTasksByBlockId: toBlockIdMap(project.tasks),
       takenBlockIds: collectBlockIds(lines),
       localModifiedAt,
+      pendingBlockIds: new Set(),
       edits: [],
       outcome: { created: 0, pushed: 0, pulled: 0, conflicted: 0, projectResolution: project.resolution },
     };
@@ -80,6 +92,7 @@ export class TitleSync {
     try {
       await this.syncEveryLine(pass);
     } finally {
+      this.forgetBlockIdsNotSeen(pass.pendingBlockIds);
       // Whatever succeeded is committed even when a later call fails. A task created in the
       // provider without its link saved would be created a second time on the next pass.
       await this.commit(pass.edits);
@@ -121,7 +134,36 @@ export class TitleSync {
       return;
     }
 
+    if (line.task.blockId !== null && this.stillWithinGracePeriod(line.pass, line.task.blockId)) {
+      return;
+    }
+
     await this.createTask(line);
+  }
+
+  /**
+   * A line whose block id is unrecognized and unmatched is not immediately treated as new: the
+   * grace period gives a lagging data.json a chance to catch up before a task is created for it.
+   */
+  private stillWithinGracePeriod(pass: SyncPass, blockId: string): boolean {
+    pass.pendingBlockIds.add(blockId);
+
+    const firstSeenAt = this.firstSeenUnrecognized.get(blockId);
+
+    if (firstSeenAt === undefined) {
+      this.firstSeenUnrecognized.set(blockId, Date.now());
+      return true;
+    }
+
+    return Date.now() - firstSeenAt < CREATION_GRACE_PERIOD_MS;
+  }
+
+  private forgetBlockIdsNotSeen(seenThisPass: ReadonlySet<string>): void {
+    for (const blockId of this.firstSeenUnrecognized.keys()) {
+      if (!seenThisPass.has(blockId)) {
+        this.firstSeenUnrecognized.delete(blockId);
+      }
+    }
   }
 
   /**
@@ -284,6 +326,7 @@ interface SyncPass {
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
   readonly takenBlockIds: Set<string>;
   readonly localModifiedAt: number;
+  readonly pendingBlockIds: Set<string>;
   readonly edits: LineEdit[];
   readonly outcome: SyncOutcome;
 }

@@ -50,6 +50,10 @@ const ERRANDS = { id: PROJECT, name: 'Errands', isDefault: false };
 const projectExists = () => Promise.resolve([INBOX, ERRANDS]);
 
 describe('TitleSync', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('creates a Todoist task for a line that has no anchor yet', async () => {
     const note = new FakeNote('- [ ] Buy milk');
     const links = new TaskLinkStore();
@@ -311,6 +315,7 @@ describe('TitleSync', () => {
   });
 
   it('reuses an orphaned block id rather than adding a second anchor to the line', async () => {
+    jest.useFakeTimers();
     const note = new FakeNote('- [ ] Buy milk ^ots-orphan');
     const links = new TaskLinkStore();
     const sync = makeSync(note, links, {
@@ -318,6 +323,9 @@ describe('TitleSync', () => {
       listProjects: projectExists,
       createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
     });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
 
     expect((await sync.run(PROJECT)).created).toBe(1);
     expect(note.content).toBe('- [ ] Buy milk ^ots-orphan');
@@ -343,6 +351,7 @@ describe('TitleSync', () => {
   });
 
   it('creates a task as usual when no already-anchored task matches the block id', async () => {
+    jest.useFakeTimers();
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore();
     const sync = makeSync(note, links, {
@@ -350,8 +359,77 @@ describe('TitleSync', () => {
       createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
     });
 
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
     expect((await sync.run(PROJECT)).created).toBe(1);
     expect(links.get('ots-a1')?.providerTaskId).toBe(TASK_ID);
+  });
+
+  it('does not create a task the first time an unmatched block id is seen', async () => {
+    jest.useFakeTimers();
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const createTask = jest.fn();
+    const sync = makeSync(note, new TaskLinkStore(), {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      createTask,
+    });
+
+    expect((await sync.run(PROJECT)).created).toBe(0);
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
+  it('still creates nothing on a second sighting inside the 60-second grace period', async () => {
+    jest.useFakeTimers();
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const createTask = jest.fn();
+    const sync = makeSync(note, new TaskLinkStore(), {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      createTask,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(59_000);
+
+    expect((await sync.run(PROJECT)).created).toBe(0);
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
+  it('creates the task once the grace period has passed', async () => {
+    jest.useFakeTimers();
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const sync = makeSync(note, new TaskLinkStore(), {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect((await sync.run(PROJECT)).created).toBe(1);
+  });
+
+  it('drops the tracking for a block id that disappears from the note before the grace period is up', async () => {
+    jest.useFakeTimers();
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const createTask = jest.fn().mockResolvedValue({ id: TASK_ID, title: 'Buy milk' });
+    const sync = makeSync(note, new TaskLinkStore(), {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      createTask,
+    });
+
+    await sync.run(PROJECT);
+    note.content = '# Not a task line';
+    jest.advanceTimersByTime(60_000);
+    await sync.run(PROJECT);
+
+    note.content = '- [ ] Buy milk ^ots-a1';
+    expect((await sync.run(PROJECT)).created).toBe(0);
+    expect(createTask).not.toHaveBeenCalled();
   });
 
   it('never mints a block id that another line already carries', async () => {
