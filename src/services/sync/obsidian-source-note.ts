@@ -17,6 +17,10 @@ export class ObsidianSourceNote implements SourceNote {
     return this.vault.read(this.requireFile());
   }
 
+  async lastModified(): Promise<number> {
+    return this.requireFile().stat.mtime;
+  }
+
   async applyEdits(edits: readonly LineEdit[]): Promise<void> {
     // `process` rather than `modify`, so a concurrent write cannot lose either side's changes.
     await this.vault.process(this.requireFile(), (content) => applyLineEdits(content, edits));

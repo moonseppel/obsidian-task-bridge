@@ -10,6 +10,7 @@ const TASK_ID = '6X4Vw2Hfmg73Q2XR';
 class FakeNote implements SourceNote {
   content: string;
   saves = 0;
+  modifiedAt = 0;
 
   constructor(content: string) {
     this.content = content;
@@ -17,6 +18,10 @@ class FakeNote implements SourceNote {
 
   async read(): Promise<string> {
     return this.content;
+  }
+
+  async lastModified(): Promise<number> {
+    return this.modifiedAt;
   }
 
   async applyEdits(edits: readonly LineEdit[]): Promise<void> {

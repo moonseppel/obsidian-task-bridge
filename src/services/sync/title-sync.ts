@@ -12,6 +12,8 @@ export interface LineEdit {
 
 export interface SourceNote {
   read(): Promise<string>;
+  /** Epoch ms the note was last modified, so a conflict can be resolved by recency. */
+  lastModified(): Promise<number>;
   applyEdits(edits: readonly LineEdit[]): Promise<void>;
 }
 
@@ -62,12 +64,14 @@ export class TitleSync {
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await this.resolveProject(configuredProjectId);
-    const lines = (await this.note.read()).split('\n');
+    const [content, localModifiedAt] = await Promise.all([this.note.read(), this.note.lastModified()]);
+    const lines = content.split('\n');
     const pass: SyncPass = {
       lines,
       projectId: project.id,
       remoteTitles: toTitleMap(project.tasks),
       takenBlockIds: collectBlockIds(lines),
+      localModifiedAt,
       edits: [],
       outcome: { created: 0, pushed: 0, pulled: 0, conflicted: 0, projectResolution: project.resolution },
     };
@@ -222,6 +226,7 @@ interface SyncPass {
   readonly projectId: string;
   readonly remoteTitles: ReadonlyMap<string, string>;
   readonly takenBlockIds: Set<string>;
+  readonly localModifiedAt: number;
   readonly edits: LineEdit[];
   readonly outcome: SyncOutcome;
 }

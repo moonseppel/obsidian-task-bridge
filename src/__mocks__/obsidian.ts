@@ -182,6 +182,7 @@ export class TAbstractFile {
 export class TFile extends TAbstractFile {
   basename = '';
   extension = '';
+  stat = { ctime: 0, mtime: 0, size: 0 };
 }
 
 export class TFolder extends TAbstractFile {
