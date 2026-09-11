@@ -12,6 +12,7 @@ export interface TaskLink {
   lastSyncedTitle: string;
   lastSyncedDone?: boolean;
   lastSyncedDescription?: string;
+  lastSyncedTags?: readonly string[];
 }
 
 export class TaskLinkStore {
@@ -71,10 +72,15 @@ function isTaskLink(value: unknown): value is TaskLink {
     isNonEmptyString(value.providerTaskId) &&
     typeof value.lastSyncedTitle === 'string' &&
     (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean') &&
-    (value.lastSyncedDescription === undefined || typeof value.lastSyncedDescription === 'string')
+    (value.lastSyncedDescription === undefined || typeof value.lastSyncedDescription === 'string') &&
+    (value.lastSyncedTags === undefined || isStringArray(value.lastSyncedTags))
   );
 }
 
 function isNonEmptyString(value: unknown): boolean {
   return typeof value === 'string' && value.length > 0;
+}
+
+function isStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }

@@ -567,6 +567,7 @@ export class TitleSync {
     // revert it.
     await this.syncDoneAgainstLink(line, this.currentLink(link), remoteTask);
     await this.syncDescriptionAgainstLink(line, this.currentLink(link), remoteTask);
+    await this.syncTagsAgainstLink(line, this.currentLink(link), remoteTask);
   }
 
   private currentLink(link: TaskLink): TaskLink {
@@ -680,6 +681,36 @@ export class TitleSync {
     }
   }
 
+  /** Order never counts as a change: tags and labels are compared, and stored, as sets. */
+  private async syncTagsAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
+    const localTags = line.task.tags;
+    const remoteTags = remoteTask.labels;
+    const lastSyncedTags = link.lastSyncedTags ?? [];
+    const localChanged = !sameTagSet(localTags, lastSyncedTags);
+    const remoteChanged = !sameTagSet(remoteTags, lastSyncedTags);
+
+    if (localChanged && remoteChanged) {
+      await this.resolveFieldConflict(
+        line,
+        remoteTask.updatedAt,
+        sameTagSet(localTags, remoteTags),
+        () => this.links.set({ ...link, lastSyncedTags: canonicalTags(remoteTags) }),
+        () => this.pushTags(line, link, localTags),
+        () => this.pullTags(line, link, remoteTags),
+      );
+      return;
+    }
+
+    if (localChanged) {
+      await this.pushTags(line, link, localTags);
+      return;
+    }
+
+    if (remoteChanged) {
+      this.pullTags(line, link, remoteTags);
+    }
+  }
+
   /**
    * A linked task missing from the project's fetched list is ambiguous between deleted, moved to a
    * different project, and completed — Todoist's active list excludes a completed task exactly as
@@ -723,6 +754,7 @@ export class TitleSync {
       title: line.task.title,
       projectId: line.pass.projectId,
       description: bareBlockIdDescription(link.blockId, descriptionText),
+      labels: line.task.tags,
     });
 
     this.links.set({
@@ -730,6 +762,7 @@ export class TitleSync {
       providerTaskId: created.id,
       lastSyncedTitle: line.task.title,
       lastSyncedDescription: descriptionText,
+      lastSyncedTags: canonicalTags(line.task.tags),
     });
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
@@ -774,6 +807,7 @@ export class TitleSync {
       title: task.title,
       projectId: pass.projectId,
       description: bareBlockIdDescription(blockId, descriptionText),
+      labels: task.tags,
     });
 
     pass.takenBlockIds.add(blockId);
@@ -782,6 +816,7 @@ export class TitleSync {
       providerTaskId: created.id,
       lastSyncedTitle: task.title,
       lastSyncedDescription: descriptionText,
+      lastSyncedTags: canonicalTags(task.tags),
     });
     addEdit(line, formatTaskLine({ ...task, blockId }));
     pass.outcome.created += 1;
@@ -826,6 +861,18 @@ export class TitleSync {
       lineCount: currentBlock.lineCount,
       replacementLines: renderDescriptionBlock(leadingWhitespace(line.original), text),
     });
+    line.pass.outcome.pulled += 1;
+  }
+
+  private async pushTags(line: LineUnderSync, link: TaskLink, tags: readonly string[]): Promise<void> {
+    await this.provider.updateTaskLabels(link.providerTaskId, tags);
+    this.links.set({ ...link, lastSyncedTags: canonicalTags(tags) });
+    line.pass.outcome.pushed += 1;
+  }
+
+  private pullTags(line: LineUnderSync, link: TaskLink, tags: readonly string[]): void {
+    this.links.set({ ...link, lastSyncedTags: canonicalTags(tags) });
+    addEdit(line, formatTaskLine({ ...line.task, tags: [...tags] }));
     line.pass.outcome.pulled += 1;
   }
 
@@ -937,4 +984,20 @@ function addEdit(line: LineUnderSync, replacement: string): void {
 
 function addRemoval(line: LineUnderSync): void {
   line.pass.removals.push({ lineNumber: line.lineNumber, expected: line.original });
+}
+
+/** A stable, sorted form to store as lastSyncedTags, so later comparisons never depend on order. */
+function canonicalTags(tags: readonly string[]): string[] {
+  return [...tags].sort();
+}
+
+function sameTagSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  const sortedA = canonicalTags(a);
+  const sortedB = canonicalTags(b);
+
+  return sortedA.every((tag, index) => tag === sortedB[index]);
 }

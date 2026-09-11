@@ -82,7 +82,7 @@ describe('TitleSync', () => {
     expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
     const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
     expect(created).toEqual([
-      { title: 'Buy milk', projectId: PROJECT, description: `Obsidian Task Sync ID: ^${blockId}` },
+      { title: 'Buy milk', projectId: PROJECT, description: `Obsidian Task Sync ID: ^${blockId}`, labels: [] },
     ]);
   });
 
@@ -122,6 +122,7 @@ describe('TitleSync', () => {
       providerTaskId: TASK_ID,
       lastSyncedTitle: 'Buy milk',
       lastSyncedDescription: '',
+      lastSyncedTags: [],
     });
   });
 
@@ -556,9 +557,103 @@ describe('TitleSync', () => {
           title: 'Buy milk',
           projectId: PROJECT,
           description: `Oat milk, not regular\n\nObsidian Task Sync ID: ^${blockId}`,
+          labels: [],
         },
       ]);
       expect(links.get(blockId)?.lastSyncedDescription).toBe('Oat milk, not regular');
+    });
+  });
+
+  describe('tags sync', () => {
+    it('pushes a newly added tag', async () => {
+      const note = new FakeNote('- [ ] Renew passport #errands ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: [] },
+      ]);
+      const updated: Array<[string, readonly string[]]> = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport' }),
+        updateTaskLabels: (id, labels) => {
+          updated.push([id, labels]);
+          return Promise.resolve();
+        },
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
+      expect(updated).toEqual([[TASK_ID, ['errands']]]);
+      expect(links.get('ots-a1')?.lastSyncedTags).toEqual(['errands']);
+    });
+
+    it('pulls a label added in the provider as a trailing tag', async () => {
+      const note = new FakeNote('- [ ] Renew passport ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: [] },
+      ]);
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['errands'] }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 1, conflicted: 0 });
+      expect(note.content).toBe('- [ ] Renew passport #errands ^ots-a1');
+      expect(links.get('ots-a1')?.lastSyncedTags).toEqual(['errands']);
+    });
+
+    it('is not a conflict when both sides have the same tags in a different order', async () => {
+      const note = new FakeNote('- [ ] Renew passport #urgent #errands ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: [] },
+      ]);
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['errands', 'urgent'] }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+      expect(note.content).toBe('- [ ] Renew passport #urgent #errands ^ots-a1');
+    });
+
+    it('resolves a genuine tag conflict in local\'s favor when the remote task carries no last-modified time', async () => {
+      const note = new FakeNote('- [ ] Renew passport #local-only ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: ['errands'] },
+      ]);
+      const updated: Array<[string, readonly string[]]> = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['remote-only'] }),
+        updateTaskLabels: (id, labels) => {
+          updated.push([id, labels]);
+          return Promise.resolve();
+        },
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 1 });
+      expect(updated).toEqual([[TASK_ID, ['local-only']]]);
+    });
+
+    it('sends tags on creation when the line already has them', async () => {
+      const note = new FakeNote('- [ ] Renew passport #errands #urgent');
+      const links = new TaskLinkStore();
+      const created: NewTask[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: TASK_ID, title: task.title });
+        },
+      });
+
+      await sync.run(PROJECT);
+      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+
+      expect(created).toEqual([
+        {
+          title: 'Renew passport',
+          projectId: PROJECT,
+          description: `Obsidian Task Sync ID: ^${blockId}`,
+          labels: ['errands', 'urgent'],
+        },
+      ]);
+      expect(links.get(blockId)?.lastSyncedTags).toEqual(['errands', 'urgent']);
     });
   });
 
@@ -672,7 +767,7 @@ describe('TitleSync', () => {
 
     expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, recreatedTask: 1, removedLine: 0 });
     expect(created).toEqual([
-      { title: 'Buy oat milk', projectId: PROJECT, description: 'Obsidian Task Sync ID: ^ots-a1' },
+      { title: 'Buy oat milk', projectId: PROJECT, description: 'Obsidian Task Sync ID: ^ots-a1', labels: [] },
     ]);
     expect(note.content).toBe('- [ ] Buy oat milk ^ots-a1');
     expect(links.get('ots-a1')).toEqual({
@@ -680,6 +775,7 @@ describe('TitleSync', () => {
       providerTaskId: 'new-task-id',
       lastSyncedTitle: 'Buy oat milk',
       lastSyncedDescription: '',
+      lastSyncedTags: [],
     });
   });
 
