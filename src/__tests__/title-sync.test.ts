@@ -474,6 +474,62 @@ describe('TitleSync', () => {
     });
   });
 
+  it('checks the line off when its linked task turns out to have been completed remotely', async () => {
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+    ]);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: PROJECT, isCompleted: true }),
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ removedLine: 0, removedTask: 0, pulled: 1 });
+    expect(note.content).toBe('- [x] Buy milk ^ots-a1');
+    expect(links.get('ots-a1')?.lastSyncedDone).toBe(true);
+  });
+
+  it('does nothing more when a completed task is found and the line is already checked', async () => {
+    const note = new FakeNote('- [x] Buy milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+    ]);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: PROJECT, isCompleted: true }),
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+    expect(note.content).toBe('- [x] Buy milk ^ots-a1');
+    expect(links.get('ots-a1')?.lastSyncedDone).toBe(true);
+  });
+
+  // A completed task found here is a known constant, not itself in question, so the local edit
+  // always wins outright rather than by recency: there is no timestamp comparison to make when
+  // only one side actually moved.
+  it('reopens a completed task when the line was independently unchecked', async () => {
+    const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
+    ]);
+    const reopened: string[] = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: PROJECT, isCompleted: true }),
+      reopenTask: (id) => {
+        reopened.push(id);
+        return Promise.resolve();
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
+    expect(reopened).toEqual([TASK_ID]);
+    expect(links.get('ots-a1')?.lastSyncedDone).toBe(false);
+  });
+
   it('recreates the task when it was deleted remotely but the line carries an edited title', async () => {
     const note = new FakeNote('- [ ] Buy oat milk ^ots-a1');
     const links = new TaskLinkStore([
@@ -618,13 +674,13 @@ describe('TitleSync', () => {
     expect(removeTask).toHaveBeenCalledWith(TASK_ID);
   });
 
-  it('drops the link without calling the provider when the task is also already gone', async () => {
+  it('drops the link without calling removeTask once a direct lookup confirms the task is genuinely gone too', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const removeTask = jest.fn();
-    const getTask = jest.fn();
+    const getTask = jest.fn().mockResolvedValue(undefined);
     const note = new FakeNote('# Nothing here');
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(),
@@ -637,8 +693,52 @@ describe('TitleSync', () => {
     jest.advanceTimersByTime(60_000);
     await sync.run(PROJECT);
 
+    expect(getTask).toHaveBeenCalledWith(TASK_ID);
     expect(removeTask).not.toHaveBeenCalled();
-    expect(getTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toBeUndefined();
+  });
+
+  it('leaves the link alone when a line-missing task turns out to have just moved to another project', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn();
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      removeTask,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: 'some-other-project' }),
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+    await sync.run(PROJECT);
+
+    expect(removeTask).not.toHaveBeenCalled();
+    expect(links.get('ots-a1')).toBeDefined();
+  });
+
+  it('removes a task that turns out to have been completed once its line has already gone missing', async () => {
+    jest.useFakeTimers();
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const note = new FakeNote('# Nothing here');
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      removeTask,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: PROJECT, isCompleted: true }),
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60_000);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ removedTask: 1 });
+    expect(removeTask).toHaveBeenCalledWith(TASK_ID);
     expect(links.get('ots-a1')).toBeUndefined();
   });
 

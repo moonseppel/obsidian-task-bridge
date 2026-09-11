@@ -294,15 +294,13 @@ export class TitleSync {
 
   /**
    * The task itself is still checked against the already-fetched list rather than assumed gone:
-   * the line vanishing from the note says nothing about whether the task also did. A task also
-   * missing here is dropped without a lookup, since neither side leaves anything to act on either
-   * way — moved or deleted, there is no line to preserve and no in-project task to remove.
+   * the line vanishing from the note says nothing about whether the task also did.
    */
   private async syncAgainstMissingLine(pass: SyncPass, link: TaskLink): Promise<void> {
     const remoteTask = pass.remoteTasks.get(link.providerTaskId);
 
     if (remoteTask === undefined) {
-      this.links.delete(link.blockId);
+      await this.resolveMissingLineAgainstAbsentTask(pass, link);
       return;
     }
 
@@ -310,6 +308,30 @@ export class TitleSync {
 
     if (remoteChanged) {
       await this.resolveMissingLineConflict(pass, link, remoteTask);
+      return;
+    }
+
+    await this.provider.removeTask(link.providerTaskId);
+    this.links.delete(link.blockId);
+    pass.outcome.removedTask += 1;
+  }
+
+  /**
+   * A task missing from the active list is ambiguous between deleted, moved, and completed, same
+   * as when the line still names it. Not found confirms deletion — there was nothing left to
+   * remove. Found in a different project is left exactly as it was: the line is already gone, but
+   * nothing else changes while the task stays out of this project. Found completed here finishes
+   * the same tidy-up a deleted task already gets, since the line is gone either way.
+   */
+  private async resolveMissingLineAgainstAbsentTask(pass: SyncPass, link: TaskLink): Promise<void> {
+    const found = await this.provider.getTask(link.providerTaskId);
+
+    if (found === undefined) {
+      this.links.delete(link.blockId);
+      return;
+    }
+
+    if (found.projectId !== pass.projectId || !found.isCompleted) {
       return;
     }
 
@@ -511,20 +533,34 @@ export class TitleSync {
    * A task's mere presence in the active list this pass fetched means it is not completed, by
    * construction (Todoist's active list excludes a completed task exactly as it excludes a deleted
    * one) — so the remote side of this comparison is always "not done" here. A remote completion
-   * that instead made the task disappear from the list is handled separately, in
-   * syncAgainstMissingRemoteTask.
+   * that instead made the task disappear from the list is handled separately, by
+   * syncAgainstCompletedTask, called from syncAgainstMissingRemoteTask.
    */
   private async syncDoneAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
+    await this.resolveDoneAgainstKnownRemote(line, link, false, remoteTask.updatedAt);
+  }
+
+  /**
+   * The three-way state comparison both callers share: the remote side is passed in as a known
+   * constant, since by the time either caller runs, whether the task is currently done is already
+   * settled by other means (its presence in the active list, or a direct lookup) rather than
+   * itself in question here.
+   */
+  private async resolveDoneAgainstKnownRemote(
+    line: LineUnderSync,
+    link: TaskLink,
+    remoteDone: boolean,
+    remoteUpdatedAt: number | undefined,
+  ): Promise<void> {
     const lastSyncedDone = link.lastSyncedDone ?? false;
     const localDone = isDone(line.task);
-    const remoteDone = false;
     const localChanged = localDone !== lastSyncedDone;
     const remoteChanged = remoteDone !== lastSyncedDone;
 
     if (localChanged && remoteChanged) {
       await this.resolveFieldConflict(
         line,
-        remoteTask.updatedAt,
+        remoteUpdatedAt,
         localDone === remoteDone,
         () => this.links.set({ ...link, lastSyncedDone: remoteDone }),
         () => this.pushDone(line, link, localDone),
@@ -544,15 +580,21 @@ export class TitleSync {
   }
 
   /**
-   * A linked task missing from the project's fetched list is ambiguous between deleted and moved
-   * to a different project, so it is looked up directly before anything destructive happens. Not
-   * found confirms a genuine deletion; found elsewhere means the user moved it out of this
-   * plugin's care, so neither the task nor the line is touched and the link is left as it was.
+   * A linked task missing from the project's fetched list is ambiguous between deleted, moved to a
+   * different project, and completed — Todoist's active list excludes a completed task exactly as
+   * it excludes a deleted one — so it is looked up directly before anything destructive happens.
+   * Found and completed, still in this project, is not a deletion at all: the completion is synced
+   * instead. Found in a different project means the user moved it out of this plugin's care, so
+   * neither the task nor the line is touched and the link is left as it was. Only when it isn't
+   * found at all is it treated as genuinely deleted.
    */
   private async syncAgainstMissingRemoteTask(line: LineUnderSync, link: TaskLink): Promise<void> {
-    const foundElsewhere = await this.provider.getTask(link.providerTaskId);
+    const found = await this.provider.getTask(link.providerTaskId);
 
-    if (foundElsewhere !== undefined) {
+    if (found !== undefined) {
+      if (found.projectId === line.pass.projectId && found.isCompleted) {
+        await this.resolveDoneAgainstKnownRemote(line, link, true, found.updatedAt);
+      }
       return;
     }
 
