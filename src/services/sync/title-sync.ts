@@ -32,10 +32,25 @@ export interface LineRemoval {
   readonly expected: string;
 }
 
+/**
+ * Inserts or replaces a multi-line block immediately under a task line, guarded by that line's own
+ * content rather than the block's — the block may not exist yet (lineCount 0), and it is the task
+ * line that identifies where it belongs. startLine/lineCount describe the block's current span
+ * (both 0 when there is none yet), in the original line numbers the pass started with.
+ */
+export interface BlockEdit {
+  readonly taskLineNumber: number;
+  readonly expectedTaskLine: string;
+  readonly startLine: number;
+  readonly lineCount: number;
+  readonly replacementLines: readonly string[];
+}
+
 /** Everything one pass wants done to the note, applied together in the same atomic write. */
 export interface NoteEdits {
   readonly replacements: readonly LineEdit[];
   readonly removals: readonly LineRemoval[];
+  readonly blocks: readonly BlockEdit[];
   readonly appended: readonly string[];
 }
 
@@ -102,12 +117,50 @@ export function appendLines(content: string, lines: readonly string[]): string {
   return content.length === 0 ? lines.join('\n') : [content, ...lines].join('\n');
 }
 
-/** Composes today's replacements with removals and appends, applied together in one atomic write. */
+/** Composes today's replacements, removals and blocks with appends, applied together in one atomic write. */
 export function applyNoteEdits(content: string, edits: NoteEdits): string {
-  const replaced = applyLineEdits(content, edits.replacements);
-  const withRemovals = removeLines(replaced, edits.removals);
+  return appendLines(applyStructuralEdits(content, edits), edits.appended);
+}
 
-  return appendLines(withRemovals, edits.appended);
+/**
+ * Replacements, removals and block insertions are all resolved against the same original line
+ * numbers in a single pass, rather than composed sequentially, since a block growing or shrinking
+ * the note would otherwise shift every later edit's target out from under it.
+ */
+function applyStructuralEdits(
+  content: string,
+  edits: Pick<NoteEdits, 'replacements' | 'removals' | 'blocks'>,
+): string {
+  const lines = content.split('\n');
+  const replacementByLine = new Map(edits.replacements.map((edit): [number, LineEdit] => [edit.lineNumber, edit]));
+  const removedLines = new Set(
+    edits.removals
+      .filter((removal) => lines[removal.lineNumber] === removal.expected)
+      .map((removal) => removal.lineNumber),
+  );
+  const activeBlocks = edits.blocks.filter((block) => lines[block.taskLineNumber] === block.expectedTaskLine);
+  const blockByAnchor = new Map(activeBlocks.map((block): [number, BlockEdit] => [block.taskLineNumber, block]));
+  const skippedBlockLines = new Set(
+    activeBlocks.flatMap((block) => Array.from({ length: block.lineCount }, (_, i) => block.startLine + i)),
+  );
+
+  const result: string[] = [];
+
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    if (removedLines.has(lineNumber) || skippedBlockLines.has(lineNumber)) {
+      continue;
+    }
+
+    const replacement = replacementByLine.get(lineNumber);
+    result.push(replacement === undefined ? lines[lineNumber] : replacement.replacement);
+
+    const block = blockByAnchor.get(lineNumber);
+    if (block !== undefined) {
+      result.push(...block.replacementLines);
+    }
+  }
+
+  return result.join('\n');
 }
 
 export class TitleSync {
@@ -155,6 +208,7 @@ export class TitleSync {
       pendingBlockIds: new Set(),
       replacements: [],
       removals: [],
+      blocks: [],
       appended: [],
       outcome: {
         created: 0,
@@ -737,9 +791,14 @@ export class TitleSync {
   }
 
   private async commit(pass: SyncPass): Promise<void> {
-    const edits: NoteEdits = { replacements: pass.replacements, removals: pass.removals, appended: pass.appended };
+    const edits: NoteEdits = {
+      replacements: pass.replacements,
+      removals: pass.removals,
+      blocks: pass.blocks,
+      appended: pass.appended,
+    };
 
-    if (edits.replacements.length + edits.removals.length + edits.appended.length > 0) {
+    if (edits.replacements.length + edits.removals.length + edits.blocks.length + edits.appended.length > 0) {
       await this.note.applyEdits(edits);
     }
 
@@ -757,6 +816,7 @@ interface SyncPass {
   readonly pendingBlockIds: Set<string>;
   readonly replacements: LineEdit[];
   readonly removals: LineRemoval[];
+  readonly blocks: BlockEdit[];
   readonly appended: string[];
   readonly outcome: SyncOutcome;
 }

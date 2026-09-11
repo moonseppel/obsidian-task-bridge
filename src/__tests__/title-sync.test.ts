@@ -1269,6 +1269,7 @@ describe('applyNoteEdits', () => {
     const edits: NoteEdits = {
       replacements: [{ lineNumber: 0, expected: '- [ ] First', replacement: '- [ ] First edited' }],
       removals: [{ lineNumber: 1, expected: '- [ ] Second' }],
+      blocks: [],
       appended: ['- [ ] Third'],
     };
 
@@ -1276,8 +1277,111 @@ describe('applyNoteEdits', () => {
   });
 
   it('does nothing when every list is empty', () => {
-    const edits: NoteEdits = { replacements: [], removals: [], appended: [] };
+    const edits: NoteEdits = { replacements: [], removals: [], blocks: [], appended: [] };
 
     expect(applyNoteEdits('- [ ] Only line', edits)).toBe('- [ ] Only line');
+  });
+
+  it('inserts a new block under a task line where none existed', () => {
+    const edits: NoteEdits = {
+      replacements: [],
+      removals: [],
+      blocks: [
+        {
+          taskLineNumber: 0,
+          expectedTaskLine: '- [ ] Buy milk',
+          startLine: 1,
+          lineCount: 0,
+          replacementLines: ['\tOat milk'],
+        },
+      ],
+      appended: [],
+    };
+
+    expect(applyNoteEdits('- [ ] Buy milk\n- [ ] Second', edits)).toBe(
+      '- [ ] Buy milk\n\tOat milk\n- [ ] Second',
+    );
+  });
+
+  it('replaces an existing block with a shorter one', () => {
+    const edits: NoteEdits = {
+      replacements: [],
+      removals: [],
+      blocks: [
+        {
+          taskLineNumber: 0,
+          expectedTaskLine: '- [ ] Buy milk',
+          startLine: 1,
+          lineCount: 2,
+          replacementLines: ['\tJust one line now'],
+        },
+      ],
+      appended: [],
+    };
+
+    expect(applyNoteEdits('- [ ] Buy milk\n\tOld line one\n\tOld line two\n- [ ] Second', edits)).toBe(
+      '- [ ] Buy milk\n\tJust one line now\n- [ ] Second',
+    );
+  });
+
+  it('replaces an existing block with a longer one', () => {
+    const edits: NoteEdits = {
+      replacements: [],
+      removals: [],
+      blocks: [
+        {
+          taskLineNumber: 0,
+          expectedTaskLine: '- [ ] Buy milk',
+          startLine: 1,
+          lineCount: 1,
+          replacementLines: ['\tFirst', '\tSecond', '\tThird'],
+        },
+      ],
+      appended: [],
+    };
+
+    expect(applyNoteEdits('- [ ] Buy milk\n\tOld line\n- [ ] Second', edits)).toBe(
+      '- [ ] Buy milk\n\tFirst\n\tSecond\n\tThird\n- [ ] Second',
+    );
+  });
+
+  it('skips a block edit whose anchor task line no longer matches, the same safety net every other edit kind gets', () => {
+    const edits: NoteEdits = {
+      replacements: [],
+      removals: [],
+      blocks: [
+        {
+          taskLineNumber: 0,
+          expectedTaskLine: '- [ ] Buy milk',
+          startLine: 1,
+          lineCount: 0,
+          replacementLines: ['\tOat milk'],
+        },
+      ],
+      appended: [],
+    };
+
+    expect(applyNoteEdits('- [ ] Typed something else', edits)).toBe('- [ ] Typed something else');
+  });
+
+  it('combines a block edit with an unrelated replacement and removal in the same commit without corruption', () => {
+    const edits: NoteEdits = {
+      replacements: [{ lineNumber: 0, expected: '- [ ] Buy milk', replacement: '- [ ] Buy oat milk' }],
+      removals: [{ lineNumber: 2, expected: '- [ ] Third' }],
+      blocks: [
+        {
+          taskLineNumber: 0,
+          expectedTaskLine: '- [ ] Buy milk',
+          startLine: 1,
+          lineCount: 0,
+          replacementLines: ['\tOat milk, not regular'],
+        },
+      ],
+      appended: [],
+    };
+
+    expect(
+      applyNoteEdits('- [ ] Buy milk\n- [ ] Second\n- [ ] Third', edits),
+    ).toBe('- [ ] Buy oat milk\n\tOat milk, not regular\n- [ ] Second');
   });
 });
