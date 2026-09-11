@@ -23,6 +23,8 @@ export interface ProviderTask {
   isCompleted: boolean;
   /** The project this task currently lives in, used to tell "completed but still here" apart from "moved elsewhere". */
   projectId: string;
+  /** The raw current description, including this plugin's footer where one is present. */
+  description: string;
 }
 
 export interface NewTask {

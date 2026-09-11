@@ -1,16 +1,43 @@
-/**
- * Built the same way every time, so un-flagging (a later slice) can revert it by discarding
- * everything but the embedded block id — the description is a courtesy notice only; the removal
- * date it names is never read back, only the plugin's own stored data decides that.
- */
-export function orphanNoticeDescription(blockId: string, removalDueAt: number): string {
-  const removalDate = new Date(removalDueAt).toISOString().slice(0, 10);
+import { composeRemoteDescription } from './task-description';
 
-  return (
-    'This task was created by Obsidian Task Sync. It is now orphaned — no matching task exists ' +
-    `in Obsidian anymore — and will be removed on ${removalDate} unless it is re-linked before then.\n` +
-    bareBlockIdDescription(blockId)
-  );
+/** Distinctive enough to find the notice line by search, the same way the footer is found. */
+const NOTICE_MARKER = 'It is now orphaned —';
+
+/**
+ * Built the same way every time, so un-flagging can revert it by discarding the notice while
+ * keeping whatever user-authored description the task currently carries — the notice itself is a
+ * courtesy only; the removal date it names is never read back, only the plugin's own stored data
+ * decides that.
+ */
+export function orphanNoticeDescription(blockId: string, removalDueAt: number, userText = ''): string {
+  const removalDate = new Date(removalDueAt).toISOString().slice(0, 10);
+  const notice =
+    'This task was created by Obsidian Task Sync. ' +
+    `${NOTICE_MARKER} no matching task exists in Obsidian anymore — and will be removed on ` +
+    `${removalDate} unless it is re-linked before then.`;
+
+  return bareBlockIdDescription(blockId, userText.length === 0 ? notice : `${userText}\n\n${notice}`);
+}
+
+/**
+ * The inverse of the notice half of orphanNoticeDescription: finds the notice by searching for its
+ * marker line, the same way the footer is found, and removes it along with the blank line
+ * separating it from whatever user text came before.
+ */
+export function stripOrphanNotice(description: string): string {
+  const lines = description.split('\n');
+  const noticeIndex = lines.findIndex((line) => line.includes(NOTICE_MARKER));
+
+  if (noticeIndex === -1) {
+    return description;
+  }
+
+  const before = lines.slice(0, noticeIndex);
+  const withoutLeadingBlank = before.length > 0 && before[before.length - 1] === '' ? before.slice(0, -1) : before;
+  const after = lines.slice(noticeIndex + 1);
+  const withoutTrailingBlank = after.length > 0 && after[0] === '' ? after.slice(1) : after;
+
+  return [...withoutLeadingBlank, ...withoutTrailingBlank].join('\n');
 }
 
 /**
@@ -18,6 +45,6 @@ export function orphanNoticeDescription(blockId: string, removalDueAt: number): 
  * label makes the caret-prefixed id legible to a user looking at the task in the provider, who has
  * no reason to know what an Obsidian block id is.
  */
-export function bareBlockIdDescription(blockId: string): string {
-  return `Obsidian Task Sync ID: ^${blockId}`;
+export function bareBlockIdDescription(blockId: string, userText = ''): string {
+  return composeRemoteDescription(userText, blockId);
 }

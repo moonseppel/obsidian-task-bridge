@@ -21,7 +21,7 @@ const NOT_STUBBED = (name: string) => (): never => {
 };
 
 function withTaskDefaults(task: LooseProviderTask): ProviderTask {
-  return { isCompleted: false, projectId: '', ...task };
+  return { isCompleted: false, projectId: '', description: '', ...task };
 }
 
 /** Every port method, so a test only has to spell out the ones it actually exercises. */

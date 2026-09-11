@@ -73,6 +73,7 @@ function toProviderTask(task: TodoistTask): ProviderTask {
     embeddedBlockId: task.embeddedBlockId,
     isCompleted: task.isCompleted,
     projectId: task.projectId,
+    description: task.description,
   };
 }
 

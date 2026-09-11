@@ -1,4 +1,4 @@
-import { sanitizeForDisplay, sanitizeTitle } from '../../utils/external-text';
+import { sanitizeDescription, sanitizeForDisplay, sanitizeTitle } from '../../utils/external-text';
 import { isRecord } from '../../utils/type-guards';
 import { HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
@@ -25,6 +25,7 @@ export interface TodoistTask {
   /** Todoist's `checked` field: true once the task is completed. */
   isCompleted: boolean;
   projectId: string;
+  description: string;
 }
 
 export interface Page {
@@ -97,6 +98,7 @@ export function toTodoistTask(payload: unknown): TodoistTask {
     embeddedBlockId: findEmbeddedBlockId(record.description),
     isCompleted: record.checked === true,
     projectId: toProjectId(record.project_id),
+    description: sanitizeDescription(record.description),
   };
 }
 

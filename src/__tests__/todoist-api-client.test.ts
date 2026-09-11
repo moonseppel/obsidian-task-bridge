@@ -191,8 +191,8 @@ describe('TodoistApiClient tasks and projects', () => {
       const context = clientReplying(() => Promise.resolve(pages.shift() as HttpResponse));
 
       await expect(context.client.listTasks('p1')).resolves.toEqual([
-        { id: 't1', content: 'One', isCompleted: false, projectId: '' },
-        { id: 't2', content: 'Two', isCompleted: false, projectId: '' },
+        { id: 't1', content: 'One', isCompleted: false, projectId: '', description: '' },
+        { id: 't2', content: 'Two', isCompleted: false, projectId: '', description: '' },
       ]);
       expect(context.send.mock.calls[1][0].url).toContain('cursor=cursor-2');
     });
@@ -209,7 +209,7 @@ describe('TodoistApiClient tasks and projects', () => {
       const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One\nTwo' }])));
 
       await expect(context.client.listTasks('p1')).resolves.toEqual([
-        { id: 't1', content: 'One Two', isCompleted: false, projectId: '' },
+        { id: 't1', content: 'One Two', isCompleted: false, projectId: '', description: '' },
       ]);
     });
 
@@ -318,6 +318,22 @@ describe('TodoistApiClient tasks and projects', () => {
       const [task] = await context.client.listTasks('p1');
       expect(task.projectId).toBe('');
     });
+
+    it('carries the raw description through, preserving its newlines', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', description: 'Some notes\nAcross two lines' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.description).toBe('Some notes\nAcross two lines');
+    });
+
+    it('leaves the description empty when there is none at all', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.description).toBe('');
+    });
   });
 
   describe('createTask', () => {
@@ -331,6 +347,7 @@ describe('TodoistApiClient tasks and projects', () => {
         content: 'Buy milk',
         isCompleted: false,
         projectId: '',
+        description: '',
       });
 
       const request = sentRequest(context);
@@ -466,6 +483,7 @@ describe('TodoistApiClient tasks and projects', () => {
         content: 'Buy milk',
         isCompleted: false,
         projectId: '',
+        description: '',
       });
       expect(sentRequest(context).url).toBe('https://api.todoist.com/api/v1/tasks/t1');
       expect(sentRequest(context).method).toBe('GET');

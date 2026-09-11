@@ -1,7 +1,8 @@
 import { ProviderProject, ProviderTask, TaskProvider, defaultProjectOf } from '../task-provider';
 import { createBlockId } from './block-id';
 import { OrphanTracker } from './orphan-tracker';
-import { bareBlockIdDescription, orphanNoticeDescription } from './orphan-notice';
+import { bareBlockIdDescription, orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
+import { extractUserDescription } from './task-description';
 import { TaskLink, TaskLinkStore } from './task-links';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, isDone, parseTaskLine } from './task-line';
 
@@ -442,10 +443,11 @@ export class TitleSync {
         continue;
       }
 
-      const link = this.links.get(task.embeddedBlockId);
+      const blockId = task.embeddedBlockId;
+      const link = this.links.get(blockId);
 
       if (link !== undefined && link.providerTaskId === task.id) {
-        await this.unflagIfFlagged(task.id, task.embeddedBlockId);
+        await this.unflagIfFlagged(task.id, blockId, task.description);
         continue;
       }
 
@@ -457,7 +459,7 @@ export class TitleSync {
       }
 
       stillOrphaned.add(task.id);
-      await this.flagIfDue(task.id, task.embeddedBlockId, now);
+      await this.flagIfDue(task.id, blockId, task.description, now);
     }
 
     this.orphans.keepOnly(stillOrphaned);
@@ -467,7 +469,7 @@ export class TitleSync {
    * A task orphaned for less than the flag delay is left alone: a re-link lookup a pass or two
    * later resolves most of these on its own, so nothing is flagged before that grace has passed.
    */
-  private async flagIfDue(providerTaskId: string, blockId: string, now: number): Promise<void> {
+  private async flagIfDue(providerTaskId: string, blockId: string, description: string, now: number): Promise<void> {
     const record = this.orphans.get(providerTaskId);
 
     if (record === undefined || record.removalDueAt !== undefined) {
@@ -479,7 +481,8 @@ export class TitleSync {
     }
 
     const removalDueAt = now + ORPHAN_REMOVAL_GRACE_MS;
-    await this.provider.updateTaskDescription(providerTaskId, orphanNoticeDescription(blockId, removalDueAt));
+    const notice = orphanNoticeDescription(blockId, removalDueAt, extractUserDescription(description));
+    await this.provider.updateTaskDescription(providerTaskId, notice);
     this.orphans.flag(providerTaskId, removalDueAt);
   }
 
@@ -502,14 +505,15 @@ export class TitleSync {
    * meant to remove. The removal date itself was never derived from this text — only the tracking
    * this reverses decided it — so reverting the notice changes nothing about what was decided.
    */
-  private async unflagIfFlagged(providerTaskId: string, blockId: string): Promise<void> {
+  private async unflagIfFlagged(providerTaskId: string, blockId: string, description: string): Promise<void> {
     const record = this.orphans.get(providerTaskId);
 
     if (record?.removalDueAt === undefined) {
       return;
     }
 
-    await this.provider.updateTaskDescription(providerTaskId, bareBlockIdDescription(blockId));
+    const userText = stripOrphanNotice(extractUserDescription(description));
+    await this.provider.updateTaskDescription(providerTaskId, bareBlockIdDescription(blockId, userText));
   }
 
   /**

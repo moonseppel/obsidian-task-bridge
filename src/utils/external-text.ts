@@ -1,5 +1,6 @@
 const MAX_DISPLAYABLE_LENGTH = 200;
 const NON_PRINTABLE_CHARACTERS = /\p{C}+/gu;
+const NON_PRINTABLE_CHARACTER = /\p{C}/gu;
 
 export function sanitizeForDisplay(value: unknown): string {
   if (typeof value !== 'string') {
@@ -24,4 +25,13 @@ export function sanitizeTitle(value: unknown): string {
   }
 
   return value.replace(NON_PRINTABLE_CHARACTERS, ' ').trim();
+}
+
+/** Like sanitizeTitle, but a description is genuinely multi-line, so a newline survives untouched. */
+export function sanitizeDescription(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.replace(NON_PRINTABLE_CHARACTER, (char) => (char === '\n' ? char : ' ')).trim();
 }

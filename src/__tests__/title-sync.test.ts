@@ -1,6 +1,7 @@
 import { NewTask } from '../services/task-provider';
 import { TaskProviderError } from '../services/task-provider-error';
 import { OrphanTracker } from '../services/sync/orphan-tracker';
+import { bareBlockIdDescription, orphanNoticeDescription } from '../services/sync/orphan-notice';
 import { TaskLinkStore } from '../services/sync/task-links';
 import { NoteEdits, SourceNote, TitleSync, applyLineEdits, applyNoteEdits, appendLines, removeLines } from '../services/sync/title-sync';
 import { LooseProviderTask, stubProvider } from './support/stub-provider';
@@ -1124,6 +1125,36 @@ describe('TitleSync', () => {
     expect(orphans.get(TASK_ID)?.removalDueAt).toBe(Date.now() + 2 * 24 * 60 * 60_000);
   });
 
+  it('preserves the task\'s existing user-authored description when flagging it as an orphan', async () => {
+    jest.useFakeTimers();
+    const orphans = new OrphanTracker();
+    const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote(''),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks({
+          id: TASK_ID,
+          title: 'Buy milk',
+          embeddedBlockId: 'ots-orphan',
+          description: bareBlockIdDescription('ots-orphan', 'Oat milk, not regular'),
+        }),
+        updateTaskDescription,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(60 * 60_000);
+    await sync.run(PROJECT);
+
+    const [, description] = updateTaskDescription.mock.calls[0] as [string, string];
+    expect(description).toContain('Oat milk, not regular');
+    expect(description.toLowerCase()).toContain('orphaned');
+  });
+
   it('does nothing when a flagged orphan\'s removal date is still in the future', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(10_000);
@@ -1197,6 +1228,40 @@ describe('TitleSync', () => {
     await sync.run(PROJECT);
 
     expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'Obsidian Task Sync ID: ^ots-a1');
+    expect(orphans.get(TASK_ID)).toBeUndefined();
+  });
+
+  it('restores the task\'s user-authored description when un-flagging it, not just the bare footer', async () => {
+    const orphans = new OrphanTracker();
+    orphans.track(TASK_ID, 0);
+    orphans.flag(TASK_ID, 999_999_999);
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(
+      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      links,
+      {
+        listTasks: remoteTasks({
+          id: TASK_ID,
+          title: 'Buy milk',
+          embeddedBlockId: 'ots-a1',
+          description: orphanNoticeDescription('ots-a1', 999_999_999, 'Oat milk, not regular'),
+        }),
+        updateTaskDescription,
+      },
+      undefined,
+      undefined,
+      orphans,
+    );
+
+    await sync.run(PROJECT);
+
+    expect(updateTaskDescription).toHaveBeenCalledWith(
+      TASK_ID,
+      bareBlockIdDescription('ots-a1', 'Oat milk, not regular'),
+    );
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 });
