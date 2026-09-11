@@ -47,7 +47,7 @@
 
 ## Architecture
 
-1. A Todoist task created by this plugin carries the Obsidian block id that created it, appended as the last line of the task's description. The description may be freely edited afterward, so the block id is found by searching the description rather than assuming its position.
+1. A Todoist task created by this plugin carries the Obsidian block id that created it, appended as the last line of the task's description and prefixed with a human-readable label ("Obsidian Task Sync ID: ") so it means something to a user looking at the task in the provider rather than reading as unexplained noise. The description may be freely edited afterward, so the block id is found by searching the description rather than assuming its position.
 2. A line whose block id is not yet recognized by `data.json` is not immediately treated as a new, unsynced task. The task list is checked first for a task whose description already carries that block id, and that task is re-linked instead of a new one being created. Only once the block id has stayed unrecognized and unmatched for a short grace period of 60 seconds is a new task actually created — so a vault-sync tool delivering `data.json` slightly behind the note does not produce a duplicate.
 3. A freshly minted block id also carries a short random tag unique to the device that minted it. That tag is generated once per device and kept in storage that stays on the device — never in `data.json`, since that file is exactly what a vault-sync tool would otherwise propagate between devices. This makes the same block id string vanishingly unlikely to be minted independently by two different devices, not only within the one note a single device happens to be reading.
 
