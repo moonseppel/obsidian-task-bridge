@@ -167,10 +167,14 @@ export class TitleSync {
 
   private async createTask(line: LineUnderSync): Promise<void> {
     const { pass, task } = line;
-    const created = await this.provider.createTask({ title: task.title, projectId: pass.projectId });
     // A block id already on the line but absent from the store is reused, never replaced,
     // so a note can never end up carrying two anchors for one task.
     const blockId = task.blockId ?? createBlockId(pass.takenBlockIds);
+    const created = await this.provider.createTask({
+      title: task.title,
+      projectId: pass.projectId,
+      description: `^${blockId}`,
+    });
 
     pass.takenBlockIds.add(blockId);
     this.links.set({ blockId, providerTaskId: created.id, lastSyncedTitle: task.title });

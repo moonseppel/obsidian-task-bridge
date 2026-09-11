@@ -75,6 +75,28 @@ describe('TodoistProvider task and project mapping', () => {
     await expect(provider.listTasks('p1')).resolves.toMatchObject([{ updatedAt: 1700000000000 }]);
   });
 
+  it('carries the embedded block id through to the provider-neutral shape', async () => {
+    const provider = providerOver({
+      listTasks: () => Promise.resolve([{ id: 't1', content: 'Buy milk', embeddedBlockId: 'ots-a1b2c3d4' }]),
+    });
+
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ embeddedBlockId: 'ots-a1b2c3d4' }]);
+  });
+
+  it('sends the description on to the API client when creating a task', async () => {
+    const created: Array<string | undefined> = [];
+    const provider = providerOver({
+      createTask: (content: string, _projectId: string, description?: string) => {
+        created.push(description);
+        return Promise.resolve({ id: 't1', content });
+      },
+    });
+
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', description: '^ots-a1b2c3d4' });
+
+    expect(created).toEqual(['^ots-a1b2c3d4']);
+  });
+
   it('creates a task from a title and a project', async () => {
     const created: Array<[string, string]> = [];
     const provider = providerOver({

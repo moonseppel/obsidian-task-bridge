@@ -17,11 +17,14 @@ export interface ProviderTask {
   title: string;
   /** Epoch ms the task was last modified, when the provider exposes one. */
   updatedAt?: number;
+  /** The Obsidian block id embedded in this task's description, if it carries one. */
+  embeddedBlockId?: string;
 }
 
 export interface NewTask {
   title: string;
   projectId: string;
+  description?: string;
 }
 
 /** The few words the settings tab needs to speak about this provider without naming it. */

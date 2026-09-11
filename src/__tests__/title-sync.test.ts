@@ -64,8 +64,9 @@ describe('TitleSync', () => {
     });
 
     expect(await sync.run(PROJECT)).toMatchObject({ created: 1, pushed: 0, pulled: 0 });
-    expect(created).toEqual([{ title: 'Buy milk', projectId: PROJECT }]);
     expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
+    const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+    expect(created).toEqual([{ title: 'Buy milk', projectId: PROJECT, description: `^${blockId}` }]);
   });
 
   it('records the new task against the block id it wrote into the note', async () => {
@@ -362,7 +363,7 @@ describe('TitleSync', () => {
     const outcome = await sync.run(PROJECT);
 
     expect(outcome.projectResolution).toEqual({ kind: 'replaced', project: INBOX });
-    expect(created).toEqual([{ title: 'Buy milk', projectId: INBOX.id }]);
+    expect(created).toMatchObject([{ title: 'Buy milk', projectId: INBOX.id }]);
   });
 
   it('uses the default project when none has been configured yet', async () => {
@@ -379,7 +380,7 @@ describe('TitleSync', () => {
     const outcome = await sync.run('');
 
     expect(outcome.projectResolution).toEqual({ kind: 'defaulted', project: INBOX });
-    expect(created).toEqual([{ title: 'Buy milk', projectId: INBOX.id }]);
+    expect(created).toMatchObject([{ title: 'Buy milk', projectId: INBOX.id }]);
   });
 
   it('settles for the first project when the provider names no default', async () => {

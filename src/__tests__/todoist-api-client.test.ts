@@ -242,6 +242,48 @@ describe('TodoistApiClient tasks and projects', () => {
       const [task] = await context.client.listTasks('p1');
       expect(task.updatedAt).toBeUndefined();
     });
+
+    it('finds a block id embedded at the end of the description', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', description: '^ots-a1b2c3d4' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+    });
+
+    it('finds a block id buried mid-description after a user edit', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(
+          page([
+            {
+              id: 't1',
+              content: 'One',
+              description: 'Some notes\n^ots-a1b2c3d4\nMore notes added afterward',
+            },
+          ]),
+        ),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+    });
+
+    it('leaves embeddedBlockId undefined when the description carries no block id', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', description: 'Just some notes' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBeUndefined();
+    });
+
+    it('leaves embeddedBlockId undefined when there is no description at all', async () => {
+      const context = clientReplying(() => Promise.resolve(page([{ id: 't1', content: 'One' }])));
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBeUndefined();
+    });
   });
 
   describe('createTask', () => {
@@ -260,6 +302,30 @@ describe('TodoistApiClient tasks and projects', () => {
       expect(request.url).toBe('https://api.todoist.com/api/v1/tasks');
       expect(request.contentType).toBe('application/json');
       expect(JSON.parse(request.body ?? '')).toEqual({ content: 'Buy milk', project_id: 'p1' });
+    });
+
+    it('sends the description when one is given', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1', '^ots-a1b2c3d4');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
+        content: 'Buy milk',
+        project_id: 'p1',
+        description: '^ots-a1b2c3d4',
+      });
+    });
+
+    it('omits the description entirely when none is given', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('description');
     });
 
     it('reports a deleted project rather than a puzzling error', async () => {

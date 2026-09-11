@@ -20,6 +20,8 @@ export interface TodoistTask {
   content: string;
   /** Epoch ms the task was last modified, when Todoist's answer parses as a date. */
   updatedAt?: number;
+  /** The Obsidian block id embedded in this task's description, if it carries one. */
+  embeddedBlockId?: string;
 }
 
 export interface Page {
@@ -80,7 +82,12 @@ export function toTodoistTask(payload: unknown): TodoistTask {
   const record = requireRecord(payload, 'A task entry was not an object.');
   const id = readIdentifier(record.id, 'A task entry did not contain a task id.');
 
-  return { id, content: sanitizeTitle(record.content), updatedAt: toEpochMs(record.updated_at) };
+  return {
+    id,
+    content: sanitizeTitle(record.content),
+    updatedAt: toEpochMs(record.updated_at),
+    embeddedBlockId: findEmbeddedBlockId(record.description),
+  };
 }
 
 export function parseJson(body: string): unknown {
@@ -128,6 +135,22 @@ function toEpochMs(value: unknown): number | undefined {
   const parsed = Date.parse(value);
 
   return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+/**
+ * The block id may be anywhere in the description, never assumed to be at a fixed position,
+ * since the user is free to edit the description after the plugin wrote it.
+ */
+const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/;
+
+function findEmbeddedBlockId(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const match = EMBEDDED_BLOCK_ID.exec(value);
+
+  return match === null ? undefined : match[1];
 }
 
 function readIdentifier(value: unknown, complaint: string): string {

@@ -26,7 +26,7 @@ export class TodoistProvider implements TaskProvider {
   }
 
   async createTask(task: NewTask): Promise<ProviderTask> {
-    return toProviderTask(await this.api.createTask(task.title, task.projectId));
+    return toProviderTask(await this.api.createTask(task.title, task.projectId, task.description));
   }
 
   async updateTaskTitle(taskId: string, title: string): Promise<void> {
@@ -43,7 +43,7 @@ function toProviderProject(project: TodoistProject): ProviderProject {
 }
 
 function toProviderTask(task: TodoistTask): ProviderTask {
-  return { id: task.id, title: task.content, updatedAt: task.updatedAt };
+  return { id: task.id, title: task.content, updatedAt: task.updatedAt, embeddedBlockId: task.embeddedBlockId };
 }
 
 function describeUser(user: TodoistUser): string {

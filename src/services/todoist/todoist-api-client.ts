@@ -47,9 +47,13 @@ export class TodoistApiClient {
     return (await this.getAllPages('/tasks', { project_id: projectId })).map(toTodoistTask);
   }
 
-  async createTask(content: string, projectId: string): Promise<TodoistTask> {
+  async createTask(content: string, projectId: string, description?: string): Promise<TodoistTask> {
     return toTodoistTask(
-      await this.post('/tasks', { content, project_id: projectId }, 'project-missing'),
+      await this.post(
+        '/tasks',
+        { content, project_id: projectId, ...(description === undefined ? {} : { description }) },
+        'project-missing',
+      ),
     );
   }
 
