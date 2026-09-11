@@ -219,6 +219,58 @@ describe('TitleSync', () => {
     expect(note.content).toBe('- [ ] Local wins ^ots-a1');
   });
 
+  it('falls back to local-wins when the remote task carries no last-modified time', async () => {
+    const note = new FakeNote('- [ ] Local wins ^ots-a1');
+    note.modifiedAt = 1_000;
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
+    ]);
+    const pushed: string[] = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Remote wins' }),
+      updateTaskTitle: (_id, title) => {
+        pushed.push(title);
+        return Promise.resolve();
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 0, pushed: 1, pulled: 0, conflicted: 1 });
+    expect(pushed).toEqual(['Local wins']);
+  });
+
+  it('falls back to local-wins, deterministically, when both sides were modified at the exact same time', async () => {
+    const scenario = (): {
+      note: FakeNote;
+      links: TaskLinkStore;
+      pushed: string[];
+      sync: TitleSync;
+    } => {
+      const note = new FakeNote('- [ ] Local wins ^ots-a1');
+      note.modifiedAt = 1_000;
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Original' },
+      ]);
+      const pushed: string[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Remote wins', updatedAt: 1_000 }),
+        updateTaskTitle: (_id, title) => {
+          pushed.push(title);
+          return Promise.resolve();
+        },
+      });
+
+      return { note, links, pushed, sync };
+    };
+
+    const first = scenario();
+    const second = scenario();
+
+    expect(await first.sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 1 });
+    expect(await second.sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 1 });
+    expect(first.pushed).toEqual(['Local wins']);
+    expect(second.pushed).toEqual(['Local wins']);
+  });
+
   it('is not a conflict when both sides changed to the same title', async () => {
     const note = new FakeNote('- [ ] Same title ^ots-a1');
     const links = new TaskLinkStore([
