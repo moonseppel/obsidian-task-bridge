@@ -23,9 +23,15 @@
     {
       "blockId": "ots-3tgglva3",
       "providerTaskId": "6hV7qcQhxJ64PV2c",
-      "lastSyncedTitle": "Nested child gets changed"
+      "lastSyncedTitle": "Nested child"
+    },
+    {
+      "blockId": "ots-hrtzbvim-5daxh6",
+      "providerTaskId": "6hVRR4GQhFHm9cwc",
+      "lastSyncedTitle": "neuer task"
     }
   ],
+  "orphanedTasks": [],
   "knownProjects": [
     {
       "id": "6hRvxww6q685Jg2c",
