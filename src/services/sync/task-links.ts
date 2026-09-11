@@ -36,6 +36,14 @@ export class TaskLinkStore {
     this.byBlockId.set(link.blockId, link);
   }
 
+  delete(blockId: string): void {
+    this.byBlockId.delete(blockId);
+  }
+
+  values(): IterableIterator<TaskLink> {
+    return this.byBlockId.values();
+  }
+
   get size(): number {
     return this.byBlockId.size;
   }

@@ -23,6 +23,27 @@ describe('TaskLinkStore', () => {
     expect(store.get('ots-a1')?.lastSyncedTitle).toBe('Buy oat milk');
   });
 
+  it('forgets a link once it is deleted', () => {
+    const store = new TaskLinkStore([LINK]);
+    store.delete('ots-a1');
+
+    expect(store.get('ots-a1')).toBeUndefined();
+    expect(store.size).toBe(0);
+  });
+
+  it('does nothing when deleting a block id it never held', () => {
+    const store = new TaskLinkStore([LINK]);
+    store.delete('ots-unknown');
+
+    expect(store.size).toBe(1);
+  });
+
+  it('iterates over every link it holds', () => {
+    const other: TaskLink = { blockId: 'ots-b2', providerTaskId: 'other-task', lastSyncedTitle: 'Call the dentist' };
+
+    expect([...new TaskLinkStore([LINK, other]).values()]).toEqual(expect.arrayContaining([LINK, other]));
+  });
+
   it('round trips through its stored form', () => {
     expect(TaskLinkStore.fromStored(new TaskLinkStore([LINK]).toStored()).get('ots-a1')).toEqual(LINK);
   });
