@@ -1,5 +1,5 @@
 import { StatusReporter } from '../services/status-reporter';
-import { SyncOutcome } from '../services/sync/title-sync';
+import { SyncOutcome } from '../services/sync/sync-outcome';
 import { Logger } from '../utils/logger';
 
 function outcomeWith(overrides: Partial<SyncOutcome> = {}): SyncOutcome {

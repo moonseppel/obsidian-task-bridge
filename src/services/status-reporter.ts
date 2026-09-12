@@ -1,7 +1,7 @@
 import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { ConnectionStatus } from './provider-connection';
-import { SyncOutcome } from './sync/title-sync';
+import { SyncOutcome } from './sync/sync-outcome';
 import { TaskProviderError, TaskProviderFailure, isTransientFailure } from './task-provider-error';
 
 const SYNC_FAILED_MESSAGE = 'Syncing tasks failed unexpectedly. Check the console for details.';

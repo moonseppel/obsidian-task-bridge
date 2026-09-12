@@ -8,7 +8,8 @@ import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
 import { OrphanTracker } from './services/sync/orphan-tracker';
 import { SyncScheduler } from './services/sync/sync-scheduler';
 import { TaskLinkStore } from './services/sync/task-links';
-import { ProjectResolution, TitleSync } from './services/sync/title-sync';
+import { ProjectResolution } from './services/sync/project-resolver';
+import { TaskSync } from './services/sync/task-sync';
 import { TodoistCredentials } from './services/todoist/todoist-credentials';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
 import { readProviderCredentials, toKnownProjects, toSettings } from './stored-data';
@@ -48,14 +49,14 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce);
-  private readonly titleSync = new TitleSync(
-    new ObsidianSourceNote(this.app.vault, () => this.sourceNoteFile),
-    this.provider,
-    this.taskLinks,
-    () => this.saveSettings(),
-    () => getDeviceTag(window.localStorage),
-    this.orphanedTasks,
-  );
+  private readonly taskSync = new TaskSync({
+    note: new ObsidianSourceNote(this.app.vault, () => this.sourceNoteFile),
+    provider: this.provider,
+    links: this.taskLinks,
+    saveLinks: () => this.saveSettings(),
+    getDeviceTag: () => getDeviceTag(window.localStorage),
+    orphans: this.orphanedTasks,
+  });
   private readonly scheduler = new SyncScheduler(
     () => void this.syncTasks(),
     (id) => this.registerInterval(id),
@@ -91,7 +92,6 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.reporter.reportConnectionStatus(await this.connection.connect());
   }
 
-  /** Debug mode reveals the anchors and opens up debug logging; both are off by default. */
   applyDebugMode(): void {
     setDebugLogging(this.settings.debugMode);
     document.body.toggleClass(DEBUG_BODY_CLASS, this.settings.debugMode);
@@ -141,7 +141,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.noteChangedWhileSyncing = false;
 
     try {
-      const outcome = await this.titleSync.run(this.settings.projectId);
+      const outcome = await this.taskSync.run(this.settings.projectId);
       await this.adoptResolvedProject(outcome.projectResolution);
       this.reporter.reportSyncOutcome(outcome);
     } catch (error) {

@@ -1,5 +1,6 @@
 import { TFile, Vault } from 'obsidian';
-import { NoteEdits, SourceNote, applyNoteEdits } from './title-sync';
+import { NoteEdits, applyNoteEdits } from './note-edits';
+import { SourceNote } from './source-note';
 
 export type SourceFileReader = () => TFile | null;
 
