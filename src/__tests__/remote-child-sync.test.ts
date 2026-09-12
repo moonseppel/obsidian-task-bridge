@@ -108,7 +108,7 @@ describe('TaskSync pulling remote-only nested tasks', () => {
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
         { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
-        { id: 'child-task', title: 'Child elsewhere', embeddedBlockId: 'ots-child1', parentId: 'parent-task' },
+        { id: 'child-task', title: 'Child elsewhere', embeddedBlockId: 'ots-child1' },
       ),
       listProjects: projectExists,
     });

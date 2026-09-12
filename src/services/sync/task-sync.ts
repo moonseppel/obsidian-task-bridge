@@ -15,6 +15,7 @@ import {
   SyncPass,
   collectedEdits,
   createSyncPass,
+  flushPendingAppends,
   localParentBlockId,
   recordEdit,
   recordRemoval,
@@ -76,6 +77,7 @@ export class TaskSync {
       await this.syncEveryLine(pass);
       await this.missingLineSync.run(pass);
       this.remoteChildSync.run(pass);
+      flushPendingAppends(pass);
     } finally {
       this.creationGrace.sweep();
       // Committed even when the work above threw: a provider task whose link went unsaved would be

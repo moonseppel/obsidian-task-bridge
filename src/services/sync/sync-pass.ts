@@ -2,8 +2,8 @@ import { ProviderTask } from '../task-provider';
 import { BlockEdit, LineEdit, LineRemoval, NoteEdits } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
-import { ParsedTaskLine, collectBlockIds } from './task-line';
-import { nearestAncestorLineNumbers } from './task-tree';
+import { ParsedTaskLine, collectBlockIds, parseTaskLine } from './task-line';
+import { nearestAncestorLineNumbers, subtreeSpan } from './task-tree';
 
 export interface SyncPass {
   readonly lines: readonly string[];
@@ -20,6 +20,16 @@ export interface SyncPass {
    * parent's block id was only just minted and hasn't been written into the note yet.
    */
   readonly blockIdByLineNumber: Map<number, string>;
+  /** Every block id currently anchoring a line in the note, fixed for the pass like parentLineNumbers. */
+  readonly lineNumberByBlockId: ReadonlyMap<string, number>;
+  /**
+   * Lines queued to append after an anchor line's current existing content (its description and
+   * whatever it already has nested under it), keyed by that anchor's line number. Multiple
+   * unrelated pulls can target the same anchor in one pass — a new remote child and a relocated
+   * task both landing under the same parent — so each accumulates here instead of racing to push
+   * its own BlockEdit, which would let the last one silently win over the others.
+   */
+  readonly pendingAppends: Map<number, string[]>;
   readonly replacements: LineEdit[];
   readonly removals: LineRemoval[];
   readonly blocks: BlockEdit[];
@@ -46,6 +56,8 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): Sy
     localModifiedAt: note.modifiedAt,
     parentLineNumbers: nearestAncestorLineNumbers(lines),
     blockIdByLineNumber: new Map(),
+    lineNumberByBlockId: lineNumberByBlockId(lines),
+    pendingAppends: new Map(),
     replacements: [],
     removals: [],
     blocks: [],
@@ -88,6 +100,46 @@ export function localParentBlockId(pass: SyncPass, lineNumber: number): string |
 
 export function recordRemoval(line: LineUnderSync): void {
   line.pass.removals.push({ lineNumber: line.lineNumber, expected: line.original });
+}
+
+/** Queues lines to land after an anchor's existing content; see pendingAppends for why this is batched. */
+export function appendAfter(pass: SyncPass, anchorLineNumber: number, lines: readonly string[]): void {
+  if (lines.length === 0) {
+    return;
+  }
+
+  const existing = pass.pendingAppends.get(anchorLineNumber) ?? [];
+  existing.push(...lines);
+  pass.pendingAppends.set(anchorLineNumber, existing);
+}
+
+/** Turns every anchor's accumulated appends into exactly one BlockEdit, called once the pass is done queuing. */
+export function flushPendingAppends(pass: SyncPass): void {
+  for (const [anchorLineNumber, appended] of pass.pendingAppends) {
+    const span = subtreeSpan(pass.lines, anchorLineNumber);
+
+    pass.blocks.push({
+      taskLineNumber: anchorLineNumber,
+      expectedTaskLine: pass.lines[anchorLineNumber],
+      startLine: span.startLine,
+      lineCount: span.endLineExclusive - span.startLine,
+      replacementLines: [...pass.lines.slice(span.startLine, span.endLineExclusive), ...appended],
+    });
+  }
+}
+
+function lineNumberByBlockId(lines: readonly string[]): ReadonlyMap<string, number> {
+  const found = new Map<string, number>();
+
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    const blockId = parseTaskLine(lines[lineNumber])?.blockId;
+
+    if (blockId !== null && blockId !== undefined) {
+      found.set(blockId, lineNumber);
+    }
+  }
+
+  return found;
 }
 
 function byTaskId(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {

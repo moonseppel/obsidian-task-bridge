@@ -1,7 +1,6 @@
 import { createBlockId } from './block-id';
 import { leadingWhitespace } from './task-description';
-import { SyncPass } from './sync-pass';
-import { subtreeSpan } from './task-tree';
+import { SyncPass, appendAfter } from './sync-pass';
 import { formatTaskLine } from './task-line';
 import { TaskLinkStore } from './task-links';
 
@@ -43,19 +42,7 @@ export class RemoteChildSync {
     const parentIndent = leadingWhitespace(pass.lines[parentLineNumber] ?? '');
     const newLines = this.buildChildLines(pass, parentTaskId, parentBlockId, `${parentIndent}\t`, alreadyLinked);
 
-    if (newLines.length === 0) {
-      return;
-    }
-
-    const span = subtreeSpan(pass.lines, parentLineNumber);
-
-    pass.blocks.push({
-      taskLineNumber: parentLineNumber,
-      expectedTaskLine: pass.lines[parentLineNumber],
-      startLine: span.startLine,
-      lineCount: span.endLineExclusive - span.startLine,
-      replacementLines: [...pass.lines.slice(span.startLine, span.endLineExclusive), ...newLines],
-    });
+    appendAfter(pass, parentLineNumber, newLines);
     pass.outcome.pulled += newLines.length;
   }
 

@@ -1,5 +1,6 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { FieldChange, syncField } from './field-sync';
+import { ParentSync } from './parent-sync';
 import { LineUnderSync, recordEdit } from './sync-pass';
 import { canonicalTags, sameTagSet } from './tag-set';
 import {
@@ -26,10 +27,12 @@ export interface RemoteCompletion {
 export class LinkedLineSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
+  private readonly parentSync: ParentSync;
 
   constructor(provider: TaskProvider, links: TaskLinkStore) {
     this.provider = provider;
     this.links = links;
+    this.parentSync = new ParentSync(provider, links);
   }
 
   async syncEveryField(linked: LinkedLine, remoteTask: ProviderTask): Promise<void> {
@@ -39,6 +42,11 @@ export class LinkedLineSync {
     await this.syncCompletion(this.reread(linked), { isDone: false, updatedAt: remoteTask.updatedAt });
     await this.syncDescription(this.reread(linked), remoteTask);
     await this.syncTags(this.reread(linked), remoteTask);
+    await this.syncParent(this.reread(linked), remoteTask);
+  }
+
+  private async syncParent(linked: LinkedLine, remoteTask: ProviderTask): Promise<void> {
+    await this.parentSync.sync(linked.line, linked.link, remoteTask);
   }
 
   async syncCompletion(linked: LinkedLine, remote: RemoteCompletion): Promise<void> {

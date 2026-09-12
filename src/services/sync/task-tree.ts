@@ -69,3 +69,17 @@ export function subtreeSpan(lines: readonly string[], taskLineNumber: number): S
 
   return { startLine, endLineExclusive: lineNumber };
 }
+
+/**
+ * Rebases a block of lines from one base indentation to another, preserving each line's depth
+ * relative to that base — the same convention `renderDescriptionBlock` uses, generalized to a
+ * block that may already carry its own indentation rather than starting bare.
+ */
+export function reindentBlock(lines: readonly string[], oldBaseIndent: string, newBaseIndent: string): string[] {
+  return lines.map((line) => {
+    const ownIndent = leadingWhitespace(line);
+    const extra = ownIndent.slice(oldBaseIndent.length);
+
+    return `${newBaseIndent}${extra}${line.slice(ownIndent.length)}`;
+  });
+}
