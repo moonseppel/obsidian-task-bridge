@@ -173,8 +173,8 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
     new Setting(this.containerEl)
       .setName(text.SYNC_INTERVAL_DISPLAY_NAME)
       .setDesc(text.syncIntervalDescription(this.plugin.connection.providerName))
-      .addText((text) =>
-        text
+      .addText((input) =>
+        input
           .setPlaceholder(String(DEFAULT_SETTINGS.syncIntervalMinutes))
           .setValue(String(this.plugin.settings.syncIntervalMinutes))
           .onChange((value) => {

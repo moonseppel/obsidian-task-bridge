@@ -4,7 +4,6 @@ export const SOURCE_NOTE_DISPLAY_NAME = 'Task source note';
 export const SOURCE_NOTE_DESC = 'The single note whose tasks are synced. Leave empty to sync no tasks.';
 export const SOURCE_NOTE_PLACEHOLDER = 'Example: Tasks.md';
 
-
 export const CONNECTION_DISPLAY_NAME = 'Connection';
 export const TEST_CONNECTION_LABEL = 'Test connection';
 export const CONNECTION_BUSY = 'A connection check is already running.';

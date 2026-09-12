@@ -37,13 +37,13 @@ export function toKnownProjects(stored: unknown): ProviderProject[] {
  * top-level key is still read, so a vault written before the move keeps its token selection.
  */
 export function readProviderCredentials(stored: unknown): unknown {
-  const stored_ = isRecord(stored) ? stored : {};
+  const record = isRecord(stored) ? stored : {};
 
-  if (isRecord(stored_.providerCredentials)) {
-    return stored_.providerCredentials;
+  if (isRecord(record.providerCredentials)) {
+    return record.providerCredentials;
   }
 
-  return { apiTokenSecretName: stored_.todoistApiTokenSecretName };
+  return { apiTokenSecretName: record.todoistApiTokenSecretName };
 }
 
 export function readStoredField(stored: unknown, field: string): unknown {
