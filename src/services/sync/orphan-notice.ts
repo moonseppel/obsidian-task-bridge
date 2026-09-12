@@ -16,14 +16,10 @@ export function orphanNoticeDescription(blockId: string, removalDueAt: number, u
     `${NOTICE_MARKER} no matching task exists in Obsidian anymore — and will be removed on ` +
     `${removalDate} unless it is re-linked before then.`;
 
-  return bareBlockIdDescription(blockId, userText.length === 0 ? notice : `${userText}\n\n${notice}`);
+  return composeRemoteDescription(userText.length === 0 ? notice : `${userText}\n\n${notice}`, blockId);
 }
 
-/**
- * The inverse of the notice half of orphanNoticeDescription: finds the notice by searching for its
- * marker line, the same way the footer is found, and removes it along with the blank line
- * separating it from whatever user text came before.
- */
+/** Found by its marker rather than its position, the same way the footer is. */
 export function stripOrphanNotice(description: string): string {
   const lines = description.split('\n');
   const noticeIndex = lines.findIndex((line) => line.includes(NOTICE_MARKER));
@@ -38,13 +34,4 @@ export function stripOrphanNotice(description: string): string {
   const withoutTrailingBlank = after.length > 0 && after[0] === '' ? after.slice(1) : after;
 
   return [...withoutLeadingBlank, ...withoutTrailingBlank].join('\n');
-}
-
-/**
- * What a freshly created task's description looks like, and what an orphan notice reverts to. The
- * label makes the caret-prefixed id legible to a user looking at the task in the provider, who has
- * no reason to know what an Obsidian block id is.
- */
-export function bareBlockIdDescription(blockId: string, userText = ''): string {
-  return composeRemoteDescription(userText, blockId);
 }

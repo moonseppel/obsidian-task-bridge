@@ -1,5 +1,12 @@
 import { OrphanTracker } from '../services/sync/orphan-tracker';
 
+function restored(stored: unknown): OrphanTracker {
+  const orphans = new OrphanTracker();
+  orphans.replaceAll(stored);
+
+  return orphans;
+}
+
 describe('OrphanTracker', () => {
   it('tracks a task the first time it is observed orphaned', () => {
     const orphans = new OrphanTracker();
@@ -50,19 +57,19 @@ describe('OrphanTracker', () => {
     const orphans = new OrphanTracker();
     orphans.track('t1', 1_000);
 
-    const restored = OrphanTracker.fromStored(orphans.toStored());
+    const reloaded = restored(orphans.toStored());
 
-    expect(restored.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000 });
+    expect(reloaded.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000 });
   });
 
   it('drops a malformed record rather than trusting it', () => {
-    const orphans = OrphanTracker.fromStored([{ providerTaskId: '', firstSeenOrphanedAt: 1_000 }, 'nonsense']);
+    const orphans = restored([{ providerTaskId: '', firstSeenOrphanedAt: 1_000 }, 'nonsense']);
 
     expect(orphans.size).toBe(0);
   });
 
   it('drops a record whose removal date is the wrong type', () => {
-    const orphans = OrphanTracker.fromStored([
+    const orphans = restored([
       { providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 'soon' },
     ]);
 
@@ -74,9 +81,9 @@ describe('OrphanTracker', () => {
     orphans.track('t1', 1_000);
     orphans.flag('t1', 5_000);
 
-    const restored = OrphanTracker.fromStored(orphans.toStored());
+    const reloaded = restored(orphans.toStored());
 
-    expect(restored.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 5_000 });
+    expect(reloaded.get('t1')).toEqual({ providerTaskId: 't1', firstSeenOrphanedAt: 1_000, removalDueAt: 5_000 });
   });
 
   it('replaceAll keeps the same instance, so existing holders see the new records', () => {

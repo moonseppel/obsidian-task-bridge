@@ -1,5 +1,5 @@
 import { AbstractInputSuggest, App, TFile } from 'obsidian';
-import { filterNotePaths } from '../utils/note-filter';
+import { filterByQuery } from '../utils/query-filter';
 
 const MAX_SUGGESTIONS = 50;
 
@@ -16,7 +16,7 @@ export class SourceNoteSuggest extends AbstractInputSuggest<TFile> {
   protected getSuggestions(query: string): TFile[] {
     const files: TFile[] = this.app.vault.getMarkdownFiles();
     const filesByPath = new Map<string, TFile>(files.map((file): [string, TFile] => [file.path, file]));
-    const selectedPaths = filterNotePaths([...filesByPath.keys()], query, MAX_SUGGESTIONS);
+    const selectedPaths = filterByQuery([...filesByPath.keys()], query, MAX_SUGGESTIONS);
 
     return selectedPaths
       .map((path) => filesByPath.get(path))

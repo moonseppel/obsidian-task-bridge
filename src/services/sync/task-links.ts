@@ -22,12 +22,10 @@ export class TaskLinkStore {
     this.byBlockId = new Map(links.map((link): [string, TaskLink] => [link.blockId, link]));
   }
 
-  /** Anything malformed is dropped rather than trusted: a bad link would duplicate a task. */
-  static fromStored(stored: unknown): TaskLinkStore {
-    return new TaskLinkStore(toTaskLinks(stored));
-  }
-
-  /** Keeps this instance, so whatever already holds it sees the links that were just loaded. */
+  /**
+   * Keeps this instance, so whatever already holds it sees the links that were just loaded.
+   * Anything malformed is dropped rather than trusted: a bad link would duplicate a task.
+   */
   replaceAll(stored: unknown): void {
     this.byBlockId.clear();
 

@@ -1,4 +1,4 @@
-import { bareBlockIdDescription, orphanNoticeDescription, stripOrphanNotice } from '../services/sync/orphan-notice';
+import { orphanNoticeDescription, stripOrphanNotice } from '../services/sync/orphan-notice';
 
 describe('orphanNoticeDescription', () => {
   it('names when the task was created and that it is now orphaned', () => {
@@ -20,18 +20,6 @@ describe('orphanNoticeDescription', () => {
 
     expect(description).toContain('Oat milk, not regular');
     expect(description.toLowerCase()).toContain('orphaned');
-  });
-});
-
-describe('bareBlockIdDescription', () => {
-  it('is exactly what a freshly created task carries', () => {
-    expect(bareBlockIdDescription('ots-a1b2c3d4')).toBe('Obsidian Task Sync ID: ^ots-a1b2c3d4');
-  });
-
-  it('puts user text above the footer when given one', () => {
-    expect(bareBlockIdDescription('ots-a1b2c3d4', 'Oat milk')).toBe(
-      'Oat milk\n\nObsidian Task Sync ID: ^ots-a1b2c3d4',
-    );
   });
 });
 

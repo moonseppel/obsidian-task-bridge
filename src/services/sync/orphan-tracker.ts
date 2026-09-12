@@ -1,11 +1,10 @@
 import { isRecord } from '../../utils/type-guards';
 
-/** A provider task that carries this plugin's block id but has no live link to it, and since when. */
+/** A provider task carrying this plugin's block id but no live link back to it. */
 export interface OrphanRecord {
   providerTaskId: string;
   firstSeenOrphanedAt: number;
-  /** Set once the task has been flagged; the description's removal date is a courtesy notice
-   * only — this is what actually decides when Slice 12 removes it. */
+  /** Set once flagged. The date in the task's description is a courtesy copy; this one decides. */
   removalDueAt?: number;
 }
 
@@ -17,12 +16,10 @@ export class OrphanTracker {
     this.byTaskId = new Map(records.map((record): [string, OrphanRecord] => [record.providerTaskId, record]));
   }
 
-  /** Anything malformed is dropped rather than trusted: a bad record would misdate a removal. */
-  static fromStored(stored: unknown): OrphanTracker {
-    return new OrphanTracker(toOrphanRecords(stored));
-  }
-
-  /** Keeps this instance, so whatever already holds it sees the records that were just loaded. */
+  /**
+   * Keeps this instance, so whatever already holds it sees the records that were just loaded.
+   * Anything malformed is dropped rather than trusted: a bad record would misdate a removal.
+   */
   replaceAll(stored: unknown): void {
     this.byTaskId.clear();
 
@@ -35,14 +32,12 @@ export class OrphanTracker {
     return this.byTaskId.get(providerTaskId);
   }
 
-  /** A task already tracked keeps the time it was first observed orphaned, rather than resetting it. */
   track(providerTaskId: string, observedAt: number): void {
     if (!this.byTaskId.has(providerTaskId)) {
       this.byTaskId.set(providerTaskId, { providerTaskId, firstSeenOrphanedAt: observedAt });
     }
   }
 
-  /** Records the removal date decided for an already-tracked orphan; a no-op if it isn't tracked. */
   flag(providerTaskId: string, removalDueAt: number): void {
     const record = this.byTaskId.get(providerTaskId);
 
@@ -51,7 +46,7 @@ export class OrphanTracker {
     }
   }
 
-  /** Drops tracking for anything not given, since it's rebuilt from what's currently orphaned each pass. */
+  /** Tracking is rebuilt from whatever is currently orphaned, so anything absent is dropped. */
   keepOnly(stillOrphaned: ReadonlySet<string>): void {
     for (const providerTaskId of this.byTaskId.keys()) {
       if (!stillOrphaned.has(providerTaskId)) {

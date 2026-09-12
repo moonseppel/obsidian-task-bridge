@@ -1,5 +1,14 @@
 import { TaskLink, TaskLinkStore } from '../services/sync/task-links';
 
+function restored(stored: unknown): TaskLinkStore {
+  const store = new TaskLinkStore();
+  store.replaceAll(stored);
+
+  return store;
+}
+
+const BARE = { blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x' };
+
 const LINK: TaskLink = {
   blockId: 'ots-a1',
   providerTaskId: '6X4Vw2Hfmg73Q2XR',
@@ -45,7 +54,7 @@ describe('TaskLinkStore', () => {
   });
 
   it('round trips through its stored form', () => {
-    expect(TaskLinkStore.fromStored(new TaskLinkStore([LINK]).toStored()).get('ots-a1')).toEqual(LINK);
+    expect(restored(new TaskLinkStore([LINK]).toStored()).get('ots-a1')).toEqual(LINK);
   });
 
   it.each<[unknown, string]>([
@@ -53,7 +62,7 @@ describe('TaskLinkStore', () => {
     ['not an array', 'a string'],
     [{ blockId: 'ots-a1' }, 'an object rather than an array'],
   ])('starts empty when the stored value is %s', (stored) => {
-    expect(TaskLinkStore.fromStored(stored).size).toBe(0);
+    expect(restored(stored).size).toBe(0);
   });
 
   it.each<[unknown, string]>([
@@ -62,38 +71,38 @@ describe('TaskLinkStore', () => {
     [{ blockId: '', providerTaskId: '6X', lastSyncedTitle: 'x' }, 'an empty block id'],
     [{ blockId: 'ots-a1', providerTaskId: '6X' }, 'no last synced title'],
     [{ blockId: 'ots-a1', providerTaskId: 6, lastSyncedTitle: 'x' }, 'a numeric provider id'],
-    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedDone: 'yes' }, 'a non-boolean lastSyncedDone'],
-    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedDescription: 42 }, 'a non-string lastSyncedDescription'],
-    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedTags: 'errands' }, 'a non-array lastSyncedTags'],
-    [{ blockId: 'ots-a1', providerTaskId: '6X', lastSyncedTitle: 'x', lastSyncedTags: ['errands', 42] }, 'a lastSyncedTags array with a non-string entry'],
+    [{ ...BARE, lastSyncedDone: 'yes' }, 'a non-boolean lastSyncedDone'],
+    [{ ...BARE, lastSyncedDescription: 42 }, 'a non-string lastSyncedDescription'],
+    [{ ...BARE, lastSyncedTags: 'errands' }, 'a non-array lastSyncedTags'],
+    [{ ...BARE, lastSyncedTags: ['errands', 42] }, 'a lastSyncedTags array with a non-string entry'],
     ['a string', 'not an object at all'],
   ])('drops an entry with %s', (entry) => {
-    expect(TaskLinkStore.fromStored([entry]).size).toBe(0);
+    expect(restored([entry]).size).toBe(0);
   });
 
   it('accepts a link with no lastSyncedDone, as a data.json written before feature 7 would have', () => {
-    expect(TaskLinkStore.fromStored([LINK]).get('ots-a1')?.lastSyncedDone).toBeUndefined();
+    expect(restored([LINK]).get('ots-a1')?.lastSyncedDone).toBeUndefined();
   });
 
   it('accepts a link that carries a lastSyncedDone', () => {
     const link = { ...LINK, lastSyncedDone: true };
 
-    expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
+    expect(restored([link]).get('ots-a1')).toEqual(link);
   });
 
   it('accepts a link that carries a lastSyncedDescription', () => {
     const link = { ...LINK, lastSyncedDescription: 'Oat milk, not regular' };
 
-    expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
+    expect(restored([link]).get('ots-a1')).toEqual(link);
   });
 
   it('accepts a link that carries a lastSyncedTags', () => {
     const link = { ...LINK, lastSyncedTags: ['errands', 'urgent'] };
 
-    expect(TaskLinkStore.fromStored([link]).get('ots-a1')).toEqual(link);
+    expect(restored([link]).get('ots-a1')).toEqual(link);
   });
 
   it('keeps the sound entries when only some are malformed', () => {
-    expect(TaskLinkStore.fromStored([LINK, { blockId: 'ots-b2' }]).size).toBe(1);
+    expect(restored([LINK, { blockId: 'ots-b2' }]).size).toBe(1);
   });
 });
