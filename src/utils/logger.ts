@@ -12,44 +12,42 @@ export function isDebugLogging(): boolean {
   return debugLogging;
 }
 
+type ConsoleWriter = (message: string, ...data: unknown[]) => void;
+
 export class Logger {
-  private namespace: string;
+  private readonly namespace: string;
 
   constructor(namespace: string) {
     this.namespace = namespace;
   }
 
   info(message: string, data?: unknown): void {
-    if (data !== undefined) {
-      console.info(`[${this.namespace}] ${message}`, data);
-    } else {
-      console.info(`[${this.namespace}] ${message}`);
-    }
+    this.write(console.info, message, data);
   }
 
   warn(message: string, data?: unknown): void {
-    if (data !== undefined) {
-      console.warn(`[${this.namespace}] ${message}`, data);
-    } else {
-      console.warn(`[${this.namespace}] ${message}`);
-    }
+    this.write(console.warn, message, data);
   }
 
   error(message: string, error?: unknown): void {
-    if (error !== undefined) {
-      console.error(`[${this.namespace}] ${message}`, error);
-    } else {
-      console.error(`[${this.namespace}] ${message}`);
-    }
+    this.write(console.error, message, error);
   }
 
   debug(message: string, data?: unknown): void {
     if (debugLogging) {
-      if (data !== undefined) {
-        console.debug(`[${this.namespace}] ${message}`, data);
-      } else {
-        console.debug(`[${this.namespace}] ${message}`);
-      }
+      this.write(console.debug, message, data);
     }
+  }
+
+  /** Omitting an absent second argument keeps a bare message from logging a trailing `undefined`. */
+  private write(to: ConsoleWriter, message: string, data: unknown): void {
+    const line = `[${this.namespace}] ${message}`;
+
+    if (data === undefined) {
+      to(line);
+      return;
+    }
+
+    to(line, data);
   }
 }
