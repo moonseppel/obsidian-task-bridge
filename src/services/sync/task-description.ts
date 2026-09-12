@@ -1,40 +1,34 @@
 import { parseTaskLine } from './task-line';
 
-/** The label makes the caret-prefixed id legible to a user with no reason to know what an Obsidian block id is. */
+/** Labelled so the caret-prefixed id means something to a user reading the task in the provider. */
 const ID_LABEL = 'Obsidian Task Sync ID: ';
 
 export interface DescriptionBlock {
-  /** The line right after the task line, whether or not a block was actually found there. */
+  /** Always the line after the task line, even when lineCount is 0 and no block was found. */
   readonly startLine: number;
-  /** 0 when no description block was captured. */
   readonly lineCount: number;
   readonly text: string;
 }
 
-/** A task line's own indentation, e.g. to pass to renderDescriptionBlock when pulling a description. */
 export function leadingWhitespace(line: string): string {
   return /^[ \t]*/.exec(line)?.[0] ?? '';
 }
 
-/** Any deeper whitespace counts, not just a literal tab, so the note is read the same regardless of what its indentation is made of. */
+/** Any deeper whitespace counts, not just a tab, so indentation style never changes what is read. */
 function isDeeperThan(line: string, taskIndent: string): boolean {
   const indent = leadingWhitespace(line);
 
   return indent.startsWith(taskIndent) && indent.length > taskIndent.length;
 }
 
-/** Strips exactly the smallest extra indent shared by every captured line, preserving any deeper relative indentation within the block itself. */
+/** Strips only the shared extra indent, so relative indentation inside the block survives. */
 function dedent(rawLines: readonly string[], taskIndent: string): string {
   const minExtra = Math.min(...rawLines.map((line) => leadingWhitespace(line).length - taskIndent.length));
 
   return rawLines.map((line) => line.slice(taskIndent.length + minExtra)).join('\n');
 }
 
-/**
- * Captures the text indented at least one level deeper than a task line, stopping at the first
- * blank line, insufficiently indented line, or nested task line — a nested checkbox is already
- * synced independently as its own task, so it is never swallowed into the parent's description.
- */
+/** A nested checkbox stops the block: it syncs as its own task rather than as the parent's text. */
 export function readDescriptionBlock(lines: readonly string[], taskLineNumber: number): DescriptionBlock {
   const taskIndent = leadingWhitespace(lines[taskLineNumber] ?? '');
   const startLine = taskLineNumber + 1;
@@ -58,7 +52,7 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
   return { startLine, lineCount: captured.length, text: dedent(captured, taskIndent) };
 }
 
-/** The inverse of readDescriptionBlock's dedent: one literal tab past the task's own indentation, unambiguous regardless of tab width. */
+/** One literal tab past the task's own indentation, so the depth is unambiguous at any tab width. */
 export function renderDescriptionBlock(taskIndent: string, text: string): readonly string[] {
   if (text.length === 0) {
     return [];
@@ -67,11 +61,6 @@ export function renderDescriptionBlock(taskIndent: string, text: string): readon
   return text.split('\n').map((line) => `${taskIndent}\t${line}`);
 }
 
-/**
- * What a task's description holds: the user's text, a blank line, then this plugin's identifying
- * footer — or, with no user text, just the bare footer, exactly as a freshly created task's
- * description has always looked.
- */
 export function composeRemoteDescription(userText: string, blockId: string): string {
   const footer = `${ID_LABEL}^${blockId}`;
 
@@ -79,9 +68,8 @@ export function composeRemoteDescription(userText: string, blockId: string): str
 }
 
 /**
- * The footer is found by searching for its label, never by assuming it is the last line, since
- * the description may have been edited afterward (architecture-rules.md #8). The blank line
- * composeRemoteDescription inserts before it is stripped back out along with it.
+ * The footer is searched for, never assumed to be last: the user may have edited the description
+ * after the plugin wrote it (architecture-rules.md #8).
  */
 export function extractUserDescription(rawDescription: string): string {
   const lines = rawDescription.split('\n');

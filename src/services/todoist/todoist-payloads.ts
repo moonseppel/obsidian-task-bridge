@@ -20,7 +20,6 @@ export interface TodoistTask {
   content: string;
   /** Epoch ms the task was last modified, when Todoist's answer parses as a date. */
   updatedAt?: number;
-  /** The Obsidian block id embedded in this task's description, if it carries one. */
   embeddedBlockId?: string;
   /** Todoist's `checked` field: true once the task is completed. */
   isCompleted: boolean;
@@ -140,19 +139,17 @@ function requireRecord(payload: unknown, complaint: string): Record<string, unkn
   return payload;
 }
 
-/** Tolerant like the rest of this mapping: anything but an array of strings becomes an empty list. */
+/** Tolerant, like the rest of this mapping: a malformed value becomes empty rather than throwing. */
 function toLabels(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
-/** Tolerant like toEpochMs below: a missing or malformed project id becomes '', never a thrown error. */
 function toProjectId(value: unknown): string {
   const id = typeof value === 'number' ? String(value) : value;
 
   return typeof id === 'string' ? id : '';
 }
 
-/** Tolerant like readIdentifier and toPage: an invalid or missing timestamp becomes undefined, never a thrown error. */
 function toEpochMs(value: unknown): number | undefined {
   if (typeof value !== 'string' || value.length === 0) {
     return undefined;

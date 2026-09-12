@@ -17,7 +17,6 @@ export interface ProviderTask {
   title: string;
   /** Epoch ms the task was last modified, when the provider exposes one. */
   updatedAt?: number;
-  /** The Obsidian block id embedded in this task's description, if it carries one. */
   embeddedBlockId?: string;
   /** Whether the task is done. A task missing from `listTasks` may still be completed rather than deleted or moved. */
   isCompleted: boolean;
@@ -50,17 +49,18 @@ export interface TaskProvider {
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;
   updateTaskLabels(taskId: string, labels: readonly string[]): Promise<void>;
-  /** Marks the task done. Todoist completes a task through a dedicated action, not a field update. */
+  /** A dedicated action rather than a field update, because that is how Todoist completes a task. */
   completeTask(taskId: string): Promise<void>;
-  /** The inverse of completeTask. */
   reopenTask(taskId: string): Promise<void>;
   /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
   removeTask(taskId: string): Promise<void>;
-  /** A task missing from a project's task list is ambiguous between deleted and moved elsewhere; this tells them apart. */
+  /**
+   * A task missing from a project's task list is ambiguous between deleted and moved elsewhere;
+   * this tells them apart.
+   */
   getTask(taskId: string): Promise<ProviderTask | undefined>;
 }
 
-/** The provider's own default, or failing that the first project it lists. */
 export function defaultProjectOf(projects: readonly ProviderProject[]): ProviderProject {
   const fallback = projects.find((project) => project.isDefault) ?? projects[0];
 

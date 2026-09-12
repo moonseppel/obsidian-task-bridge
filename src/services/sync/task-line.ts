@@ -15,7 +15,7 @@ export interface ParsedTaskLine {
   /** The single character inside the checkbox brackets, e.g. ' ' or 'x'. */
   readonly checkbox: string;
   readonly title: string;
-  /** Trailing #tags, in the order they appeared, stripped out of title the same way the block id already is. */
+  /** Stripped out of title, in the order they appeared, the same way the block id already is. */
   readonly tags: readonly string[];
   readonly blockId: string | null;
 }
