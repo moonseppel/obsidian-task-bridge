@@ -1,5 +1,17 @@
-import { TodoistApiClient, TodoistUser } from '../services/todoist/todoist-api-client';
+import { TodoistApiClient, TodoistTask, TodoistUser } from '../services/todoist/todoist-api-client';
 import { TodoistProvider } from '../services/todoist/todoist-provider';
+
+function todoistTask(overrides: Partial<TodoistTask> = {}): TodoistTask {
+  return {
+    id: 't1',
+    content: 'Buy milk',
+    isCompleted: false,
+    projectId: 'p1',
+    description: '',
+    labels: [],
+    ...overrides,
+  };
+}
 
 function providerReturning(user: Partial<TodoistUser>): TodoistProvider {
   const api = {
@@ -62,7 +74,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('renames Todoist "content" to the neutral "title"', async () => {
     const provider = providerOver({
       listTasks: () =>
-        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [] }]),
+        Promise.resolve([todoistTask()]),
     });
 
     await expect(provider.listTasks('p1')).resolves.toEqual([
@@ -111,7 +123,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('carries completion state and the current project through to the provider-neutral shape', async () => {
     const provider = providerOver({
       listTasks: () =>
-        Promise.resolve([{ id: 't1', content: 'Buy milk', isCompleted: true, projectId: 'p2', description: '', labels: [] }]),
+        Promise.resolve([todoistTask({ isCompleted: true, projectId: 'p2' })]),
     });
 
     await expect(provider.listTasks('p1')).resolves.toMatchObject([{ isCompleted: true, projectId: 'p2' }]);
@@ -151,7 +163,7 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       createTask: (content: string, _projectId: string, description?: string) => {
         created.push(description);
-        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId: 'p1', description: description ?? '', labels: [] });
+        return Promise.resolve(todoistTask({ content, description: description ?? '' }));
       },
     });
 
@@ -215,7 +227,7 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       updateTaskDescription: (id: string, description: string) => {
         updated.push([id, description]);
-        return Promise.resolve({ id, content: 'Buy milk', isCompleted: false, projectId: 'p1', description, labels: [] });
+        return Promise.resolve(todoistTask({ id, description }));
       },
     });
 
@@ -228,7 +240,7 @@ describe('TodoistProvider task and project mapping', () => {
     const provider = providerOver({
       updateTaskLabels: (id: string, labels: readonly string[]) => {
         updated.push([id, labels]);
-        return Promise.resolve({ id, content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [...labels] });
+        return Promise.resolve(todoistTask({ id, labels: [...labels] }));
       },
     });
 
@@ -278,7 +290,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('presents a task fetched directly by id in provider-neutral shape', async () => {
     const provider = providerOver({
       getTask: () =>
-        Promise.resolve({ id: 't1', content: 'Buy milk', isCompleted: false, projectId: 'p1', description: '', labels: [] }),
+        Promise.resolve(todoistTask()),
     });
 
     await expect(provider.getTask('t1')).resolves.toEqual({
