@@ -3,6 +3,7 @@ import { BlockEdit, LineEdit, LineRemoval, NoteEdits } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { ParsedTaskLine, collectBlockIds } from './task-line';
+import { nearestAncestorLineNumbers } from './task-tree';
 
 export interface SyncPass {
   readonly lines: readonly string[];
@@ -11,6 +12,14 @@ export interface SyncPass {
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
   readonly takenBlockIds: Set<string>;
   readonly localModifiedAt: number;
+  /** Each task line's nearest ancestor task line, fixed for the pass since it reads original content. */
+  readonly parentLineNumbers: ReadonlyMap<number, number>;
+  /**
+   * The block id each task line is using this pass, recorded as it becomes known so a child
+   * processed later in the same top-down pass can resolve its parent's identity even when that
+   * parent's block id was only just minted and hasn't been written into the note yet.
+   */
+  readonly blockIdByLineNumber: Map<number, string>;
   readonly replacements: LineEdit[];
   readonly removals: LineRemoval[];
   readonly blocks: BlockEdit[];
@@ -35,6 +44,8 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): Sy
     remoteTasksByBlockId: byEmbeddedBlockId(project.tasks),
     takenBlockIds: collectBlockIds(lines),
     localModifiedAt: note.modifiedAt,
+    parentLineNumbers: nearestAncestorLineNumbers(lines),
+    blockIdByLineNumber: new Map(),
     replacements: [],
     removals: [],
     blocks: [],
@@ -63,6 +74,16 @@ export function recordEdit(line: LineUnderSync, replacement: string): void {
   }
 
   line.pass.replacements.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
+}
+
+/**
+ * The block id of a line's nearest ancestor task line, or undefined for a top-level line or one
+ * whose ancestor has no block id of its own yet (an empty-titled line, or one not synced at all).
+ */
+export function localParentBlockId(pass: SyncPass, lineNumber: number): string | undefined {
+  const parentLineNumber = pass.parentLineNumbers.get(lineNumber);
+
+  return parentLineNumber === undefined ? undefined : pass.blockIdByLineNumber.get(parentLineNumber);
 }
 
 export function recordRemoval(line: LineUnderSync): void {

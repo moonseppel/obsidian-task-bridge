@@ -9,7 +9,15 @@ import { OrphanTracker } from './orphan-tracker';
 import { resolveProject } from './project-resolver';
 import { SourceNote } from './source-note';
 import { SyncOutcome } from './sync-outcome';
-import { LineUnderSync, SyncPass, collectedEdits, createSyncPass, recordEdit, recordRemoval } from './sync-pass';
+import {
+  LineUnderSync,
+  SyncPass,
+  collectedEdits,
+  createSyncPass,
+  localParentBlockId,
+  recordEdit,
+  recordRemoval,
+} from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { composeRemoteDescription, readDescriptionBlock } from './task-description';
 import { formatTaskLine, parseTaskLine } from './task-line';
@@ -87,6 +95,10 @@ export class TaskSync {
 
     if (task === null || task.title.length === 0) {
       return;
+    }
+
+    if (task.blockId !== null) {
+      pass.blockIdByLineNumber.set(lineNumber, task.blockId);
     }
 
     const line: LineUnderSync = { pass, lineNumber, original, task };
@@ -185,6 +197,7 @@ export class TaskSync {
     const { pass, task } = line;
     // Reused, never replaced, so one task can never end up with two anchors on its line.
     const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, undefined, this.getDeviceTag());
+    pass.blockIdByLineNumber.set(line.lineNumber, blockId);
 
     await this.createAndLink(line, blockId);
     pass.takenBlockIds.add(blockId);
@@ -196,11 +209,17 @@ export class TaskSync {
   private async createAndLink(line: LineUnderSync, blockId: string): Promise<void> {
     const { pass, task } = line;
     const description = readDescriptionBlock(pass.lines, line.lineNumber).text;
+    // Undefined unless the parent line is already linked, so a parent still waiting out its own
+    // creation grace period is simply created as top-level for now, corrected the next pass.
+    const parentBlockId = localParentBlockId(pass, line.lineNumber);
+    const parentTaskId = parentBlockId === undefined ? undefined : this.links.get(parentBlockId)?.providerTaskId;
+    const resolvedParentBlockId = parentTaskId === undefined ? undefined : parentBlockId;
     const created = await this.provider.createTask({
       title: task.title,
       projectId: pass.projectId,
       description: composeRemoteDescription(description, blockId),
       labels: task.tags,
+      parentId: parentTaskId,
     });
 
     this.links.set({
@@ -209,6 +228,7 @@ export class TaskSync {
       lastSyncedTitle: task.title,
       lastSyncedDescription: description,
       lastSyncedTags: canonicalTags(task.tags),
+      lastSyncedParentBlockId: resolvedParentBlockId,
     });
   }
 

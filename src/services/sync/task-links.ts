@@ -13,6 +13,8 @@ export interface TaskLink {
   lastSyncedDone?: boolean;
   lastSyncedDescription?: string;
   lastSyncedTags?: readonly string[];
+  /** The block id of the parent task both sides last agreed on, or undefined for top-level. */
+  lastSyncedParentBlockId?: string;
 }
 
 export class TaskLinkStore {
@@ -71,7 +73,8 @@ function isTaskLink(value: unknown): value is TaskLink {
     typeof value.lastSyncedTitle === 'string' &&
     (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean') &&
     (value.lastSyncedDescription === undefined || typeof value.lastSyncedDescription === 'string') &&
-    (value.lastSyncedTags === undefined || isStringArray(value.lastSyncedTags))
+    (value.lastSyncedTags === undefined || isStringArray(value.lastSyncedTags)) &&
+    (value.lastSyncedParentBlockId === undefined || isNonEmptyString(value.lastSyncedParentBlockId))
   );
 }
 

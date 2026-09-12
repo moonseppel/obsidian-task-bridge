@@ -75,6 +75,8 @@ describe('TaskLinkStore', () => {
     [{ ...BARE, lastSyncedDescription: 42 }, 'a non-string lastSyncedDescription'],
     [{ ...BARE, lastSyncedTags: 'errands' }, 'a non-array lastSyncedTags'],
     [{ ...BARE, lastSyncedTags: ['errands', 42] }, 'a lastSyncedTags array with a non-string entry'],
+    [{ ...BARE, lastSyncedParentBlockId: '' }, 'an empty lastSyncedParentBlockId'],
+    [{ ...BARE, lastSyncedParentBlockId: 42 }, 'a non-string lastSyncedParentBlockId'],
     ['a string', 'not an object at all'],
   ])('drops an entry with %s', (entry) => {
     expect(restored([entry]).size).toBe(0);
@@ -98,6 +100,12 @@ describe('TaskLinkStore', () => {
 
   it('accepts a link that carries a lastSyncedTags', () => {
     const link = { ...LINK, lastSyncedTags: ['errands', 'urgent'] };
+
+    expect(restored([link]).get('ots-a1')).toEqual(link);
+  });
+
+  it('accepts a link that carries a lastSyncedParentBlockId', () => {
+    const link = { ...LINK, lastSyncedParentBlockId: 'ots-parent1' };
 
     expect(restored([link]).get('ots-a1')).toEqual(link);
   });
