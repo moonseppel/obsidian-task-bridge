@@ -1,6 +1,40 @@
 import { TaskLinkStore } from '../services/sync/task-links';
 import { FakeNote, PROJECT, makeSync, projectExists, remoteTasks } from './support/sync-harness';
 
+describe('a deleted parent line', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('leaves its child untouched locally, pushing the loss of a parent with no note edit at all', async () => {
+    // The parent's own line is already gone from the note; only the child's remains.
+    const note = new FakeNote('- [ ] Child ^ots-c');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-p', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'ots-c', providerTaskId: 'child-task', lastSyncedTitle: 'Child', lastSyncedParentBlockId: 'ots-p' },
+    ]);
+    const reparented: Array<[string, string | undefined]> = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-p' },
+        { id: 'child-task', title: 'Child', embeddedBlockId: 'ots-c', parentId: 'parent-task' },
+      ),
+      listProjects: projectExists,
+      reparentTask: (taskId, parentId) => {
+        reparented.push([taskId, parentId]);
+        return Promise.resolve();
+      },
+    });
+
+    const before = note.content;
+    await sync.run(PROJECT);
+
+    expect(reparented).toEqual([['child-task', undefined]]);
+    expect(note.content).toBe(before);
+    expect(links.get('ots-c')?.lastSyncedParentBlockId).toBeUndefined();
+  });
+});
+
 describe('TaskSync parent field sync', () => {
   it('pushes a local reparent to a specific new parent, without touching the note', async () => {
     const note = new FakeNote('- [ ] A ^ots-a\n- [ ] C ^ots-c\n\t- [ ] B ^ots-b');

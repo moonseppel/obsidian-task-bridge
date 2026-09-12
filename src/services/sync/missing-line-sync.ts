@@ -1,5 +1,6 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
+import { promoteChildrenToTopLevel } from './reparent-children';
 import { SyncPass } from './sync-pass';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
@@ -95,6 +96,7 @@ export class MissingLineSync {
   }
 
   private async removeTask(pass: SyncPass, link: TaskLink): Promise<void> {
+    await promoteChildrenToTopLevel(this.provider, [...pass.remoteTasks.values()], link.providerTaskId, pass.projectId);
     await this.provider.removeTask(link.providerTaskId);
     this.links.delete(link.blockId);
     pass.outcome.removedTask += 1;

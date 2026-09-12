@@ -83,7 +83,7 @@ export class TaskSync {
       // Committed even when the work above threw: a provider task whose link went unsaved would be
       // created a second time next pass, and housekeeping must not risk what already succeeded.
       await this.commit(pass);
-      await this.orphanHousekeeping.run(pass.remoteTasks.values());
+      await this.orphanHousekeeping.run(pass.remoteTasks.values(), pass.projectId);
     }
 
     return pass.outcome;

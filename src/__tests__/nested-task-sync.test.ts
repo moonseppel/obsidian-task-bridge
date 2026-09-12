@@ -77,6 +77,28 @@ describe('TaskSync nested task creation (push)', () => {
     expect(created).toMatchObject([{ title: 'Child', parentId: 'parent-task' }]);
   });
 
+  it('recreates a nested task under its still-linked parent after a conflicting remote deletion', async () => {
+    const note = new FakeNote('- [ ] Parent ^ots-parent1\n\t- [ ] Child edited ^ots-child1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'ots-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child' },
+    ]);
+    const created: NewTask[] = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks({ id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' }),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve(undefined),
+      createTask: (task) => {
+        created.push(task);
+        return Promise.resolve({ id: 'new-child-task', title: task.title });
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ recreatedTask: 1 });
+    expect(created).toMatchObject([{ title: 'Child edited', parentId: 'parent-task' }]);
+    expect(links.get('ots-child1')?.providerTaskId).toBe('new-child-task');
+  });
+
   it('creates a nested task as top-level when its parent line has not been synced at all', async () => {
     const note = new FakeNote('Not a task\n\t- [ ] Child');
     const links = new TaskLinkStore();

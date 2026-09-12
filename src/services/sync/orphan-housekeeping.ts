@@ -1,6 +1,7 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
 import { OrphanTracker } from './orphan-tracker';
+import { promoteChildrenToTopLevel } from './reparent-children';
 import { composeRemoteDescription, extractUserDescription } from './task-description';
 import { TaskLinkStore } from './task-links';
 
@@ -30,11 +31,12 @@ export class OrphanHousekeeping {
     this.orphans = orphans;
   }
 
-  async run(tasks: Iterable<ProviderTask>): Promise<void> {
+  async run(tasks: Iterable<ProviderTask>, projectId: string): Promise<void> {
     const now = Date.now();
+    const allTasks = [...tasks];
     const stillOrphaned = new Set<string>();
 
-    for (const anchored of anchoredTasksIn(tasks)) {
+    for (const anchored of anchoredTasksIn(allTasks)) {
       if (this.isLinkedBack(anchored)) {
         await this.unflagIfFlagged(anchored);
         continue;
@@ -43,7 +45,7 @@ export class OrphanHousekeeping {
       this.orphans.track(anchored.id, now);
 
       // Excluded from stillOrphaned rather than tracked: it is gone, not merely orphaned.
-      if (await this.removeIfDue(anchored.id, now)) {
+      if (await this.removeIfDue(anchored.id, now, allTasks, projectId)) {
         continue;
       }
 
@@ -78,13 +80,19 @@ export class OrphanHousekeeping {
     this.orphans.flag(anchored.id, removalDueAt);
   }
 
-    private async removeIfDue(providerTaskId: string, now: number): Promise<boolean> {
+  private async removeIfDue(
+    providerTaskId: string,
+    now: number,
+    allTasks: readonly ProviderTask[],
+    projectId: string,
+  ): Promise<boolean> {
     const record = this.orphans.get(providerTaskId);
 
     if (record?.removalDueAt === undefined || now < record.removalDueAt) {
       return false;
     }
 
+    await promoteChildrenToTopLevel(this.provider, allTasks, providerTaskId, projectId);
     await this.provider.removeTask(providerTaskId);
 
     return true;
