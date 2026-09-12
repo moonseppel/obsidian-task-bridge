@@ -7,6 +7,7 @@ import { hasAnyEdit } from './note-edits';
 import { OrphanHousekeeping } from './orphan-housekeeping';
 import { OrphanTracker } from './orphan-tracker';
 import { resolveProject } from './project-resolver';
+import { RemoteChildSync } from './remote-child-sync';
 import { SourceNote } from './source-note';
 import { SyncOutcome } from './sync-outcome';
 import {
@@ -44,6 +45,7 @@ export class TaskSync {
   private readonly getDeviceTag: () => string;
   private readonly lineSync: LinkedLineSync;
   private readonly missingLineSync: MissingLineSync;
+  private readonly remoteChildSync: RemoteChildSync;
   private readonly orphanHousekeeping: OrphanHousekeeping;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
 
@@ -61,6 +63,7 @@ export class TaskSync {
       this.links,
       new GracePeriod(CREATION_GRACE_PERIOD_MS),
     );
+    this.remoteChildSync = new RemoteChildSync(this.links, this.getDeviceTag);
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
   }
 
@@ -72,6 +75,7 @@ export class TaskSync {
     try {
       await this.syncEveryLine(pass);
       await this.missingLineSync.run(pass);
+      this.remoteChildSync.run(pass);
     } finally {
       this.creationGrace.sweep();
       // Committed even when the work above threw: a provider task whose link went unsaved would be
