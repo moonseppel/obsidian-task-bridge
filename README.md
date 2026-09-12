@@ -225,9 +225,21 @@ src/
       block-id.ts             # Mints the block ids that anchor tasks
       device-tag.ts           # The per-device tag baked into freshly minted block ids
       task-links.ts           # Block id to provider task id mapping, with its stored form
+      task-description.ts     # Reads/renders a task's description block; the provider description shape
+      tag-set.ts              # Canonical, order-independent comparison of a task's tags
       orphan-tracker.ts       # Tracks how long a task has been orphaned, and its removal date
       orphan-notice.ts        # The courtesy description notice for a flagged orphan
-      title-sync.ts           # The sync pass itself, plus how note edits are applied
+      orphan-housekeeping.ts  # Flags, un-flags and removes orphaned tasks each pass
+      task-sync.ts            # Orchestrates one sync pass over the note and the project's tasks
+      linked-line-sync.ts     # Syncs every field of one already-linked line
+      missing-line-sync.ts    # Resolves links whose note line has vanished
+      field-sync.ts           # The one conflict rule every synced field shares
+      grace-period.ts         # The debounce shared by creation and deletion
+      project-resolver.ts     # Falls back to the provider's default project
+      note-edits.ts           # Applies a pass's line edits to the note content
+      sync-pass.ts            # One pass's working state, from note lines to outcome
+      sync-outcome.ts         # What a pass reports back once it's done
+      source-note.ts          # The port a sync pass reads and writes the note through
       sync-scheduler.ts       # The poll and the debounce that start a sync
       obsidian-source-note.ts # Adapter over the vault for the configured note
   views/
