@@ -1,0 +1,71 @@
+import { isDeeperThan, leadingWhitespace } from './task-description';
+import { parseTaskLine } from './task-line';
+
+export interface SubtreeSpan {
+  /** Always the line after the task line, even when the span is empty. */
+  readonly startLine: number;
+  readonly endLineExclusive: number;
+}
+
+interface OpenAncestor {
+  readonly lineNumber: number;
+  readonly indent: string;
+}
+
+/**
+ * Every task line's nearest ancestor task line, found in one indentation-based walk of the
+ * whole note. A blank line closes every currently open ancestor, the same boundary
+ * `readDescriptionBlock` already uses, so the note has exactly one nesting rule rather than two.
+ */
+export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMap<number, number> {
+  const parents = new Map<number, number>();
+  const open: OpenAncestor[] = [];
+
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    const line = lines[lineNumber];
+
+    if (line.trim().length === 0) {
+      open.length = 0;
+      continue;
+    }
+
+    while (open.length > 0 && !isDeeperThan(line, open[open.length - 1].indent)) {
+      open.pop();
+    }
+
+    if (parseTaskLine(line) === null) {
+      continue;
+    }
+
+    const parent = open[open.length - 1];
+
+    if (parent !== undefined) {
+      parents.set(lineNumber, parent.lineNumber);
+    }
+
+    open.push({ lineNumber, indent: leadingWhitespace(line) });
+  }
+
+  return parents;
+}
+
+/**
+ * How far a task's own content reaches: its description and every nested descendant, at any
+ * depth. Generalizes `readDescriptionBlock`'s capture rule by not stopping at the first nested
+ * task line, since a subtree includes its children rather than treating them as a boundary.
+ */
+export function subtreeSpan(lines: readonly string[], taskLineNumber: number): SubtreeSpan {
+  const taskIndent = leadingWhitespace(lines[taskLineNumber] ?? '');
+  const startLine = taskLineNumber + 1;
+  let lineNumber = startLine;
+
+  while (
+    lineNumber < lines.length &&
+    lines[lineNumber].trim().length > 0 &&
+    isDeeperThan(lines[lineNumber], taskIndent)
+  ) {
+    lineNumber += 1;
+  }
+
+  return { startLine, endLineExclusive: lineNumber };
+}

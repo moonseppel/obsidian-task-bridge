@@ -15,7 +15,7 @@ export function leadingWhitespace(line: string): string {
 }
 
 /** Any deeper whitespace counts, not just a tab, so indentation style never changes what is read. */
-function isDeeperThan(line: string, taskIndent: string): boolean {
+export function isDeeperThan(line: string, taskIndent: string): boolean {
   const indent = leadingWhitespace(line);
 
   return indent.startsWith(taskIndent) && indent.length > taskIndent.length;
