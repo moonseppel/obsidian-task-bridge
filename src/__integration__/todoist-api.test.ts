@@ -206,4 +206,27 @@ describeAgainstTodoist('Todoist task round trip', () => {
       expect(task?.labels).toEqual([label]);
     });
   });
+
+  // Feature 7's tag sync depends on both of these: a label Obsidian can't write as a #tag must be
+  // left alone rather than mangled, and a duplicate the note might carry must not cause an
+  // endless push once Todoist has already collapsed it on its own side.
+  describe('labels that do not map cleanly onto Obsidian tags', () => {
+    it('accepts a label containing a space, which no #tag syntax can represent', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      const label = `ots probe ${Date.now()}`;
+
+      await client.updateTaskLabels(created.id, [label]);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ labels: [label] });
+    });
+
+    it('silently collapses an exact-case duplicate within the same label list', async () => {
+      const created = await client.createTask('Temporary', project.id);
+      const label = `ots-dup-${Date.now()}`;
+
+      await client.updateTaskLabels(created.id, [label, label]);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ labels: [label] });
+    });
+  });
 });

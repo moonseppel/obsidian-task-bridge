@@ -655,6 +655,54 @@ describe('TitleSync', () => {
       ]);
       expect(links.get(blockId)?.lastSyncedTags).toEqual(['errands', 'urgent']);
     });
+
+    it('leaves a label that cannot be written as a tag unsynced, rather than mangling it into the note', async () => {
+      const note = new FakeNote('- [ ] Renew passport ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: [] },
+      ]);
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['with space'] }),
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+      expect(note.content).toBe('- [ ] Renew passport ^ots-a1');
+      expect(links.get('ots-a1')?.lastSyncedTags).toEqual([]);
+    });
+
+    it('preserves a label that cannot be written as a tag when pushing a local tag change', async () => {
+      const note = new FakeNote('- [ ] Renew passport #errands ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: [] },
+      ]);
+      const updated: Array<[string, readonly string[]]> = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['with space'] }),
+        updateTaskLabels: (id, labels) => {
+          updated.push([id, labels]);
+          return Promise.resolve();
+        },
+      });
+
+      await sync.run(PROJECT);
+
+      expect(updated).toEqual([[TASK_ID, ['errands', 'with space']]]);
+    });
+
+    it('does not keep pushing when the note types the same tag twice but Todoist reports it once', async () => {
+      const note = new FakeNote('- [ ] Renew passport #errands #errands ^ots-a1');
+      const links = new TaskLinkStore([
+        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: ['errands'] },
+      ]);
+      const updateTaskLabels = jest.fn();
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Renew passport', labels: ['errands'] }),
+        updateTaskLabels,
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
+      expect(updateTaskLabels).not.toHaveBeenCalled();
+    });
   });
 
   describe('cross-field independence', () => {

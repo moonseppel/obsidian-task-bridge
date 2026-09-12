@@ -6,6 +6,8 @@ const ANY_BLOCK_ID = /[ \t]\^([A-Za-z0-9-]+)[ \t]*$/;
 /** One or more trailing `#tag` tokens, recognized only where they run all the way to the end. */
 const TRAILING_TAGS = /((?:[ \t]#[A-Za-z0-9_/-]+)+)[ \t]*$/;
 const TAG_TOKEN = /#([A-Za-z0-9_/-]+)/g;
+/** The same character set TAG_TOKEN accepts, checked against a whole string rather than found within one. */
+const VALID_TAG = /^[A-Za-z0-9_/-]+$/;
 
 export interface ParsedTaskLine {
   /** The list marker, kept verbatim so indentation survives. */
@@ -24,6 +26,15 @@ export interface ParsedTaskLine {
  */
 export function isDone(task: ParsedTaskLine): boolean {
   return task.checkbox !== ' ';
+}
+
+/**
+ * Whether a string could be written as `#tag` at all — a Todoist label may contain a space or a
+ * character Obsidian's tag syntax doesn't allow, in which case it is left unsynced rather than
+ * mangled into something that wouldn't parse back the same way.
+ */
+export function isRepresentableAsTag(label: string): boolean {
+  return VALID_TAG.test(label);
 }
 
 /**

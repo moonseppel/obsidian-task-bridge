@@ -1,4 +1,10 @@
-import { collectBlockIds, formatTaskLine, isDone, parseTaskLine } from '../services/sync/task-line';
+import {
+  collectBlockIds,
+  formatTaskLine,
+  isDone,
+  isRepresentableAsTag,
+  parseTaskLine,
+} from '../services/sync/task-line';
 
 describe('parseTaskLine', () => {
   it.each([
@@ -149,6 +155,23 @@ describe('formatTaskLine', () => {
 
     expect(parsed).not.toBeNull();
     expect(formatTaskLine(parsed!)).toBe(line);
+  });
+});
+
+describe('isRepresentableAsTag', () => {
+  it.each(['errands', 'todo/urgent', 'with-dash', 'with_underscore', 'CamelCase', '123'])(
+    'accepts %s',
+    (label) => {
+      expect(isRepresentableAsTag(label)).toBe(true);
+    },
+  );
+
+  it.each([
+    ['with space', 'a Todoist label may contain a space, which Obsidian tag syntax cannot'],
+    ['Ünïcode', 'a Todoist label may contain characters outside the ones a #tag can be written with'],
+    ['', 'an empty label carries no text to write as a tag'],
+  ])('rejects %s (%s)', (label) => {
+    expect(isRepresentableAsTag(label)).toBe(false);
   });
 });
 

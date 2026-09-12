@@ -10,7 +10,14 @@ import {
   renderDescriptionBlock,
 } from './task-description';
 import { TaskLink, TaskLinkStore } from './task-links';
-import { ParsedTaskLine, collectBlockIds, formatTaskLine, isDone, parseTaskLine } from './task-line';
+import {
+  ParsedTaskLine,
+  collectBlockIds,
+  formatTaskLine,
+  isDone,
+  isRepresentableAsTag,
+  parseTaskLine,
+} from './task-line';
 
 /**
  * A vault-sync tool can deliver data.json slightly behind the note, so a block id that only just
@@ -681,10 +688,16 @@ export class TitleSync {
     }
   }
 
-  /** Order never counts as a change: tags and labels are compared, and stored, as sets. */
+  /**
+   * Order never counts as a change: tags and labels are compared, and stored, as sets. A label
+   * that couldn't be written as a #tag at all — Todoist allows a space or a character Obsidian's
+   * tag syntax doesn't — is dropped from the remote side before comparing, so it is left unsynced
+   * rather than mangled into the note or fought over every pass.
+   */
   private async syncTagsAgainstLink(line: LineUnderSync, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
     const localTags = line.task.tags;
-    const remoteTags = remoteTask.labels;
+    const unsyncableRemoteLabels = remoteTask.labels.filter((label) => !isRepresentableAsTag(label));
+    const remoteTags = remoteTask.labels.filter(isRepresentableAsTag);
     const lastSyncedTags = link.lastSyncedTags ?? [];
     const localChanged = !sameTagSet(localTags, lastSyncedTags);
     const remoteChanged = !sameTagSet(remoteTags, lastSyncedTags);
@@ -695,14 +708,14 @@ export class TitleSync {
         remoteTask.updatedAt,
         sameTagSet(localTags, remoteTags),
         () => this.links.set({ ...link, lastSyncedTags: canonicalTags(remoteTags) }),
-        () => this.pushTags(line, link, localTags),
+        () => this.pushTags(line, link, localTags, unsyncableRemoteLabels),
         () => this.pullTags(line, link, remoteTags),
       );
       return;
     }
 
     if (localChanged) {
-      await this.pushTags(line, link, localTags);
+      await this.pushTags(line, link, localTags, unsyncableRemoteLabels);
       return;
     }
 
@@ -864,8 +877,18 @@ export class TitleSync {
     line.pass.outcome.pulled += 1;
   }
 
-  private async pushTags(line: LineUnderSync, link: TaskLink, tags: readonly string[]): Promise<void> {
-    await this.provider.updateTaskLabels(link.providerTaskId, tags);
+  /**
+   * updateTaskLabels replaces the whole label list, so a label this plugin never synced in the
+   * first place — one that couldn't be written as a #tag — is carried along untouched rather than
+   * wiped out by a push that only knows about the tags it manages.
+   */
+  private async pushTags(
+    line: LineUnderSync,
+    link: TaskLink,
+    tags: readonly string[],
+    preserveLabels: readonly string[],
+  ): Promise<void> {
+    await this.provider.updateTaskLabels(link.providerTaskId, [...tags, ...preserveLabels]);
     this.links.set({ ...link, lastSyncedTags: canonicalTags(tags) });
     line.pass.outcome.pushed += 1;
   }
@@ -986,18 +1009,19 @@ function addRemoval(line: LineUnderSync): void {
   line.pass.removals.push({ lineNumber: line.lineNumber, expected: line.original });
 }
 
-/** A stable, sorted form to store as lastSyncedTags, so later comparisons never depend on order. */
+/**
+ * A stable, deduplicated, sorted form to store as lastSyncedTags, so later comparisons never depend
+ * on order or on a duplicate typed twice on one line — Todoist itself silently collapses an
+ * exact-case duplicate in a label list, so treating "a, a" and "a" as the same set here avoids
+ * chasing a difference that was never really there.
+ */
 function canonicalTags(tags: readonly string[]): string[] {
-  return [...tags].sort();
+  return [...new Set(tags)].sort();
 }
 
 function sameTagSet(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-
   const sortedA = canonicalTags(a);
   const sortedB = canonicalTags(b);
 
-  return sortedA.every((tag, index) => tag === sortedB[index]);
+  return sortedA.length === sortedB.length && sortedA.every((tag, index) => tag === sortedB[index]);
 }
