@@ -27,7 +27,7 @@ export class TodoistProvider implements TaskProvider {
 
   async createTask(task: NewTask): Promise<ProviderTask> {
     return toProviderTask(
-      await this.api.createTask(task.title, task.projectId, task.description, task.labels),
+      await this.api.createTask(task.title, task.projectId, task.description, task.labels, task.parentId),
     );
   }
 
@@ -49,6 +49,10 @@ export class TodoistProvider implements TaskProvider {
 
   async reopenTask(taskId: string): Promise<void> {
     await this.api.reopenTask(taskId);
+  }
+
+  async reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<void> {
+    await this.api.moveTask(taskId, parentId, projectId);
   }
 
   /** Todoist offers no trash for tasks, so removal here is always the permanent delete. */
@@ -81,6 +85,7 @@ function toProviderTask(task: TodoistTask): ProviderTask {
     projectId: task.projectId,
     description: task.description,
     labels: task.labels,
+    parentId: task.parentId,
   };
 }
 

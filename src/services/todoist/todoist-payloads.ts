@@ -26,6 +26,7 @@ export interface TodoistTask {
   projectId: string;
   description: string;
   labels: string[];
+  parentId?: string;
 }
 
 export interface Page {
@@ -100,6 +101,7 @@ export function toTodoistTask(payload: unknown): TodoistTask {
     projectId: toProjectId(record.project_id),
     description: sanitizeDescription(record.description),
     labels: toLabels(record.labels),
+    parentId: toOptionalId(record.parent_id),
   };
 }
 
@@ -148,6 +150,13 @@ function toProjectId(value: unknown): string {
   const id = typeof value === 'number' ? String(value) : value;
 
   return typeof id === 'string' ? id : '';
+}
+
+/** Unlike `toProjectId`, absence is meaningful here: no parent is not the same as an empty id. */
+function toOptionalId(value: unknown): string | undefined {
+  const id = typeof value === 'number' ? String(value) : value;
+
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
 
 function toEpochMs(value: unknown): number | undefined {

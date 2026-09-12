@@ -188,6 +188,24 @@ describe('TodoistApiClient reads', () => {
       expect(task.projectId).toBe('');
     });
 
+    it('reads parent_id as parentId', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', parent_id: 'p9' }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.parentId).toBe('p9');
+    });
+
+    it('leaves parentId undefined for a top-level task, unlike projectId which defaults to empty', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(page([{ id: 't1', content: 'One', parent_id: null }])),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.parentId).toBeUndefined();
+    });
+
     it('carries the raw description through, preserving its newlines', async () => {
       const context = clientReplying(() =>
         Promise.resolve(page([{ id: 't1', content: 'One', description: 'Some notes\nAcross two lines' }])),

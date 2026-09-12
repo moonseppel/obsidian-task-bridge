@@ -213,6 +213,28 @@ describe('TodoistProvider task and project mapping', () => {
     expect(created).toEqual([['Buy milk', 'p1']]);
   });
 
+  it('sends the parent id on to the API client when creating a nested task', async () => {
+    const created: Array<string | undefined> = [];
+    const provider = providerOver({
+      createTask: (content: string, _projectId: string, _description?: string, _labels?, parentId?: string) => {
+        created.push(parentId);
+        return Promise.resolve(todoistTask({ content, parentId }));
+      },
+    });
+
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', parentId: 'parent-1' });
+
+    expect(created).toEqual(['parent-1']);
+  });
+
+  it('carries a task\'s parent id through in provider-neutral shape', async () => {
+    const provider = providerOver({
+      listTasks: () => Promise.resolve([todoistTask({ parentId: 'parent-1' })]),
+    });
+
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ parentId: 'parent-1' }]);
+  });
+
   it('updates a title without handing the caller the raw response', async () => {
     const provider = providerOver({
       updateTaskContent: (_id: string, content: string) =>
@@ -272,6 +294,32 @@ describe('TodoistProvider task and project mapping', () => {
 
     await expect(provider.reopenTask('t1')).resolves.toBeUndefined();
     expect(reopened).toEqual(['t1']);
+  });
+
+  it('reparents a task through the dedicated move action', async () => {
+    const moved: Array<[string, string | undefined, string]> = [];
+    const provider = providerOver({
+      moveTask: (id: string, parentId: string | undefined, projectId: string) => {
+        moved.push([id, parentId, projectId]);
+        return Promise.resolve(todoistTask({ id, parentId }));
+      },
+    });
+
+    await expect(provider.reparentTask('t1', 'parent-1', 'p1')).resolves.toBeUndefined();
+    expect(moved).toEqual([['t1', 'parent-1', 'p1']]);
+  });
+
+  it('clears a parent through the same dedicated move action', async () => {
+    const moved: Array<string | undefined> = [];
+    const provider = providerOver({
+      moveTask: (_id: string, parentId: string | undefined) => {
+        moved.push(parentId);
+        return Promise.resolve(todoistTask({}));
+      },
+    });
+
+    await expect(provider.reparentTask('t1', undefined, 'p1')).resolves.toBeUndefined();
+    expect(moved).toEqual([undefined]);
   });
 
   it('removes a task by deleting it, since Todoist offers no trash for tasks', async () => {

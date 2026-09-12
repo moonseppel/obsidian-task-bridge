@@ -25,6 +25,8 @@ export interface ProviderTask {
   /** The raw current description, including this plugin's footer where one is present. */
   description: string;
   labels: readonly string[];
+  /** The id of the task this one is nested under, when it is nested under one at all. */
+  parentId?: string;
 }
 
 export interface NewTask {
@@ -32,6 +34,8 @@ export interface NewTask {
   projectId: string;
   description?: string;
   labels?: readonly string[];
+  /** The task to nest this one under, when it is created as a nested task. */
+  parentId?: string;
 }
 
 /** The few words the settings tab needs to speak about this provider without naming it. */
@@ -52,6 +56,12 @@ export interface TaskProvider {
   /** A dedicated action rather than a field update, because that is how Todoist completes a task. */
   completeTask(taskId: string): Promise<void>;
   reopenTask(taskId: string): Promise<void>;
+  /**
+   * A dedicated action rather than a field update, because Todoist rejects `parent_id` on the
+   * general update endpoint. Clearing a parent (`parentId` undefined) still needs the task's
+   * current project, since Todoist only accepts that as `project_id` re-sent on the same project.
+   */
+  reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<void>;
   /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
   removeTask(taskId: string): Promise<void>;
   /**

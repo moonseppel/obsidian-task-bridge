@@ -81,6 +81,54 @@ describe('TodoistApiClient writes', () => {
         failure: 'project-missing',
       });
     });
+
+    it('sends the parent id when creating a nested task', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1', undefined, undefined, 'parent-1');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
+        content: 'Buy milk',
+        project_id: 'p1',
+        parent_id: 'parent-1',
+      });
+    });
+
+    it('omits the parent id entirely for a top-level task', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.createTask('Buy milk', 'p1');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('parent_id');
+    });
+  });
+
+  describe('moveTask', () => {
+    it('posts the new parent to the dedicated move action', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.moveTask('t1', 'parent-1', 'p1');
+
+      const request = sentRequest(context);
+      expect(request.url).toBe('https://api.todoist.com/api/v1/tasks/t1/move');
+      expect(JSON.parse(request.body ?? '')).toEqual({ parent_id: 'parent-1' });
+    });
+
+    it('clears a parent by re-sending the current project instead, since a literal null parent is rejected', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
+      );
+
+      await context.client.moveTask('t1', undefined, 'p1');
+
+      expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({ project_id: 'p1' });
+    });
   });
 
   describe('updateTaskContent', () => {

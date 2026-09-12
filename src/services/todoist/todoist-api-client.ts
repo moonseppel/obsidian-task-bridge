@@ -53,6 +53,7 @@ export class TodoistApiClient {
     projectId: string,
     description?: string,
     labels?: readonly string[],
+    parentId?: string,
   ): Promise<TodoistTask> {
     return toTodoistTask(
       await this.post(
@@ -62,6 +63,7 @@ export class TodoistApiClient {
           project_id: projectId,
           ...(description === undefined ? {} : { description }),
           ...(labels === undefined || labels.length === 0 ? {} : { labels }),
+          ...(parentId === undefined ? {} : { parent_id: parentId }),
         },
         'project-missing',
       ),
@@ -91,6 +93,17 @@ export class TodoistApiClient {
 
   async reopenTask(taskId: string): Promise<void> {
     await this.request('POST', `/tasks/${encodeURIComponent(taskId)}/reopen`);
+  }
+
+  /**
+   * The general update endpoint rejects `parent_id` outright, so reparenting goes through this
+   * dedicated move action instead. Todoist also rejects a literal `null` there, so clearing a
+   * parent is done by re-sending the task's current project instead of a parent at all.
+   */
+  async moveTask(taskId: string, parentId: string | undefined, projectId: string): Promise<TodoistTask> {
+    const target = parentId === undefined ? { project_id: projectId } : { parent_id: parentId };
+
+    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}/move`, target));
   }
 
   /**

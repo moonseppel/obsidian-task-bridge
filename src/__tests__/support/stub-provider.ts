@@ -13,6 +13,7 @@ export interface StubProviderOptions {
   updateTaskLabels?: (taskId: string, labels: readonly string[]) => Promise<void>;
   completeTask?: (taskId: string) => Promise<void>;
   reopenTask?: (taskId: string) => Promise<void>;
+  reparentTask?: (taskId: string, parentId: string | undefined, projectId: string) => Promise<void>;
   removeTask?: (taskId: string) => Promise<void>;
   getTask?: (taskId: string) => Promise<LooseProviderTask | undefined>;
 }
@@ -42,6 +43,7 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
     updateTaskLabels: options.updateTaskLabels ?? NOT_STUBBED('updateTaskLabels'),
     completeTask: options.completeTask ?? NOT_STUBBED('completeTask'),
     reopenTask: options.reopenTask ?? NOT_STUBBED('reopenTask'),
+    reparentTask: options.reparentTask ?? NOT_STUBBED('reparentTask'),
     removeTask: options.removeTask ?? NOT_STUBBED('removeTask'),
     getTask: options.getTask
       ? (taskId) => options.getTask!(taskId).then((task) => (task === undefined ? undefined : withTaskDefaults(task)))

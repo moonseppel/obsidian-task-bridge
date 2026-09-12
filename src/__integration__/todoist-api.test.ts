@@ -207,6 +207,46 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
   });
 
+  // Feature 8 depends on this whole group to nest, reparent and clear a task's parent.
+  describe('nested tasks', () => {
+    it('accepts a parent id at creation and echoes it back', async () => {
+      const parent = await client.createTask('Parent', project.id);
+      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+
+      expect(child.parentId).toBe(parent.id);
+    });
+
+    it('reparents an existing task to a specific new parent through the move action', async () => {
+      const firstParent = await client.createTask('First parent', project.id);
+      const secondParent = await client.createTask('Second parent', project.id);
+      const child = await client.createTask('Child', project.id, undefined, undefined, firstParent.id);
+
+      await client.moveTask(child.id, secondParent.id, project.id);
+
+      await expect(client.getTask(child.id)).resolves.toMatchObject({ parentId: secondParent.id });
+    });
+
+    it('clears a parent, promoting the task to top-level, by re-sending its current project', async () => {
+      const parent = await client.createTask('Parent', project.id);
+      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+
+      await client.moveTask(child.id, undefined, project.id);
+
+      await expect(client.getTask(child.id)).resolves.toMatchObject({ parentId: undefined });
+    });
+
+    // The sync engine must reparent live children away before deleting a task, since Todoist
+    // would otherwise silently take them down along with it.
+    it('cascades a delete to every child task, unlike removing an unrelated task', async () => {
+      const parent = await client.createTask('Parent', project.id);
+      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+
+      await client.deleteTask(parent.id);
+
+      await expect(client.getTask(child.id)).resolves.toBeUndefined();
+    });
+  });
+
   // Feature 7's tag sync depends on both of these: a label Obsidian can't write as a #tag must be
   // left alone rather than mangled, and a duplicate the note might carry must not cause an
   // endless push once Todoist has already collapsed it on its own side.
