@@ -45,7 +45,13 @@ and resolved independently, by the same rules already established for title, and
 shows as completed is now told apart from one that was deleted or moved to another project.
 Priority moves to a later feature alongside the rest of the Tasks-plugin-sourced fields.
 
-Next: Feature 8 — nested tasks.
+**Feature 8: Complete** — Nested tasks: a task indented under another syncs as its sub-task in
+Todoist, and a Todoist sub-task syncs into the note as an indented line, recursively at any depth.
+A task that loses its parent — on either side — becomes a standalone task on both, by the same
+recency rule as every other field, and a sub-task added directly under an already-synced task in
+Todoist is pulled in too, even though it didn't originate in Obsidian.
+
+Next: Feature 9 — finding tasks across the whole vault.
 
 ## Connecting to Todoist
 
@@ -77,8 +83,9 @@ the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
 
 Checking the box completes the Todoist task, and completing it in Todoist checks the box. Text
 indented one level under a task line is its Todoist description; a trailing `#tag`, right before the
-anchor, is a Todoist label. All four fields — title, state, description, tags — sync both ways and
-independently of each other.
+anchor, is a Todoist label. A task indented one level under another is its Todoist sub-task. All
+five fields — title, state, description, tags, parent — sync both ways and independently of each
+other. See [Nested tasks](#nested-tasks) for how nesting itself works.
 
 The anchor is hidden by default, in reading view and while editing alike, and **Debug mode** in the
 settings brings it back. See [Debug mode](#debug-mode) for what that costs.
@@ -101,7 +108,7 @@ that, and tells you once so the change is never silent.
 
 ### What wins when both sides changed
 
-Title, state, description and tags are each judged on their own: a conflict on one field never
+Title, state, description, tags and parent are each judged on their own: a conflict on one field never
 affects what happens to another. A change on only one side always wins outright: it is pushed or
 pulled, no contest. When both sides changed a field since they last agreed, and to different
 values, it is a genuine conflict, and the newer edit wins — the source note's modification time
@@ -139,7 +146,29 @@ are both left exactly as they are, and are picked up again if the task ever move
 that conflicts with a concurrent edit on the other side is resolved by the same recency rule as a
 title conflict, except the newer edit resurrects what the older side deleted — recreating the task
 from an edited line, or re-appending a line (at the end of the note) from an edited task — instead
-of the edit being silently lost.
+of the edit being silently lost. Deleting a task that still has synced sub-tasks does not take them
+down with it: they are promoted to top-level in Todoist first, since Todoist itself would otherwise
+delete every descendant of a removed task along with it.
+
+### Nested tasks
+
+A task indented at least one level under another syncs as that task's sub-task in Todoist, and a
+sub-task in Todoist syncs into the note as a line indented one level under its parent — recursively,
+so a whole tree of tasks nests the same way on both sides.
+
+```markdown
+- [ ] Plan the trip ^ots-a1b2c3
+	- [ ] Book flights ^ots-d4e5f6
+	- [ ] Book hotel ^ots-g7h8i9
+```
+
+Which task is a line's parent is read fresh from indentation every sync, never stored as a separate
+setting, so moving a task to a different indentation level moves it to a different parent in
+Todoist too, on whichever side the change was made. A task that loses its parent entirely — its
+line is unindented, or its Todoist parent is cleared — becomes a standalone task on the other side
+as well, while whatever is nested under it stays exactly where it is. A sub-task added directly in
+Todoist, under a task already synced from Obsidian, is pulled into the note too; a task created
+directly in Todoist with no synced task anywhere above it in its chain still isn't.
 
 ## Debug mode
 
@@ -168,8 +197,9 @@ page, so no setting can reveal them. Live Preview shows all of them.
   state is not synced yet
 - A task moved to a different Todoist project stops being synced by this plugin until it is moved
   back; it is not deleted, but its line and the task no longer affect each other in the meantime
-- Tasks created directly in Todoist are not pulled into the note. Only tasks this plugin created are
-  followed, which is what "partial two-way sync" means
+- Tasks created directly in Todoist are not pulled into the note, unless they are a sub-task nested
+  under a task this plugin already syncs. Otherwise, only tasks this plugin created are followed,
+  which is what "partial two-way sync" means
 - The note and `data.json` are separate files. If they get out of step, through a partial restore or
   a third-party vault sync running slightly behind, task identity and the 60-second grace period
   usually re-link the line to its existing task rather than duplicating it — but a link that never
@@ -233,6 +263,10 @@ src/
       task-sync.ts            # Orchestrates one sync pass over the note and the project's tasks
       linked-line-sync.ts     # Syncs every field of one already-linked line
       missing-line-sync.ts    # Resolves links whose note line has vanished
+      remote-child-sync.ts    # Pulls a provider-only sub-task of a linked task in as a new line
+      parent-sync.ts          # Syncs which task a line is nested under, including relocation
+      task-tree.ts            # Indentation-derived parentage, subtree spans, and reindenting
+      reparent-children.ts    # Promotes a removed task's children to top-level first
       field-sync.ts           # The one conflict rule every synced field shares
       grace-period.ts         # The debounce shared by creation and deletion
       project-resolver.ts     # Falls back to the provider's default project
@@ -276,10 +310,12 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Orphan lifecycle** — a task that loses its link is flagged, then removed, on a schedule tracked
   entirely in the plugin's own data; the description notice it gets is a courtesy only
 - **Deletion sync** — a linked line missing from the note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
+- **Nested tasks** — a line's parent is derived from indentation every pass rather than stored as a setting, so it stays correct through renames and reordering; relocating a task moves its whole subtree, description and nested children included
 
 Future versions will add:
 
-- More synced fields, starting with priority (feature 7)
+- Finding tasks across the whole vault, not just one source note (feature 9)
+- More Tasks-plugin-sourced fields, starting with priority (feature 11)
 
 ## License
 
