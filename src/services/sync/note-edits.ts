@@ -35,6 +35,10 @@ export function hasAnyEdit(edits: NoteEdits): boolean {
   return edits.replacements.length + edits.removals.length + edits.blocks.length + edits.appended.length > 0;
 }
 
+export function appendingOnly(lines: readonly string[]): NoteEdits {
+  return { replacements: [], removals: [], blocks: [], appended: lines };
+}
+
 export function applyNoteEdits(content: string, edits: NoteEdits): string {
   return appendLines(applyStructuralEdits(content, edits), edits.appended);
 }

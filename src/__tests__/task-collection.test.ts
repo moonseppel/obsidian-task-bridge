@@ -1,5 +1,6 @@
 import { EventRef, MetadataCache, TFile, Vault } from 'obsidian';
-import { TaskCollection, TaskCollectionSettings } from '../services/sync/task-collection';
+import { TaskChangeListenerCallbacks } from '../services/sync/task-change-listener';
+import { RegisterEvent, TaskCollection, TaskCollectionSettings } from '../services/sync/task-collection';
 
 function tfile(path: string): TFile {
   const file = new TFile();
@@ -16,32 +17,44 @@ const SETTINGS: TaskCollectionSettings = {
   ignoreFilePatterns: '',
 };
 
-describe('TaskCollection', () => {
-  it('exposes a finder that resolves the configured scope', () => {
-    const vault = { getMarkdownFiles: (): TFile[] => [tfile('Tasks.md')], getAbstractFileByPath: (): TFile | null => tfile('Tasks.md') } as unknown as Vault;
-    const metadataCache = { getFileCache: () => null } as unknown as MetadataCache;
-    const registerEvent = jest.fn();
-    const collection = new TaskCollection(vault, metadataCache, () => SETTINGS, registerEvent, {
-      onLocationRenamed: jest.fn(),
-      onLocationDeleted: jest.fn(),
-      onRelevantChange: jest.fn(),
-    });
+function silentCallbacks(): TaskChangeListenerCallbacks {
+  return { onLocationRenamed: jest.fn(), onLocationDeleted: jest.fn(), onRelevantChange: jest.fn() };
+}
 
-    expect(collection.finder.filesInScope().map((f) => f.path)).toEqual(['Tasks.md']);
+function vaultRecordingHandlers(handlers: Map<string, (...args: unknown[]) => void>): Vault {
+  return {
+    on: (name: string, handler: (...args: unknown[]) => void): EventRef => {
+      handlers.set(name, handler);
+      return {} as EventRef;
+    },
+  } as unknown as Vault;
+}
+
+function collectionOver(
+  vault: Vault,
+  registerEvent: RegisterEvent,
+  callbacks: TaskChangeListenerCallbacks = silentCallbacks(),
+): TaskCollection {
+  const metadataCache = { getFileCache: () => null } as unknown as MetadataCache;
+
+  return new TaskCollection({ vault, metadataCache, readSettings: () => SETTINGS, registerEvent, callbacks });
+}
+
+describe('TaskCollection', () => {
+  it('resolves the configured scope to file paths', () => {
+    const vault = {
+      getMarkdownFiles: (): TFile[] => [tfile('Tasks.md')],
+      getAbstractFileByPath: (): TFile | null => tfile('Tasks.md'),
+    } as unknown as Vault;
+    const collection = collectionOver(vault, jest.fn());
+
+    expect(collection.filesInScope()).toEqual(['Tasks.md']);
   });
 
   it('registers a handler for each of the four vault events', () => {
     const handlers = new Map<string, (...args: unknown[]) => void>();
-    const vault = {
-      on: (name: string, handler: (...args: unknown[]) => void): EventRef => {
-        handlers.set(name, handler);
-        return {} as EventRef;
-      },
-    } as unknown as Vault;
-    const metadataCache = { getFileCache: () => null } as unknown as MetadataCache;
     const registerEvent = jest.fn();
-    const callbacks = { onLocationRenamed: jest.fn(), onLocationDeleted: jest.fn(), onRelevantChange: jest.fn() };
-    const collection = new TaskCollection(vault, metadataCache, () => SETTINGS, registerEvent, callbacks);
+    const collection = collectionOver(vaultRecordingHandlers(handlers), registerEvent);
 
     collection.registerWatchers();
 
@@ -51,15 +64,8 @@ describe('TaskCollection', () => {
 
   it('routes a relevant modify event through to the callbacks', () => {
     const handlers = new Map<string, (...args: unknown[]) => void>();
-    const vault = {
-      on: (name: string, handler: (...args: unknown[]) => void): EventRef => {
-        handlers.set(name, handler);
-        return {} as EventRef;
-      },
-    } as unknown as Vault;
-    const metadataCache = { getFileCache: () => null } as unknown as MetadataCache;
-    const callbacks = { onLocationRenamed: jest.fn(), onLocationDeleted: jest.fn(), onRelevantChange: jest.fn() };
-    const collection = new TaskCollection(vault, metadataCache, () => SETTINGS, jest.fn(), callbacks);
+    const callbacks = silentCallbacks();
+    const collection = collectionOver(vaultRecordingHandlers(handlers), jest.fn(), callbacks);
     collection.registerWatchers();
 
     handlers.get('modify')?.(tfile('Tasks.md'));

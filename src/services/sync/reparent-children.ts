@@ -1,4 +1,5 @@
-import { ProviderTask, TaskProvider } from '../task-provider';
+import { TaskProvider } from '../task-provider';
+import { ProjectTasks } from './project-resolver';
 
 /**
  * Removing a task cascades to its descendants on the provider side (a discovered Todoist
@@ -10,13 +11,12 @@ import { ProviderTask, TaskProvider } from '../task-provider';
  */
 export async function promoteChildrenToTopLevel(
   provider: TaskProvider,
-  tasks: readonly ProviderTask[],
+  project: ProjectTasks,
   parentTaskId: string,
-  projectId: string,
 ): Promise<void> {
-  for (const child of tasks) {
+  for (const child of project.tasks) {
     if (child.parentId === parentTaskId) {
-      await provider.reparentTask(child.id, undefined, projectId);
+      await provider.reparentTask(child.id, undefined, project.id);
     }
   }
 }

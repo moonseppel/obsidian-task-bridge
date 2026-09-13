@@ -1,6 +1,7 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
 import { OrphanTracker } from './orphan-tracker';
+import { ProjectTasks } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
 import { composeRemoteDescription, extractUserDescription } from './task-description';
 import { TaskLinkStore } from './task-links';
@@ -34,12 +35,11 @@ export class OrphanHousekeeping {
     this.orphans = orphans;
   }
 
-  async run(tasks: Iterable<ProviderTask>, projectId: string, scannedBlockIds: ReadonlySet<string>): Promise<void> {
+  async run(project: ProjectTasks, scannedBlockIds: ReadonlySet<string>): Promise<void> {
     const now = Date.now();
-    const allTasks = [...tasks];
     const stillTracked = new Set<string>();
 
-    for (const anchored of anchoredTasksIn(allTasks)) {
+    for (const anchored of anchoredTasksIn(project.tasks)) {
       if (this.isConfirmedInScope(anchored, scannedBlockIds)) {
         await this.unflagIfFlagged(anchored);
         continue;
@@ -48,7 +48,7 @@ export class OrphanHousekeeping {
       this.orphans.track(anchored.id, now);
 
       // Excluded from stillTracked rather than tracked: it is gone, not merely pending removal.
-      if (await this.removeIfDue(anchored.id, now, allTasks, projectId)) {
+      if (await this.removeIfDue(anchored.id, project, now)) {
         continue;
       }
 
@@ -87,19 +87,14 @@ export class OrphanHousekeeping {
     this.orphans.flag(anchored.id, removalDueAt);
   }
 
-  private async removeIfDue(
-    providerTaskId: string,
-    now: number,
-    allTasks: readonly ProviderTask[],
-    projectId: string,
-  ): Promise<boolean> {
+  private async removeIfDue(providerTaskId: string, project: ProjectTasks, now: number): Promise<boolean> {
     const record = this.orphans.get(providerTaskId);
 
     if (record?.removalDueAt === undefined || now < record.removalDueAt) {
       return false;
     }
 
-    await promoteChildrenToTopLevel(this.provider, allTasks, providerTaskId, projectId);
+    await promoteChildrenToTopLevel(this.provider, project, providerTaskId);
     await this.provider.removeTask(providerTaskId);
 
     return true;

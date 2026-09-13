@@ -5,14 +5,14 @@ const LENGTH = 8;
 const MAX_ATTEMPTS = 100;
 
 /**
- * `deviceTag`, when given, is baked into every id minted here, making the same id vanishingly
- * unlikely to be minted independently by two different devices. An id minted with no tag (the
- * default) keeps today's format, so ids minted before this existed remain valid and untouched.
+ * The device tag is baked into every id minted here, making the same id vanishingly unlikely to be
+ * minted independently by two different devices. An empty tag mints the original untagged format,
+ * which ids minted before the tag existed still use.
  */
 export function createBlockId(
   taken: ReadonlySet<string>,
+  deviceTag: string,
   random: RandomSource = Math.random,
-  deviceTag = '',
 ): string {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const candidate = `${PREFIX}${randomToken(LENGTH, random)}${tagSuffix(deviceTag)}`;

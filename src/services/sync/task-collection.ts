@@ -1,10 +1,19 @@
 import { EventRef, MetadataCache, Vault } from 'obsidian';
 import { TaskFinder, TaskFinderSettings } from './task-finder';
 import { TaskChangeListener, TaskChangeListenerCallbacks, TaskChangeListenerSettings } from './task-change-listener';
+import { ParsedTaskLine } from './task-line';
 
 export type TaskCollectionSettings = TaskFinderSettings & TaskChangeListenerSettings;
 export type TaskCollectionSettingsReader = () => TaskCollectionSettings;
 export type RegisterEvent = (eventRef: EventRef) => void;
+
+export interface TaskCollectionDependencies {
+  readonly vault: Vault;
+  readonly metadataCache: MetadataCache;
+  readonly readSettings: TaskCollectionSettingsReader;
+  readonly registerEvent: RegisterEvent;
+  readonly callbacks: TaskChangeListenerCallbacks;
+}
 
 /**
  * The task-source module: composes a submodule that finds which tasks are currently in scope
@@ -12,22 +21,16 @@ export type RegisterEvent = (eventRef: EventRef) => void;
  * architecture-rules.md rule 29. Holds no scope or event logic of its own.
  */
 export class TaskCollection {
-  readonly finder: TaskFinder;
+  private readonly finder: TaskFinder;
   private readonly listener: TaskChangeListener;
   private readonly vault: Vault;
   private readonly registerEvent: RegisterEvent;
 
-  constructor(
-    vault: Vault,
-    metadataCache: MetadataCache,
-    readSettings: TaskCollectionSettingsReader,
-    registerEvent: RegisterEvent,
-    callbacks: TaskChangeListenerCallbacks,
-  ) {
-    this.vault = vault;
-    this.registerEvent = registerEvent;
-    this.finder = new TaskFinder(vault, metadataCache, readSettings);
-    this.listener = new TaskChangeListener(readSettings, callbacks);
+  constructor(dependencies: TaskCollectionDependencies) {
+    this.vault = dependencies.vault;
+    this.registerEvent = dependencies.registerEvent;
+    this.finder = new TaskFinder(dependencies.vault, dependencies.metadataCache, dependencies.readSettings);
+    this.listener = new TaskChangeListener(dependencies.readSettings, dependencies.callbacks);
   }
 
   registerWatchers(): void {
@@ -35,5 +38,17 @@ export class TaskCollection {
     this.registerEvent(this.vault.on('modify', (file) => this.listener.handleModify(file)));
     this.registerEvent(this.vault.on('rename', (file, oldPath) => this.listener.handleRename(file, oldPath)));
     this.registerEvent(this.vault.on('delete', (file) => this.listener.handleDelete(file)));
+  }
+
+  filesInScope(): string[] {
+    return this.finder.filesInScope().map((file) => file.path);
+  }
+
+  isTagInScope(task: ParsedTaskLine): boolean {
+    return this.finder.isTagInScope(task);
+  }
+
+  existsOutsideIgnoredFiles(blockId: string): boolean {
+    return this.finder.existsOutsideIgnoredFiles(blockId);
   }
 }

@@ -1,8 +1,22 @@
+import { ProviderTask } from '../task-provider';
 import { createBlockId } from './block-id';
-import { leadingWhitespace } from './task-description';
 import { SyncPass, appendAfter } from './sync-pass';
+import { leadingWhitespace } from './task-description';
 import { formatTaskLine } from './task-line';
-import { TaskLinkStore } from './task-links';
+import { TaskLink, TaskLinkStore } from './task-links';
+
+/** One file's pass, plus every provider task already linked or pulled in so far this pass. */
+interface ChildPull {
+  readonly pass: SyncPass;
+  readonly alreadyLinked: Set<string>;
+}
+
+/** A linked task whose provider-only children are pulled in underneath it. */
+interface PullParent {
+  readonly taskId: string;
+  readonly blockId: string;
+  readonly childIndent: string;
+}
 
 /**
  * A sub-task added directly in the provider, under a task this plugin already links, is pulled
@@ -21,61 +35,64 @@ export class RemoteChildSync {
   }
 
   run(pass: SyncPass): void {
-    const alreadyLinked = new Set([...this.links.values()].map((link) => link.providerTaskId));
+    const pull: ChildPull = {
+      pass,
+      alreadyLinked: new Set([...this.links.values()].map((link) => link.providerTaskId)),
+    };
 
     for (const [lineNumber, blockId] of pass.blockIdByLineNumber) {
       const link = this.links.get(blockId);
 
-      if (link !== undefined) {
-        this.insertChildrenOf(pass, link.providerTaskId, blockId, lineNumber, alreadyLinked);
-      }
-    }
-  }
-
-  private insertChildrenOf(
-    pass: SyncPass,
-    parentTaskId: string,
-    parentBlockId: string,
-    parentLineNumber: number,
-    alreadyLinked: Set<string>,
-  ): void {
-    const parentIndent = leadingWhitespace(pass.lines[parentLineNumber] ?? '');
-    const newLines = this.buildChildLines(pass, parentTaskId, parentBlockId, `${parentIndent}\t`, alreadyLinked);
-
-    appendAfter(pass, parentLineNumber, newLines);
-    pass.outcome.pulled += newLines.length;
-  }
-
-  /** Recurses so a remote-only chain several levels deep is pulled in together, in one pass. */
-  private buildChildLines(
-    pass: SyncPass,
-    parentTaskId: string,
-    parentBlockId: string,
-    childIndent: string,
-    alreadyLinked: Set<string>,
-  ): string[] {
-    const lines: string[] = [];
-
-    for (const task of pass.remoteTasks.values()) {
-      if (task.parentId !== parentTaskId || alreadyLinked.has(task.id)) {
+      if (link === undefined) {
         continue;
       }
 
-      const blockId = createBlockId(pass.takenBlockIds, undefined, this.getDeviceTag());
-      pass.takenBlockIds.add(blockId);
-      alreadyLinked.add(task.id);
+      const childLines = this.buildChildLines(pull, pullParentOf(link, pass.lines[lineNumber] ?? ''));
 
-      this.links.set({
-        blockId,
-        providerTaskId: task.id,
-        lastSyncedTitle: task.title,
-        lastSyncedParentBlockId: parentBlockId,
-      });
+      appendAfter(pass, lineNumber, childLines);
+      pass.outcome.pulled += childLines.length;
+    }
+  }
 
-      lines.push(formatTaskLine({ prefix: `${childIndent}- `, checkbox: ' ', title: task.title, tags: [], blockId }));
-      lines.push(...this.buildChildLines(pass, task.id, blockId, `${childIndent}\t`, alreadyLinked));
+  /** Recurses so a remote-only chain several levels deep is pulled in together, in one pass. */
+  private buildChildLines(pull: ChildPull, parent: PullParent): string[] {
+    const lines: string[] = [];
+
+    for (const task of pull.pass.remoteTasks.values()) {
+      if (task.parentId !== parent.taskId || pull.alreadyLinked.has(task.id)) {
+        continue;
+      }
+
+      const blockId = this.linkChild(pull, task, parent.blockId);
+      const prefix = `${parent.childIndent}- `;
+
+      lines.push(formatTaskLine({ prefix, checkbox: ' ', title: task.title, tags: [], blockId }));
+      lines.push(...this.buildChildLines(pull, { taskId: task.id, blockId, childIndent: `${parent.childIndent}\t` }));
     }
 
     return lines;
   }
+
+  private linkChild(pull: ChildPull, task: ProviderTask, parentBlockId: string): string {
+    const blockId = createBlockId(pull.pass.takenBlockIds, this.getDeviceTag());
+
+    pull.pass.takenBlockIds.add(blockId);
+    pull.alreadyLinked.add(task.id);
+    this.links.set({
+      blockId,
+      providerTaskId: task.id,
+      lastSyncedTitle: task.title,
+      lastSyncedParentBlockId: parentBlockId,
+    });
+
+    return blockId;
+  }
+}
+
+function pullParentOf(link: TaskLink, parentLine: string): PullParent {
+  return {
+    taskId: link.providerTaskId,
+    blockId: link.blockId,
+    childIndent: `${leadingWhitespace(parentLine)}\t`,
+  };
 }

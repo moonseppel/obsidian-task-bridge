@@ -1,5 +1,6 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
+import { appendingOnly } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
 import { SourceNote } from './source-note';
@@ -12,6 +13,15 @@ import { TaskLink, TaskLinkStore } from './task-links';
 const RESURRECTED_LINE_PREFIX = '- ';
 const RESURRECTED_LINE_CHECKBOX = ' ';
 
+export interface MissingLineSyncDependencies {
+  readonly provider: TaskProvider;
+  readonly links: TaskLinkStore;
+  readonly grace: GracePeriod;
+  readonly noteFor: (path: string) => SourceNote;
+  /** Whether a block id still anchors a task line in a non-ignored vault file outside this run's scope. */
+  readonly existsOutsideIgnoredFiles: (blockId: string) => boolean;
+}
+
 export interface MissingLineRunContext {
   readonly project: ResolvedProject;
   /** Every block id anchoring a task line in any file scanned this run, across every file. */
@@ -19,6 +29,17 @@ export interface MissingLineRunContext {
   /** This run's scanned file paths, so a link that has never been seen still has an unambiguous
    *  resurrection target when there is only ever one file it could have come from. */
   readonly scannedPaths: readonly string[];
+}
+
+interface MissingLineSweep extends MissingLineRunContext {
+  readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
+  readonly outcome: SyncOutcome;
+}
+
+/** A link whose line has vanished while its task is still in the project's active list. */
+interface MissingLine {
+  readonly link: TaskLink;
+  readonly remoteTask: ProviderTask;
 }
 
 /**
@@ -33,23 +54,20 @@ export class MissingLineSync {
   private readonly noteFor: (path: string) => SourceNote;
   private readonly existsOutsideIgnoredFiles: (blockId: string) => boolean;
 
-  constructor(
-    provider: TaskProvider,
-    links: TaskLinkStore,
-    grace: GracePeriod,
-    noteFor: (path: string) => SourceNote,
-    existsOutsideIgnoredFiles: (blockId: string) => boolean = () => false,
-  ) {
-    this.provider = provider;
-    this.links = links;
-    this.grace = grace;
-    this.noteFor = noteFor;
-    this.existsOutsideIgnoredFiles = existsOutsideIgnoredFiles;
+  constructor(dependencies: MissingLineSyncDependencies) {
+    this.provider = dependencies.provider;
+    this.links = dependencies.links;
+    this.grace = dependencies.grace;
+    this.noteFor = dependencies.noteFor;
+    this.existsOutsideIgnoredFiles = dependencies.existsOutsideIgnoredFiles;
   }
 
   async run(context: MissingLineRunContext): Promise<SyncOutcome> {
-    const outcome = emptyOutcome(context.project.resolution);
-    const remoteTasks = indexTasksById(context.project.tasks);
+    const sweep: MissingLineSweep = {
+      ...context,
+      remoteTasks: indexTasksById(context.project.tasks),
+      outcome: emptyOutcome(context.project.resolution),
+    };
 
     for (const link of [...this.links.values()]) {
       if (context.takenBlockIds.has(link.blockId)) {
@@ -60,24 +78,19 @@ export class MissingLineSync {
         continue;
       }
 
-      await this.resolve(context, remoteTasks, link, outcome);
+      await this.resolve(sweep, link);
     }
 
     this.grace.sweep();
-    return outcome;
+    return sweep.outcome;
   }
 
   /** A vanished line says nothing about the task, so the task is checked rather than assumed gone. */
-  private async resolve(
-    context: MissingLineRunContext,
-    remoteTasks: ReadonlyMap<string, ProviderTask>,
-    link: TaskLink,
-    outcome: SyncOutcome,
-  ): Promise<void> {
-    const remoteTask = remoteTasks.get(link.providerTaskId);
+  private async resolve(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
+    const remoteTask = sweep.remoteTasks.get(link.providerTaskId);
 
     if (remoteTask === undefined) {
-      await this.resolveAgainstAbsentTask(context, link, outcome);
+      await this.resolveAgainstAbsentTask(sweep, link);
       return;
     }
 
@@ -89,19 +102,15 @@ export class MissingLineSync {
     }
 
     if (remoteTask.title.length > 0 && remoteTask.title !== link.lastSyncedTitle) {
-      await this.resolveConflict(context, link, remoteTask, outcome);
+      await this.resolveConflict(sweep, { link, remoteTask });
       return;
     }
 
-    await this.removeTask(context, link, outcome);
+    await this.removeTask(sweep, link);
   }
 
   /** Moved out of this project is left untouched; completed here is tidied up like a deletion. */
-  private async resolveAgainstAbsentTask(
-    context: MissingLineRunContext,
-    link: TaskLink,
-    outcome: SyncOutcome,
-  ): Promise<void> {
+  private async resolveAgainstAbsentTask(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
     const found = await this.provider.getTask(link.providerTaskId);
 
     if (found === undefined) {
@@ -109,11 +118,9 @@ export class MissingLineSync {
       return;
     }
 
-    if (found.projectId !== context.project.id || !found.isCompleted) {
-      return;
+    if (found.projectId === sweep.project.id && found.isCompleted) {
+      await this.removeTask(sweep, link);
     }
-
-    await this.removeTask(context, link, outcome);
   }
 
   /**
@@ -122,57 +129,50 @@ export class MissingLineSync {
    * or one that has since vanished entirely — there is nowhere to resurrect a line into, so the
    * deletion stands rather than guessing a location.
    */
-  private async resolveConflict(
-    context: MissingLineRunContext,
-    link: TaskLink,
-    remoteTask: ProviderTask,
-    outcome: SyncOutcome,
-  ): Promise<void> {
-    outcome.conflicted += 1;
-    const path = link.lastKnownFilePath ?? soleScannedPath(context.scannedPaths);
+  private async resolveConflict(sweep: MissingLineSweep, missing: MissingLine): Promise<void> {
+    sweep.outcome.conflicted += 1;
+    const path = missing.link.lastKnownFilePath ?? soleScannedPath(sweep.scannedPaths);
 
-    if (path === undefined) {
-      await this.removeTask(context, link, outcome);
+    if (path === undefined || !(await this.isRemoteNewerThanNote(missing.remoteTask, path))) {
+      await this.removeTask(sweep, missing.link);
       return;
     }
 
-    let localModifiedAt: number;
-
-    try {
-      localModifiedAt = await this.noteFor(path).lastModified();
-    } catch {
-      await this.removeTask(context, link, outcome);
-      return;
-    }
-
-    if (remoteTask.updatedAt === undefined || remoteTask.updatedAt <= localModifiedAt) {
-      await this.removeTask(context, link, outcome);
-      return;
-    }
-
-    await this.noteFor(path).applyEdits({
-      replacements: [],
-      removals: [],
-      blocks: [],
-      appended: [
-        formatTaskLine({
-          prefix: RESURRECTED_LINE_PREFIX,
-          checkbox: RESURRECTED_LINE_CHECKBOX,
-          title: remoteTask.title,
-          tags: [],
-          blockId: link.blockId,
-        }),
-      ],
-    });
-    this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
-    outcome.resurrectedLine += 1;
+    await this.resurrectLine(missing, path);
+    sweep.outcome.resurrectedLine += 1;
   }
 
-  private async removeTask(context: MissingLineRunContext, link: TaskLink, outcome: SyncOutcome): Promise<void> {
-    await promoteChildrenToTopLevel(this.provider, context.project.tasks, link.providerTaskId, context.project.id);
+  private async isRemoteNewerThanNote(remoteTask: ProviderTask, path: string): Promise<boolean> {
+    if (remoteTask.updatedAt === undefined) {
+      return false;
+    }
+
+    try {
+      return remoteTask.updatedAt > (await this.noteFor(path).lastModified());
+    } catch {
+      return false;
+    }
+  }
+
+  private async resurrectLine(missing: MissingLine, path: string): Promise<void> {
+    const { link, remoteTask } = missing;
+    const resurrected = formatTaskLine({
+      prefix: RESURRECTED_LINE_PREFIX,
+      checkbox: RESURRECTED_LINE_CHECKBOX,
+      title: remoteTask.title,
+      tags: [],
+      blockId: link.blockId,
+    });
+
+    await this.noteFor(path).applyEdits(appendingOnly([resurrected]));
+    this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
+  }
+
+  private async removeTask(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
+    await promoteChildrenToTopLevel(this.provider, sweep.project, link.providerTaskId);
     await this.provider.removeTask(link.providerTaskId);
     this.links.delete(link.blockId);
-    outcome.removedTask += 1;
+    sweep.outcome.removedTask += 1;
   }
 }
 

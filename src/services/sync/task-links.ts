@@ -19,6 +19,12 @@ export interface TaskLink {
   lastKnownFilePath?: string;
 }
 
+/** Both ids of a linked parent, or neither while the parent is not linked yet. */
+export interface LinkedParent {
+  readonly blockId?: string;
+  readonly providerTaskId?: string;
+}
+
 export class TaskLinkStore {
   private readonly byBlockId: Map<string, TaskLink>;
 
@@ -48,6 +54,13 @@ export class TaskLinkStore {
 
   delete(blockId: string): void {
     this.byBlockId.delete(blockId);
+  }
+
+  /** A parent that is not linked yet counts as none, so its child is top-level until it is. */
+  linkedParent(blockId: string | undefined): LinkedParent {
+    const link = blockId === undefined ? undefined : this.byBlockId.get(blockId);
+
+    return link === undefined ? {} : { blockId: link.blockId, providerTaskId: link.providerTaskId };
   }
 
   values(): IterableIterator<TaskLink> {

@@ -70,6 +70,13 @@ export function subtreeSpan(lines: readonly string[], taskLineNumber: number): S
   return { startLine, endLineExclusive: lineNumber };
 }
 
+/** A task line followed by every line of its subtree, in note order. */
+export function subtreeLineNumbers(lines: readonly string[], taskLineNumber: number): number[] {
+  const span = subtreeSpan(lines, taskLineNumber);
+
+  return [taskLineNumber, ...range(span.startLine, span.endLineExclusive)];
+}
+
 /**
  * Rebases a block of lines from one base indentation to another, preserving each line's depth
  * relative to that base — the same convention `renderDescriptionBlock` uses, generalized to a
@@ -82,4 +89,8 @@ export function reindentBlock(lines: readonly string[], oldBaseIndent: string, n
 
     return `${newBaseIndent}${extra}${line.slice(ownIndent.length)}`;
   });
+}
+
+function range(startInclusive: number, endExclusive: number): number[] {
+  return Array.from({ length: endExclusive - startInclusive }, (_, index) => startInclusive + index);
 }

@@ -22,7 +22,7 @@ describe('promoteChildrenToTopLevel', () => {
       task({ id: 'unrelated', parentId: 'someone-else' }),
     ];
 
-    await promoteChildrenToTopLevel(provider, tasks, 'parent', 'p1');
+    await promoteChildrenToTopLevel(provider, { id: 'p1', tasks }, 'parent');
 
     expect(reparented).toEqual([
       ['child-1', undefined, 'p1'],
@@ -39,7 +39,7 @@ describe('promoteChildrenToTopLevel', () => {
       },
     } as unknown as Parameters<typeof promoteChildrenToTopLevel>[0];
 
-    await promoteChildrenToTopLevel(provider, [task({ id: 'lonely' })], 'lonely', 'p1');
+    await promoteChildrenToTopLevel(provider, { id: 'p1', tasks: [task({ id: 'lonely' })] }, 'lonely');
 
     expect(reparented).toEqual([]);
   });
@@ -59,7 +59,7 @@ describe('promoteChildrenToTopLevel', () => {
       task({ id: 'grandchild', parentId: 'child' }),
     ];
 
-    await promoteChildrenToTopLevel(provider, tasks, 'parent', 'p1');
+    await promoteChildrenToTopLevel(provider, { id: 'p1', tasks }, 'parent');
 
     expect(reparented).toEqual(['child']);
   });

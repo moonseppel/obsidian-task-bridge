@@ -11,6 +11,8 @@ export interface ResolvedProject {
   readonly tasks: readonly ProviderTask[];
 }
 
+export type ProjectTasks = Pick<ResolvedProject, 'id' | 'tasks'>;
+
 /**
  * Syncing must never stall for want of a project, so an unset or vanished one falls back to the
  * provider's default. A project holding tasks plainly exists, so only an empty answer costs a lookup.

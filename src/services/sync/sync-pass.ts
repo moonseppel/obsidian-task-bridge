@@ -4,6 +4,7 @@ import { ResolvedProject } from './project-resolver';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { indexTasksByEmbeddedBlockId, indexTasksById } from './task-index';
 import { ParsedTaskLine, collectBlockIds, parseTaskLine } from './task-line';
+import { TaskLink } from './task-links';
 import { nearestAncestorLineNumbers, subtreeSpan } from './task-tree';
 
 export interface SyncPass {
@@ -45,6 +46,23 @@ export interface LineUnderSync {
   readonly task: ParsedTaskLine;
 }
 
+export interface LinkedLine {
+  readonly line: LineUnderSync;
+  readonly link: TaskLink;
+}
+
+/** What replaces the span right after an anchoring task line, in the pass's original line numbers. */
+export interface BlockReplacement {
+  readonly startLine: number;
+  readonly lineCount: number;
+  readonly lines: readonly string[];
+}
+
+export interface NoteSnapshot {
+  readonly content: string;
+  readonly modifiedAt: number;
+}
+
 export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): SyncPass {
   const lines = note.content.split('\n');
 
@@ -67,11 +85,6 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): Sy
   };
 }
 
-export interface NoteSnapshot {
-  readonly content: string;
-  readonly modifiedAt: number;
-}
-
 export function collectedEdits(pass: SyncPass): NoteEdits {
   return {
     replacements: pass.replacements,
@@ -82,11 +95,28 @@ export function collectedEdits(pass: SyncPass): NoteEdits {
 }
 
 export function recordEdit(line: LineUnderSync, replacement: string): void {
-  if (replacement === line.original) {
-    return;
-  }
+  recordLineEdit(line.pass, line.lineNumber, replacement);
+}
 
-  line.pass.replacements.push({ lineNumber: line.lineNumber, expected: line.original, replacement });
+/** Any line of the note, not only a task line, such as one inside a subtree being reindented. */
+export function recordLineEdit(pass: SyncPass, lineNumber: number, replacement: string): void {
+  const expected = pass.lines[lineNumber];
+
+  if (replacement !== expected) {
+    pass.replacements.push({ lineNumber, expected, replacement });
+  }
+}
+
+export function recordRemoval(line: LineUnderSync): void {
+  recordLineRemoval(line.pass, line.lineNumber);
+}
+
+export function recordLineRemoval(pass: SyncPass, lineNumber: number): void {
+  pass.removals.push({ lineNumber, expected: pass.lines[lineNumber] });
+}
+
+export function recordBlockEdit(line: LineUnderSync, replacement: BlockReplacement): void {
+  line.pass.blocks.push(blockEditAt(line.pass, line.lineNumber, replacement));
 }
 
 /**
@@ -97,10 +127,6 @@ export function localParentBlockId(pass: SyncPass, lineNumber: number): string |
   const parentLineNumber = pass.parentLineNumbers.get(lineNumber);
 
   return parentLineNumber === undefined ? undefined : pass.blockIdByLineNumber.get(parentLineNumber);
-}
-
-export function recordRemoval(line: LineUnderSync): void {
-  line.pass.removals.push({ lineNumber: line.lineNumber, expected: line.original });
 }
 
 /** Queues lines to land after an anchor's existing content; see pendingAppends for why this is batched. */
@@ -118,15 +144,26 @@ export function appendAfter(pass: SyncPass, anchorLineNumber: number, lines: rea
 export function flushPendingAppends(pass: SyncPass): void {
   for (const [anchorLineNumber, appended] of pass.pendingAppends) {
     const span = subtreeSpan(pass.lines, anchorLineNumber);
+    const existing = pass.lines.slice(span.startLine, span.endLineExclusive);
 
-    pass.blocks.push({
-      taskLineNumber: anchorLineNumber,
-      expectedTaskLine: pass.lines[anchorLineNumber],
-      startLine: span.startLine,
-      lineCount: span.endLineExclusive - span.startLine,
-      replacementLines: [...pass.lines.slice(span.startLine, span.endLineExclusive), ...appended],
-    });
+    pass.blocks.push(
+      blockEditAt(pass, anchorLineNumber, {
+        startLine: span.startLine,
+        lineCount: existing.length,
+        lines: [...existing, ...appended],
+      }),
+    );
   }
+}
+
+function blockEditAt(pass: SyncPass, anchorLineNumber: number, replacement: BlockReplacement): BlockEdit {
+  return {
+    taskLineNumber: anchorLineNumber,
+    expectedTaskLine: pass.lines[anchorLineNumber],
+    startLine: replacement.startLine,
+    lineCount: replacement.lineCount,
+    replacementLines: replacement.lines,
+  };
 }
 
 function lineNumberByBlockId(lines: readonly string[]): ReadonlyMap<string, number> {

@@ -1,7 +1,7 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { FieldChange, syncField } from './field-sync';
 import { ParentSync } from './parent-sync';
-import { LineUnderSync, recordEdit } from './sync-pass';
+import { LinkedLine, recordBlockEdit, recordEdit } from './sync-pass';
 import { canonicalTags, sameTagSet } from './tag-set';
 import {
   DescriptionBlock,
@@ -12,12 +12,7 @@ import {
   renderDescriptionBlock,
 } from './task-description';
 import { formatTaskLine, isDone, isRepresentableAsTag } from './task-line';
-import { TaskLink, TaskLinkStore } from './task-links';
-
-export interface LinkedLine {
-  readonly line: LineUnderSync;
-  readonly link: TaskLink;
-}
+import { TaskLinkStore } from './task-links';
 
 export interface RemoteCompletion {
   readonly isDone: boolean;
@@ -42,11 +37,7 @@ export class LinkedLineSync {
     await this.syncCompletion(this.reread(linked), { isDone: false, updatedAt: remoteTask.updatedAt });
     await this.syncDescription(this.reread(linked), remoteTask);
     await this.syncTags(this.reread(linked), remoteTask);
-    await this.syncParent(this.reread(linked), remoteTask);
-  }
-
-  private async syncParent(linked: LinkedLine, remoteTask: ProviderTask): Promise<void> {
-    await this.parentSync.sync(linked.line, linked.link, remoteTask);
+    await this.parentSync.sync(this.reread(linked), remoteTask);
   }
 
   async syncCompletion(linked: LinkedLine, remote: RemoteCompletion): Promise<void> {
@@ -166,12 +157,10 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedDescription: text });
-    line.pass.blocks.push({
-      taskLineNumber: line.lineNumber,
-      expectedTaskLine: line.original,
+    recordBlockEdit(line, {
       startLine: currentBlock.startLine,
       lineCount: currentBlock.lineCount,
-      replacementLines: renderDescriptionBlock(leadingWhitespace(line.original), text),
+      lines: renderDescriptionBlock(leadingWhitespace(line.original), text),
     });
     line.pass.outcome.pulled += 1;
   }

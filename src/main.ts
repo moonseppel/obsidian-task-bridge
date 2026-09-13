@@ -45,22 +45,22 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce);
-  private readonly taskCollection = new TaskCollection(
-    this.app.vault,
-    this.app.metadataCache,
-    () => this.settings,
-    (eventRef) => this.registerEvent(eventRef),
-    {
+  private readonly taskCollection = new TaskCollection({
+    vault: this.app.vault,
+    metadataCache: this.app.metadataCache,
+    readSettings: () => this.settings,
+    registerEvent: (eventRef) => this.registerEvent(eventRef),
+    callbacks: {
       onLocationRenamed: (newPath, oldPath) => void this.handleLocationRenamed(newPath, oldPath),
       onLocationDeleted: () => void this.clearSourceLocation(),
       onRelevantChange: () => this.handleRelevantSourceChange(),
     },
-  );
+  });
   private readonly taskSync = new TaskSync({
-    filesInScope: () => this.taskCollection.finder.filesInScope().map((file) => file.path),
+    filesInScope: () => this.taskCollection.filesInScope(),
     noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
-    isTagInScope: (task) => this.taskCollection.finder.isTagInScope(task),
-    existsOutsideIgnoredFiles: (blockId) => this.taskCollection.finder.existsOutsideIgnoredFiles(blockId),
+    isTagInScope: (task) => this.taskCollection.isTagInScope(task),
+    existsOutsideIgnoredFiles: (blockId) => this.taskCollection.existsOutsideIgnoredFiles(blockId),
     provider: this.provider,
     links: this.taskLinks,
     saveLinks: () => this.saveSettings(),
@@ -202,7 +202,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       return true;
     }
 
-    if (this.taskCollection.finder.filesInScope().length === 0) {
+    if (this.taskCollection.filesInScope().length === 0) {
       logger.debug('Task sync skipped', 'no task source is configured');
       return true;
     }
