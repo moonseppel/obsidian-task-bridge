@@ -163,16 +163,16 @@ export class TaskSync {
     const original = pass.lines[lineNumber];
     const task = parseTaskLine(original);
 
-    if (task === null || task.title.length === 0 || !this.isTagInScope(task)) {
+    if (task === undefined || task.title.length === 0 || !this.isTagInScope(task)) {
       return;
     }
 
-    if (task.blockId !== null) {
+    if (task.blockId !== undefined) {
       pass.blockIdByLineNumber.set(lineNumber, task.blockId);
     }
 
     const line: LineUnderSync = { pass, lineNumber, original, task };
-    const link = task.blockId === null ? undefined : this.links.get(task.blockId);
+    const link = task.blockId === undefined ? undefined : this.links.get(task.blockId);
 
     if (link === undefined) {
       await this.createOrRelink(line);
@@ -190,7 +190,7 @@ export class TaskSync {
       return;
     }
 
-    if (line.task.blockId !== null && this.creationGrace.isPending(line.task.blockId)) {
+    if (line.task.blockId !== undefined && this.creationGrace.isPending(line.task.blockId)) {
       return;
     }
 
@@ -201,7 +201,7 @@ export class TaskSync {
   private relinkIfAlreadyAnchored(line: LineUnderSync): LinkedLine | undefined {
     const { blockId } = line.task;
 
-    if (blockId === null) {
+    if (blockId === undefined) {
       return undefined;
     }
 

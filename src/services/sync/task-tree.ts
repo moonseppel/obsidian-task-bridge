@@ -33,7 +33,7 @@ export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMa
       open.pop();
     }
 
-    if (parseTaskLine(line) === null) {
+    if (parseTaskLine(line) === undefined) {
       continue;
     }
 

@@ -172,7 +172,7 @@ function lineNumberByBlockId(lines: readonly string[]): ReadonlyMap<string, numb
   for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
     const blockId = parseTaskLine(lines[lineNumber])?.blockId;
 
-    if (blockId !== null && blockId !== undefined) {
+    if (blockId !== undefined) {
       found.set(blockId, lineNumber);
     }
   }

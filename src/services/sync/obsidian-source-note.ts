@@ -2,7 +2,7 @@ import { TFile, Vault } from 'obsidian';
 import { NoteEdits, applyNoteEdits } from './note-edits';
 import { SourceNote } from './source-note';
 
-export type SourceFileReader = () => TFile | null;
+export type SourceFileReader = () => TFile | undefined;
 
 /** Reads and writes the configured note, resolving it lazily so a rename mid-session is picked up. */
 export class ObsidianSourceNote implements SourceNote {
@@ -30,7 +30,7 @@ export class ObsidianSourceNote implements SourceNote {
   private requireFile(): TFile {
     const file = this.readFile();
 
-    if (file === null) {
+    if (file === undefined) {
       throw new Error('The task source note disappeared while syncing.');
     }
 

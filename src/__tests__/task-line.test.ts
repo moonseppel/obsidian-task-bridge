@@ -14,7 +14,7 @@ describe('parseTaskLine', () => {
     ['1. [ ] Buy milk', '1. ', 'Buy milk'],
     ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, tags: [], blockId: null });
+    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, tags: [], blockId: undefined });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
@@ -63,7 +63,7 @@ describe('parseTaskLine', () => {
     ['- [ ]No space after the box', 'a checkbox the text is glued to'],
     ['', 'a blank line'],
   ])('rejects %s, which is %s', (line) => {
-    expect(parseTaskLine(line)).toBeNull();
+    expect(parseTaskLine(line)).toBeUndefined();
   });
 
   describe('tags', () => {
@@ -73,7 +73,7 @@ describe('parseTaskLine', () => {
         checkbox: ' ',
         title: 'Renew passport',
         tags: ['errands'],
-        blockId: null,
+        blockId: undefined,
       });
     });
 
@@ -126,7 +126,7 @@ describe('formatTaskLine', () => {
   });
 
   it('leaves the line bare when there is no block id', () => {
-    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', tags: [], blockId: null })).toBe(
+    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', tags: [], blockId: undefined })).toBe(
       '- [x] Buy milk',
     );
   });
@@ -153,7 +153,7 @@ describe('formatTaskLine', () => {
   ])('round trips %s unchanged', (line) => {
     const parsed = parseTaskLine(line);
 
-    expect(parsed).not.toBeNull();
+    expect(parsed).not.toBeUndefined();
     expect(formatTaskLine(parsed!)).toBe(line);
   });
 });

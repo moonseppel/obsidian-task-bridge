@@ -49,9 +49,9 @@ export class TodoistCredentials implements ProviderCredentials {
 
   /** Read at request time rather than held, so a secret revoked in Obsidian takes effect at once. */
   readToken(): string {
-    const token = this.secretName.length === 0 ? null : this.app.secretStorage.getSecret(this.secretName);
+    const token = this.secretName.length === 0 ? '' : (this.app.secretStorage.getSecret(this.secretName) ?? '');
 
-    if (token === null || token.length === 0) {
+    if (token.length === 0) {
       throw new TaskProviderError('not-configured');
     }
 

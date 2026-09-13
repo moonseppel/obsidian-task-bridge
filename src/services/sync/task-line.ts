@@ -17,7 +17,7 @@ export interface ParsedTaskLine {
   readonly title: string;
   /** Stripped out of title, in the order they appeared, the same way the block id already is. */
   readonly tags: readonly string[];
-  readonly blockId: string | null;
+  readonly blockId: string | undefined;
 }
 
 /**
@@ -53,16 +53,16 @@ function splitTrailingTags(text: string): { rest: string; tags: string[] } {
   return { rest: text.slice(0, match.index), tags };
 }
 
-export function parseTaskLine(line: string): ParsedTaskLine | null {
+export function parseTaskLine(line: string): ParsedTaskLine | undefined {
   const match = TASK_LINE.exec(line);
 
   if (match === null) {
-    return null;
+    return undefined;
   }
 
   const [, prefix, checkbox, remainder] = match;
   const withBlockId = TRAILING_BLOCK_ID.exec(remainder);
-  const [beforeBlockId, blockId] = withBlockId === null ? [remainder, null] : [withBlockId[1], withBlockId[2]];
+  const [beforeBlockId, blockId] = withBlockId === null ? [remainder, undefined] : [withBlockId[1], withBlockId[2]];
   const { rest, tags } = splitTrailingTags(beforeBlockId);
 
   return { prefix, checkbox, title: rest.trim(), tags, blockId };
@@ -70,7 +70,7 @@ export function parseTaskLine(line: string): ParsedTaskLine | null {
 
 export function formatTaskLine(task: ParsedTaskLine): string {
   const tagsSuffix = task.tags.map((tag) => ` #${tag}`).join('');
-  const anchor = task.blockId === null ? '' : ` ^${task.blockId}`;
+  const anchor = task.blockId === undefined ? '' : ` ^${task.blockId}`;
 
   return `${task.prefix}[${task.checkbox}] ${task.title}${tagsSuffix}${anchor}`;
 }

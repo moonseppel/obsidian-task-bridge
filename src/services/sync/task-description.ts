@@ -39,7 +39,7 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
     lineNumber < lines.length &&
     lines[lineNumber].trim().length > 0 &&
     isDeeperThan(lines[lineNumber], taskIndent) &&
-    parseTaskLine(lines[lineNumber]) === null
+    parseTaskLine(lines[lineNumber]) === undefined
   ) {
     captured.push(lines[lineNumber]);
     lineNumber += 1;

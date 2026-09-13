@@ -164,7 +164,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    let stored: unknown = null;
+    let stored: unknown;
 
     try {
       stored = await this.loadData();
@@ -210,9 +210,9 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     return false;
   }
 
-  private fileAt(path: string): TFile | null {
+  private fileAt(path: string): TFile | undefined {
     const file = this.app.vault.getAbstractFileByPath(path);
-    return file instanceof TFile ? file : null;
+    return file instanceof TFile ? file : undefined;
   }
 
   private async connectAndSync(): Promise<void> {
