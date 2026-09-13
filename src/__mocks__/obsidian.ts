@@ -273,6 +273,10 @@ export class SearchComponent {
   onChange(_handler: (value: string) => unknown): this {
     return this;
   }
+
+  setDisabled(_disabled: boolean): this {
+    return this;
+  }
 }
 
 export class SecretComponent {

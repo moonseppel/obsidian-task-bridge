@@ -20,7 +20,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
   function syncablePlugin(): PluginContext {
     const context = makePlugin(() => Promise.resolve({ id: 'u1', displayName: 'Jan' }));
     context.plugin.settings = settingsWith({
-      relativeTaskSourceNotePath: 'Tasks.md',
+      relativeTaskSourcePath: 'Tasks.md',
       projectId: 'p1',
     });
 
@@ -60,7 +60,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
 
   it('still syncs when no project is configured, leaving the choice to the engine', async () => {
     const { plugin } = syncablePlugin();
-    plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+    plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
     const { run } = taskSyncOf(plugin);
 
     await plugin.syncTasks();
@@ -286,7 +286,7 @@ describe('ObsidianTaskSyncPlugin edits made while syncing', () => {
     await settle();
 
     context.plugin.settings = settingsWith({
-      relativeTaskSourceNotePath: 'Tasks.md',
+      relativeTaskSourcePath: 'Tasks.md',
       projectId: 'p1',
     });
     jest.useFakeTimers();

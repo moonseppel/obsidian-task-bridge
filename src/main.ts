@@ -201,7 +201,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   private get sourceNoteFile(): TFile | null {
-    const path = this.settings.relativeTaskSourceNotePath;
+    const path = this.settings.relativeTaskSourcePath;
 
     if (path.length === 0) {
       return null;
@@ -290,7 +290,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   private handleSourceNoteModify(file: TAbstractFile): void {
-    if (file.path !== this.settings.relativeTaskSourceNotePath) {
+    if (file.path !== this.settings.relativeTaskSourcePath) {
       return;
     }
 
@@ -303,7 +303,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   private async handleSourceNoteRename(file: TAbstractFile, oldPath: string): Promise<void> {
-    if (!(file instanceof TFile) || oldPath !== this.settings.relativeTaskSourceNotePath) {
+    if (!(file instanceof TFile) || oldPath !== this.settings.relativeTaskSourcePath) {
       return;
     }
 
@@ -313,13 +313,13 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       return;
     }
 
-    this.settings.relativeTaskSourceNotePath = file.path;
+    this.settings.relativeTaskSourcePath = file.path;
     await this.saveSettings();
     logger.info('Source note moved; setting updated', { from: oldPath, to: file.path });
   }
 
   private async handleSourceNoteDelete(file: TAbstractFile): Promise<void> {
-    if (file.path !== this.settings.relativeTaskSourceNotePath) {
+    if (file.path !== this.settings.relativeTaskSourcePath) {
       return;
     }
 
@@ -327,8 +327,8 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   private async clearSourceNote(): Promise<void> {
-    const previousPath = this.settings.relativeTaskSourceNotePath;
-    this.settings.relativeTaskSourceNotePath = '';
+    const previousPath = this.settings.relativeTaskSourcePath;
+    this.settings.relativeTaskSourcePath = '';
 
     new Notice(
       `Obsidian Task Sync: The source note "${previousPath}" no longer exists, ` +

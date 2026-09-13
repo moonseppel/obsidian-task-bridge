@@ -1,11 +1,13 @@
-import { SearchComponent } from 'obsidian';
+import { SearchComponent, ToggleComponent } from 'obsidian';
 import { DEFAULT_SETTINGS } from '../settings';
 import {
   makeTab,
-  sourceDesc,
-  isSourceNoteMissing,
+  locationDesc,
+  isSourceLocationMissing,
   settingRow,
-  sourceInput,
+  locationInput,
+  ignoreDesc,
+  ignoreRow,
   spySettingNames,
 } from './support/settings-harness';
 
@@ -14,43 +16,65 @@ afterEach(() => {
 });
 
 describe('DEFAULT_SETTINGS', () => {
-  it('has an empty source note path', () => {
-    expect(DEFAULT_SETTINGS.relativeTaskSourceNotePath).toBe('');
+  it('has an empty source path', () => {
+    expect(DEFAULT_SETTINGS.relativeTaskSourcePath).toBe('');
+  });
+
+  it('has the whole-vault toggle off', () => {
+    expect(DEFAULT_SETTINGS.syncWholeVault).toBe(false);
+  });
+
+  it('has no tag or ignore pattern configured', () => {
+    expect(DEFAULT_SETTINGS.sourceTag).toBe('');
+    expect(DEFAULT_SETTINGS.ignoreFilePatterns).toBe('');
   });
 });
 
-describe('ObsidianTaskSyncSettingTab', () => {
-  it('renders the task source note setting', () => {
+describe('ObsidianTaskSyncSettingTab source settings', () => {
+  it('renders the whole-vault, note-or-folder, tag and ignore-pattern rows in order', () => {
     const names = spySettingNames();
     makeTab('').tab.display();
-    expect(names()).toContain('Task source note');
+
+    const order = names();
+    expect(order.indexOf('Sync the whole vault')).toBeLessThan(order.indexOf('Note or folder'));
+    expect(order.indexOf('Note or folder')).toBeLessThan(order.indexOf('Tag'));
+    expect(order.indexOf('Tag')).toBeLessThan(order.indexOf('Ignore file patterns'));
   });
 
-  it('pre-fills the field with the configured source note path', () => {
+  it('pre-fills the location field with the configured path', () => {
     const setValue = jest.spyOn(SearchComponent.prototype, 'setValue');
     makeTab('projects/Tasks.md').tab.display();
     expect(setValue).toHaveBeenCalledWith('projects/Tasks.md');
   });
 
-  it('reports a missing note when the configured path does not resolve', () => {
-    expect(isSourceNoteMissing(makeTab('missing/Note.md').tab)).toBe(true);
+  it('reports a missing location when the configured path does not resolve', () => {
+    expect(isSourceLocationMissing(makeTab('missing/Note.md').tab)).toBe(true);
   });
 
-  it('does not report a missing note when the configured note exists', () => {
-    expect(isSourceNoteMissing(makeTab('Tasks.md', ['Tasks.md']).tab)).toBe(false);
+  it('does not report a missing location when the configured note exists', () => {
+    expect(isSourceLocationMissing(makeTab('Tasks.md', ['Tasks.md']).tab)).toBe(false);
   });
 
-  it('does not report a missing note when nothing is configured', () => {
-    expect(isSourceNoteMissing(makeTab('').tab)).toBe(false);
+  it('does not report a missing location when nothing is configured', () => {
+    expect(isSourceLocationMissing(makeTab('').tab)).toBe(false);
   });
 
-  it('shows the not-found message in the field description when the note is missing', () => {
+  it('suppresses the missing-location warning while the whole-vault toggle is on', () => {
+    const { tab, plugin } = makeTab('missing/Note.md');
+    plugin.settings.syncWholeVault = true;
+
+    tab.display();
+
+    expect(locationDesc(tab)).not.toContain('not found');
+  });
+
+  it('shows the not-found message in the field description when the location is missing', () => {
     const { tab } = makeTab('missing/Note.md');
     tab.display();
-    expect(sourceDesc(tab)).toContain('not found');
+    expect(locationDesc(tab)).toContain('not found');
   });
 
-  it('marks the setting row when the configured note is missing', () => {
+  it('marks the setting row when the configured location is missing', () => {
     const { tab } = makeTab('missing/Note.md');
     tab.display();
     expect(settingRow(tab).hasClass('obsidian-task-sync-source-missing')).toBe(true);
@@ -65,12 +89,12 @@ describe('ObsidianTaskSyncSettingTab', () => {
   it('re-evaluates the warning when the field loses focus', () => {
     const { tab, existingPaths } = makeTab('Tasks.md', []);
     tab.display();
-    expect(sourceDesc(tab)).toContain('not found');
+    expect(locationDesc(tab)).toContain('not found');
 
     existingPaths.push('Tasks.md');
-    sourceInput(tab).dispatch('blur');
+    locationInput(tab).dispatch('blur');
 
-    expect(sourceDesc(tab)).not.toContain('not found');
+    expect(locationDesc(tab)).not.toContain('not found');
   });
 
   it('clears the row marker on blur once the note exists', () => {
@@ -78,7 +102,7 @@ describe('ObsidianTaskSyncSettingTab', () => {
     tab.display();
 
     existingPaths.push('Tasks.md');
-    sourceInput(tab).dispatch('blur');
+    locationInput(tab).dispatch('blur');
 
     expect(settingRow(tab).hasClass('obsidian-task-sync-source-missing')).toBe(false);
   });
@@ -90,7 +114,7 @@ describe('ObsidianTaskSyncSettingTab', () => {
 
     await onChange.mock.calls[0][0]('Notes/Tasks.md');
 
-    expect(plugin.settings.relativeTaskSourceNotePath).toBe('Notes/Tasks.md');
+    expect(plugin.settings.relativeTaskSourcePath).toBe('Notes/Tasks.md');
   });
 
   it('saves settings when a new note is entered in the field', async () => {
@@ -101,5 +125,127 @@ describe('ObsidianTaskSyncSettingTab', () => {
     await onChange.mock.calls[0][0]('Notes/Tasks.md');
 
     expect(saveSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ObsidianTaskSyncSettingTab whole-vault toggle', () => {
+  it('shows the stored choice in the toggle', () => {
+    const { tab, plugin } = makeTab('');
+    plugin.settings.syncWholeVault = true;
+    const setValue = jest.spyOn(ToggleComponent.prototype, 'setValue');
+
+    tab.display();
+
+    expect(setValue.mock.calls.map((call) => call[0])).toContain(true);
+  });
+
+  it('disables the location field while checked', () => {
+    const { tab, plugin } = makeTab('Tasks.md', ['Tasks.md']);
+    plugin.settings.syncWholeVault = true;
+    const setDisabled = jest.spyOn(SearchComponent.prototype, 'setDisabled');
+
+    tab.display();
+
+    expect(setDisabled.mock.calls.map((call) => call[0])).toContain(true);
+  });
+
+  it('leaves the location field enabled while unchecked', () => {
+    const { tab } = makeTab('Tasks.md', ['Tasks.md']);
+    const setDisabled = jest.spyOn(SearchComponent.prototype, 'setDisabled');
+
+    tab.display();
+
+    expect(setDisabled.mock.calls.map((call) => call[0])).not.toContain(true);
+  });
+
+  it('persists and re-renders when toggled', async () => {
+    const onChange = jest.spyOn(ToggleComponent.prototype, 'onChange');
+    const { tab, plugin, saveSettings } = makeTab('');
+    tab.display();
+
+    await onChange.mock.calls[0][0](true);
+
+    expect(plugin.settings.syncWholeVault).toBe(true);
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ObsidianTaskSyncSettingTab tag setting', () => {
+  it('pre-fills the tag field with the configured tag', () => {
+    const { tab, plugin } = makeTab('');
+    plugin.settings.sourceTag = 'work';
+    const setValue = jest.spyOn(SearchComponent.prototype, 'setValue');
+
+    tab.display();
+
+    expect(setValue.mock.calls.map((call) => call[0])).toContain('work');
+  });
+
+  it('strips a leading # and saves the tag', async () => {
+    const onChange = jest.spyOn(SearchComponent.prototype, 'onChange');
+    const { tab, plugin } = makeTab('');
+    tab.display();
+
+    // Location field is the first addSearch call, tag field the second.
+    await onChange.mock.calls[1][0]('#work');
+
+    expect(plugin.settings.sourceTag).toBe('work');
+  });
+});
+
+describe('ObsidianTaskSyncSettingTab ignore-pattern setting', () => {
+  it('is always visible, even for a single-note location', () => {
+    const names = spySettingNames();
+    makeTab('Tasks.md', ['Tasks.md']).tab.display();
+    expect(names()).toContain('Ignore file patterns');
+  });
+
+  it('saves a typed pattern', async () => {
+    const { tab, plugin } = makeTab('');
+    tab.display();
+
+    await (
+      tab as unknown as { saveIgnorePatterns(value: string): Promise<void> }
+    ).saveIgnorePatterns('*.sync-conflict-*');
+
+    expect(plugin.settings.ignoreFilePatterns).toBe('*.sync-conflict-*');
+  });
+
+  it('warns when the pattern matches the explicitly selected single note', () => {
+    const { tab, plugin } = makeTab('Tasks.md', ['Tasks.md']);
+    plugin.settings.ignoreFilePatterns = 'Tasks.md';
+
+    tab.display();
+
+    expect(ignoreDesc(tab)).toContain('will not take effect');
+    expect(ignoreRow(tab).hasClass('obsidian-task-sync-ignore-ineffective')).toBe(true);
+  });
+
+  it('does not warn when the pattern does not match the selected note', () => {
+    const { tab, plugin } = makeTab('Tasks.md', ['Tasks.md']);
+    plugin.settings.ignoreFilePatterns = 'Other.md';
+
+    tab.display();
+
+    expect(ignoreDesc(tab)).not.toContain('will not take effect');
+  });
+
+  it('does not warn when no single note is selected', () => {
+    const { tab, plugin } = makeTab('');
+    plugin.settings.ignoreFilePatterns = 'Tasks.md';
+
+    tab.display();
+
+    expect(ignoreDesc(tab)).not.toContain('will not take effect');
+  });
+
+  it('does not warn while the whole-vault toggle is on, even if the field still names a match', () => {
+    const { tab, plugin } = makeTab('Tasks.md', ['Tasks.md']);
+    plugin.settings.syncWholeVault = true;
+    plugin.settings.ignoreFilePatterns = 'Tasks.md';
+
+    tab.display();
+
+    expect(ignoreDesc(tab)).not.toContain('will not take effect');
   });
 });

@@ -12,10 +12,15 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
   const record = isRecord(stored) ? stored : {};
 
   return {
-    relativeTaskSourceNotePath: readText(
-      record.relativeTaskSourceNotePath,
-      DEFAULT_SETTINGS.relativeTaskSourceNotePath,
+    // relativeTaskSourceNotePath is Feature 9's pre-rename key: a note-only path is still a valid
+    // value of the widened field, so a vault written before this feature keeps its source note.
+    relativeTaskSourcePath: readText(
+      record.relativeTaskSourcePath ?? record.relativeTaskSourceNotePath,
+      DEFAULT_SETTINGS.relativeTaskSourcePath,
     ),
+    syncWholeVault: record.syncWholeVault === true,
+    sourceTag: readText(record.sourceTag, DEFAULT_SETTINGS.sourceTag),
+    ignoreFilePatterns: readText(record.ignoreFilePatterns, DEFAULT_SETTINGS.ignoreFilePatterns),
     // The pre-rename keys are still read, so a vault written before the move keeps its project.
     projectId: readText(record.projectId ?? record.todoistProjectId, DEFAULT_SETTINGS.projectId),
     projectName: readText(record.projectName ?? record.todoistProjectName, DEFAULT_SETTINGS.projectName),

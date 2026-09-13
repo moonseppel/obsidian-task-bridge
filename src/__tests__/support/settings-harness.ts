@@ -15,6 +15,7 @@ export interface TestEl {
 export function tfile(path: string): TFile {
   const file = new TFile();
   file.path = path;
+  file.name = path.split('/').pop() ?? path;
   return file;
 }
 
@@ -38,7 +39,7 @@ export function notConfigured(): Promise<ProviderAccount> {
 }
 
 export function makeTab(
-  relativeTaskSourceNotePath: string,
+  relativeTaskSourcePath: string,
   existingPaths: string[] = [],
   connect: () => Promise<ProviderAccount> = notConfigured,
 ): TabContext {
@@ -61,7 +62,7 @@ export function makeTab(
   const knownProjects: ProviderProject[] = [];
   const plugin = {
     app,
-    settings: { ...DEFAULT_SETTINGS, relativeTaskSourceNotePath },
+    settings: { ...DEFAULT_SETTINGS, relativeTaskSourcePath },
     saveSettings,
     connection,
     connectToTaskProvider,
@@ -98,24 +99,32 @@ export function spySettingNames(): () => string[] {
   return () => spy.mock.calls.map((call) => String(call[0]));
 }
 
-export function sourceDesc(tab: ObsidianTaskSyncSettingTab): string {
-  return (tab as unknown as { sourceSetting: { description: string } }).sourceSetting.description;
+export function locationDesc(tab: ObsidianTaskSyncSettingTab): string {
+  return (tab as unknown as { locationSetting: { description: string } }).locationSetting.description;
 }
 
 export function connectionDesc(tab: ObsidianTaskSyncSettingTab): string {
   return (tab as unknown as { connectionSetting: { description: string } }).connectionSetting.description;
 }
 
-export function isSourceNoteMissing(tab: ObsidianTaskSyncSettingTab): boolean {
-  return (tab as unknown as { isSourceNoteMissing(): boolean }).isSourceNoteMissing();
+export function isSourceLocationMissing(tab: ObsidianTaskSyncSettingTab): boolean {
+  return (tab as unknown as { isSourceLocationMissing(): boolean }).isSourceLocationMissing();
 }
 
 export function settingRow(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { sourceSetting: { settingEl: TestEl } }).sourceSetting.settingEl;
+  return (tab as unknown as { locationSetting: { settingEl: TestEl } }).locationSetting.settingEl;
 }
 
-export function sourceInput(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { sourceInputEl: TestEl }).sourceInputEl;
+export function locationInput(tab: ObsidianTaskSyncSettingTab): TestEl {
+  return (tab as unknown as { locationInputEl: TestEl }).locationInputEl;
+}
+
+export function ignoreDesc(tab: ObsidianTaskSyncSettingTab): string {
+  return (tab as unknown as { ignoreSetting: { description: string } }).ignoreSetting.description;
+}
+
+export function ignoreRow(tab: ObsidianTaskSyncSettingTab): TestEl {
+  return (tab as unknown as { ignoreSetting: { settingEl: TestEl } }).ignoreSetting.settingEl;
 }
 
 export interface TestFragment {

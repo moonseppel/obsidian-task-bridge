@@ -58,7 +58,7 @@ describe('ObsidianTaskSyncPlugin', () => {
 
       await plugin.onload();
 
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('');
       expect(addSettingTab).toHaveBeenCalledTimes(1);
     });
 
@@ -78,26 +78,26 @@ describe('ObsidianTaskSyncPlugin', () => {
   describe('Settings persistence', () => {
     it('loads persisted settings over the defaults', async () => {
       const { plugin, loadData } = makePlugin();
-      loadData.mockResolvedValue({ relativeTaskSourceNotePath: 'Tasks.md' });
+      loadData.mockResolvedValue({ relativeTaskSourcePath: 'Tasks.md' });
       await plugin.loadSettings();
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('Tasks.md');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('Tasks.md');
     });
 
     it('falls back to defaults when nothing is persisted', async () => {
       const { plugin } = makePlugin();
       await plugin.loadSettings();
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('');
     });
 
     it('ignores malformed persisted data', async () => {
       const { plugin, loadData } = makePlugin();
       loadData.mockResolvedValue('not an object');
       await plugin.loadSettings();
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('');
     });
 
     it('writes settings through saveData', async () => {
-      const settings = settingsWith({ relativeTaskSourceNotePath: 'Done.md' });
+      const settings = settingsWith({ relativeTaskSourcePath: 'Done.md' });
       const { plugin, saveData } = makePlugin();
       plugin.settings = settings;
       await plugin.saveSettings();
@@ -194,34 +194,34 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('follows the configured source note when it is renamed', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+      plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
 
       vault.trigger('rename', tfile('archive/Tasks.md'), 'Tasks.md');
       await Promise.resolve();
 
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('archive/Tasks.md');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('archive/Tasks.md');
     });
 
     it('ignores renames of unrelated notes', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+      plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
 
       vault.trigger('rename', tfile('Other.md'), 'Renamed-from.md');
       await Promise.resolve();
 
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('Tasks.md');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('Tasks.md');
     });
 
     it('clears the setting when the configured source note is deleted', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+      plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
 
       vault.trigger('delete', tfile('Tasks.md'));
       await Promise.resolve();
 
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('');
     });
 
     it('notifies the user when the configured source note is deleted', async () => {
@@ -230,7 +230,7 @@ describe('ObsidianTaskSyncPlugin', () => {
         .mockImplementation(() => undefined as unknown as obsidian.Notice);
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+      plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
 
       vault.trigger('delete', tfile('Tasks.md'));
       await Promise.resolve();
@@ -241,12 +241,12 @@ describe('ObsidianTaskSyncPlugin', () => {
     it('clears the setting when the configured source note is moved to local trash', async () => {
       const { plugin, vault } = makePlugin();
       await plugin.onload();
-      plugin.settings = settingsWith({ relativeTaskSourceNotePath: 'Tasks.md' });
+      plugin.settings = settingsWith({ relativeTaskSourcePath: 'Tasks.md' });
 
       vault.trigger('rename', tfile('.trash/Tasks.md'), 'Tasks.md');
       await Promise.resolve();
 
-      expect(plugin.settings.relativeTaskSourceNotePath).toBe('');
+      expect(plugin.settings.relativeTaskSourcePath).toBe('');
     });
   });
 });
