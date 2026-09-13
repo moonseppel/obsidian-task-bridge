@@ -18,3 +18,11 @@ input.obsidian-task-sync-source-invalid {
 .obsidian-task-sync-connection-failed .setting-item-description::before {
   content: "⚠ ";
 }
+
+.obsidian-task-sync-ignore-ineffective .setting-item-description {
+  color: var(--text-warning);
+}
+
+.obsidian-task-sync-ignore-ineffective .setting-item-description::before {
+  content: "⚠ ";
+}
