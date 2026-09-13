@@ -18,10 +18,6 @@ export interface TaskChangeListenerCallbacks {
   onRelevantChange(): void;
 }
 
-function isInLocalTrash(path: string): boolean {
-  return path === '.trash' || path.startsWith('.trash/');
-}
-
 /**
  * Decides whether a vault event matters to the configured task source — the "reacting" half of
  * the task-source module (architecture-rules.md rule 29). Registering with `vault.on` stays with
@@ -94,11 +90,14 @@ export class TaskChangeListener {
       return false;
     }
 
-    if (settings.syncWholeVault) {
-      return true;
-    }
-
-    const path = settings.relativeTaskSourcePath;
-    return path.length > 0 && file.path.startsWith(`${path}/`);
+    return settings.syncWholeVault || isInsideFolder(file, settings.relativeTaskSourcePath);
   }
+}
+
+function isInLocalTrash(path: string): boolean {
+  return path === '.trash' || path.startsWith('.trash/');
+}
+
+function isInsideFolder(file: TFile, folderPath: string): boolean {
+  return folderPath.length > 0 && file.path.startsWith(`${folderPath}/`);
 }

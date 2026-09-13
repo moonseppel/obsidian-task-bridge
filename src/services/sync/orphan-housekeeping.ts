@@ -47,13 +47,11 @@ export class OrphanHousekeeping {
 
       this.orphans.track(anchored.id, now);
 
-      // Excluded from stillTracked rather than tracked: it is gone, not merely pending removal.
-      if (await this.removeIfDue(anchored.id, project, now)) {
-        continue;
+      // A removed task is gone rather than merely pending removal, so only one still standing stays tracked.
+      if (!(await this.removeIfDue(anchored.id, project, now))) {
+        stillTracked.add(anchored.id);
+        await this.flagIfDue(anchored, now);
       }
-
-      stillTracked.add(anchored.id);
-      await this.flagIfDue(anchored, now);
     }
 
     this.orphans.keepOnly(stillTracked);

@@ -1,6 +1,6 @@
 import { TaskProvider } from '../task-provider';
-import { createBlockId } from './block-id';
 import { GracePeriod } from './grace-period';
+import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
 import { MissingLineSync } from './missing-line-sync';
 import { hasAnyEdit } from './note-edits';
@@ -17,13 +17,9 @@ import {
   collectedEdits,
   createSyncPass,
   flushPendingAppends,
-  localParentBlockId,
-  recordEdit,
   recordRemoval,
 } from './sync-pass';
-import { canonicalTags } from './tag-set';
-import { composeRemoteDescription, readDescriptionBlock } from './task-description';
-import { ParsedTaskLine, formatTaskLine, parseTaskLine } from './task-line';
+import { ParsedTaskLine, parseTaskLine } from './task-line';
 import { TaskLinkStore } from './task-links';
 
 /** A vault-sync tool can deliver `data.json` behind the note, so neither an unrecognized block id
@@ -52,23 +48,26 @@ export class TaskSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
   private readonly saveLinks: () => Promise<void>;
-  private readonly getDeviceTag: () => string;
   private readonly isTagInScope: (task: ParsedTaskLine) => boolean;
   private readonly lineSync: LinkedLineSync;
+  private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
   private readonly remoteChildSync: RemoteChildSync;
   private readonly orphanHousekeeping: OrphanHousekeeping;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
 
   constructor(dependencies: TaskSyncDependencies) {
+    const getDeviceTag = dependencies.getDeviceTag ?? (() => '');
+    const orphans = dependencies.orphans ?? new OrphanTracker();
+
     this.filesInScope = dependencies.filesInScope;
     this.noteFor = dependencies.noteFor;
     this.provider = dependencies.provider;
     this.links = dependencies.links;
     this.saveLinks = dependencies.saveLinks;
-    this.getDeviceTag = dependencies.getDeviceTag ?? (() => '');
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
     this.lineSync = new LinkedLineSync(this.provider, this.links);
+    this.lineLinker = new LineLinker(this.provider, this.links, getDeviceTag);
     this.missingLineSync = new MissingLineSync({
       provider: this.provider,
       links: this.links,
@@ -76,34 +75,28 @@ export class TaskSync {
       noteFor: this.noteFor,
       existsOutsideIgnoredFiles: dependencies.existsOutsideIgnoredFiles ?? (() => false),
     });
-    this.remoteChildSync = new RemoteChildSync(this.links, this.getDeviceTag);
-    this.orphanHousekeeping = new OrphanHousekeeping(
-      this.provider,
-      this.links,
-      dependencies.orphans ?? new OrphanTracker(),
-    );
+    this.remoteChildSync = new RemoteChildSync(this.links, getDeviceTag);
+    this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await resolveProject(this.provider, configuredProjectId);
     const paths = this.filesInScope();
-    const runWideTakenBlockIds = new Set<string>();
+    const scannedBlockIds = new Set<string>();
     const outcomes: SyncOutcome[] = [];
 
     try {
       for (const path of paths) {
-        outcomes.push(await this.runFilePass(project, path, runWideTakenBlockIds));
+        outcomes.push(await this.runFilePass(project, path, scannedBlockIds));
       }
 
-      outcomes.push(
-        await this.missingLineSync.run({ project, takenBlockIds: runWideTakenBlockIds, scannedPaths: paths }),
-      );
+      outcomes.push(await this.missingLineSync.run({ project, takenBlockIds: scannedBlockIds, scannedPaths: paths }));
     } finally {
       this.creationGrace.sweep();
       // Committed even when the work above threw: a provider task whose link went unsaved would be
       // created a second time next pass, and housekeeping must not risk what already succeeded.
       await this.saveLinks();
-      await this.orphanHousekeeping.run(project, runWideTakenBlockIds);
+      await this.orphanHousekeeping.run(project, scannedBlockIds);
     }
 
     return mergeOutcomes(outcomes, project.resolution);
@@ -113,7 +106,7 @@ export class TaskSync {
   private async runFilePass(
     project: ResolvedProject,
     path: string,
-    runWideTakenBlockIds: Set<string>,
+    scannedBlockIds: Set<string>,
   ): Promise<SyncOutcome> {
     const note = this.noteFor(path);
     const [content, modifiedAt] = await Promise.all([note.read(), note.lastModified()]);
@@ -126,17 +119,9 @@ export class TaskSync {
     } finally {
       // Committed even when the work above threw: a line already given a block id would otherwise
       // never be written, and the next pass would try to create it again.
-      for (const blockId of pass.takenBlockIds) {
-        runWideTakenBlockIds.add(blockId);
-      }
-
+      pass.takenBlockIds.forEach((blockId) => scannedBlockIds.add(blockId));
       this.recordLastKnownFile(pass, path);
-
-      const edits = collectedEdits(pass);
-
-      if (hasAnyEdit(edits)) {
-        await note.applyEdits(edits);
-      }
+      await applyCollectedEdits(note, pass);
     }
 
     return pass.outcome;
@@ -183,7 +168,7 @@ export class TaskSync {
   }
 
   private async createOrRelink(line: LineUnderSync): Promise<void> {
-    const relinked = this.relinkIfAlreadyAnchored(line);
+    const relinked = this.lineLinker.relinkIfAlreadyAnchored(line);
 
     if (relinked !== undefined) {
       await this.syncAgainstLink(relinked);
@@ -194,27 +179,7 @@ export class TaskSync {
       return;
     }
 
-    await this.createTask(line);
-  }
-
-  /** Searches the task list already in hand rather than creating a second task for the same line. */
-  private relinkIfAlreadyAnchored(line: LineUnderSync): LinkedLine | undefined {
-    const { blockId } = line.task;
-
-    if (blockId === undefined) {
-      return undefined;
-    }
-
-    const match = line.pass.remoteTasksByBlockId.get(blockId);
-
-    if (match === undefined) {
-      return undefined;
-    }
-
-    const link = { blockId, providerTaskId: match.id, lastSyncedTitle: match.title };
-    this.links.set(link);
-
-    return { line, link };
+    await this.lineLinker.create(line);
   }
 
   private async syncAgainstLink(linked: LinkedLine): Promise<void> {
@@ -245,7 +210,7 @@ export class TaskSync {
     }
 
     if (line.task.title !== link.lastSyncedTitle) {
-      await this.recreateTask(linked);
+      await this.lineLinker.recreate(linked);
       return;
     }
 
@@ -253,52 +218,12 @@ export class TaskSync {
     this.links.delete(link.blockId);
     line.pass.outcome.removedLine += 1;
   }
+}
 
-  /** A deleted task leaves no timestamp to compare, so the missing-timestamp rule hands it to local. */
-  private async recreateTask(linked: LinkedLine): Promise<void> {
-    const { line, link } = linked;
+async function applyCollectedEdits(note: SourceNote, pass: SyncPass): Promise<void> {
+  const edits = collectedEdits(pass);
 
-    await this.createAndLink(line, link.blockId);
-    line.pass.outcome.conflicted += 1;
-    line.pass.outcome.recreatedTask += 1;
-  }
-
-  private async createTask(line: LineUnderSync): Promise<void> {
-    const { pass, task } = line;
-    // Reused, never replaced, so one task can never end up with two anchors on its line.
-    const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, this.getDeviceTag());
-    pass.blockIdByLineNumber.set(line.lineNumber, blockId);
-
-    await this.createAndLink(line, blockId);
-    pass.takenBlockIds.add(blockId);
-    recordEdit(line, formatTaskLine({ ...task, blockId }));
-    pass.outcome.created += 1;
-  }
-
-  /**
-   * Written together: a task whose link went unsaved is created again on the next pass. A parent
-   * still waiting out its own creation grace period is not linked yet, so its child is created as
-   * top-level for now and corrected the next pass.
-   */
-  private async createAndLink(line: LineUnderSync, blockId: string): Promise<void> {
-    const { pass, task } = line;
-    const description = readDescriptionBlock(pass.lines, line.lineNumber).text;
-    const parent = this.links.linkedParent(localParentBlockId(pass, line.lineNumber));
-    const created = await this.provider.createTask({
-      title: task.title,
-      projectId: pass.projectId,
-      description: composeRemoteDescription(description, blockId),
-      labels: task.tags,
-      parentId: parent.providerTaskId,
-    });
-
-    this.links.set({
-      blockId,
-      providerTaskId: created.id,
-      lastSyncedTitle: task.title,
-      lastSyncedDescription: description,
-      lastSyncedTags: canonicalTags(task.tags),
-      lastSyncedParentBlockId: parent.blockId,
-    });
+  if (hasAnyEdit(edits)) {
+    await note.applyEdits(edits);
   }
 }

@@ -24,10 +24,7 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
     // The pre-rename keys are still read, so a vault written before the move keeps its project.
     projectId: readText(record.projectId ?? record.todoistProjectId, DEFAULT_SETTINGS.projectId),
     projectName: readText(record.projectName ?? record.todoistProjectName, DEFAULT_SETTINGS.projectName),
-    syncIntervalMinutes: toSyncIntervalMinutes(
-      record.syncIntervalMinutes,
-      DEFAULT_SETTINGS.syncIntervalMinutes,
-    ),
+    syncIntervalMinutes: toSyncIntervalMinutes(record.syncIntervalMinutes, DEFAULT_SETTINGS.syncIntervalMinutes),
     debugMode: record.debugMode === true,
   };
 }

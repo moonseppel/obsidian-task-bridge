@@ -21,17 +21,8 @@ export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMa
   const parents = new Map<number, number>();
   const open: OpenAncestor[] = [];
 
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    const line = lines[lineNumber];
-
-    if (line.trim().length === 0) {
-      open.length = 0;
-      continue;
-    }
-
-    while (open.length > 0 && !isDeeperThan(line, open[open.length - 1].indent)) {
-      open.pop();
-    }
+  for (const [lineNumber, line] of lines.entries()) {
+    closeAncestorsEndedBy(open, line);
 
     if (parseTaskLine(line) === undefined) {
       continue;
@@ -89,6 +80,17 @@ export function reindentBlock(lines: readonly string[], oldBaseIndent: string, n
 
     return `${newBaseIndent}${extra}${line.slice(ownIndent.length)}`;
   });
+}
+
+function closeAncestorsEndedBy(open: OpenAncestor[], line: string): void {
+  if (line.trim().length === 0) {
+    open.length = 0;
+    return;
+  }
+
+  while (open.length > 0 && !isDeeperThan(line, open[open.length - 1].indent)) {
+    open.pop();
+  }
 }
 
 function range(startInclusive: number, endExclusive: number): number[] {

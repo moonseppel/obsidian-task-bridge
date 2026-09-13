@@ -23,6 +23,14 @@ export interface BlockEdit {
   readonly replacementLines: readonly string[];
 }
 
+/** The edits still valid against the note as it reads now, indexed by the original line each acts on. */
+interface ValidEdits {
+  readonly replacementByLine: ReadonlyMap<number, string>;
+  /** Removed outright, or covered by a block that replaces them. */
+  readonly droppedLines: ReadonlySet<number>;
+  readonly blockByAnchor: ReadonlyMap<number, BlockEdit>;
+}
+
 /** Everything one pass wants done to the note, applied together in the same atomic write. */
 export interface NoteEdits {
   readonly replacements: readonly LineEdit[];
@@ -50,40 +58,36 @@ export function applyNoteEdits(content: string, edits: NoteEdits): string {
  */
 function applyStructuralEdits(content: string, edits: NoteEdits): string {
   const lines = content.split('\n');
-  const replacementByLine = new Map(
-    edits.replacements
-      .filter((edit) => lines[edit.lineNumber] === edit.expected)
-      .map((edit): [number, LineEdit] => [edit.lineNumber, edit]),
-  );
-  const removedLines = new Set(
-    edits.removals
-      .filter((removal) => lines[removal.lineNumber] === removal.expected)
-      .map((removal) => removal.lineNumber),
-  );
-  const activeBlocks = edits.blocks.filter((block) => lines[block.taskLineNumber] === block.expectedTaskLine);
-  const blockByAnchor = new Map(activeBlocks.map((block): [number, BlockEdit] => [block.taskLineNumber, block]));
-  const replacedBlockLines = new Set(
-    activeBlocks.flatMap((block) => Array.from({ length: block.lineCount }, (_, i) => block.startLine + i)),
-  );
-
+  const valid = validEditsFor(lines, edits);
   const result: string[] = [];
 
   for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    if (removedLines.has(lineNumber) || replacedBlockLines.has(lineNumber)) {
+    if (valid.droppedLines.has(lineNumber)) {
       continue;
     }
 
-    const replacement = replacementByLine.get(lineNumber);
-    result.push(replacement === undefined ? lines[lineNumber] : replacement.replacement);
-
-    const block = blockByAnchor.get(lineNumber);
-
-    if (block !== undefined) {
-      result.push(...block.replacementLines);
-    }
+    result.push(valid.replacementByLine.get(lineNumber) ?? lines[lineNumber]);
+    result.push(...(valid.blockByAnchor.get(lineNumber)?.replacementLines ?? []));
   }
 
   return result.join('\n');
+}
+
+/** Only an edit whose guard line still reads as it did when the pass started is kept. */
+function validEditsFor(lines: readonly string[], edits: NoteEdits): ValidEdits {
+  const replacements = edits.replacements.filter((edit) => lines[edit.lineNumber] === edit.expected);
+  const removals = edits.removals.filter((removal) => lines[removal.lineNumber] === removal.expected);
+  const blocks = edits.blocks.filter((block) => lines[block.taskLineNumber] === block.expectedTaskLine);
+
+  return {
+    replacementByLine: new Map(replacements.map((edit): [number, string] => [edit.lineNumber, edit.replacement])),
+    droppedLines: new Set([...removals.map((removal) => removal.lineNumber), ...blocks.flatMap(spannedLineNumbers)]),
+    blockByAnchor: new Map(blocks.map((block): [number, BlockEdit] => [block.taskLineNumber, block])),
+  };
+}
+
+function spannedLineNumbers(block: BlockEdit): number[] {
+  return Array.from({ length: block.lineCount }, (_, offset) => block.startLine + offset);
 }
 
 function appendLines(content: string, lines: readonly string[]): string {

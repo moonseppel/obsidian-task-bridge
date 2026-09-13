@@ -283,6 +283,7 @@ src/
       orphan-housekeeping.ts  # Flags, un-flags and removes orphaned tasks each run
       task-sync.ts            # Orchestrates one run over every file in scope and the project's tasks
       linked-line-sync.ts     # Syncs every field of one already-linked line
+      line-linker.ts          # Links a line that has none yet: re-linked, created, or recreated
       missing-line-sync.ts    # Resolves links whose line has vanished from every scanned file
       remote-child-sync.ts    # Pulls a provider-only sub-task of a linked task in as a new line
       parent-sync.ts          # Syncs which task a line is nested under, including relocation

@@ -1,4 +1,4 @@
-import { App, Setting, TFile, TFolder, normalizePath } from 'obsidian';
+import { App, SearchComponent, Setting, TFile, TFolder, normalizePath } from 'obsidian';
 import type ObsidianTaskSyncPlugin from '../main';
 import { matchesIgnorePattern } from '../utils/ignore-pattern';
 import * as text from './settings-text';
@@ -54,24 +54,25 @@ export class SourceScopeSettings {
     this.locationSetting = new Setting(containerEl)
       .setName(text.SOURCE_LOCATION_DISPLAY_NAME)
       .setDesc(disabled ? text.SOURCE_LOCATION_DISABLED_DESC : text.SOURCE_LOCATION_DESC)
-      .addSearch((search) => {
-        this.locationInputEl = search.inputEl;
-        new SourceLocationSuggest(this.app, search.inputEl, (path) => {
-          void this.handleSourceLocationSelection(path);
-        });
-        search
-          .setPlaceholder(text.SOURCE_LOCATION_PLACEHOLDER)
-          .setValue(this.plugin.settings.relativeTaskSourcePath)
-          .setDisabled(disabled)
-          .onChange((value) => {
-            void this.saveSourceLocationPath(value);
-          });
-        search.inputEl.addEventListener('blur', () => {
-          this.displayWarningOnMissingLocation();
-        });
-      });
+      .addSearch((search) => this.configureLocationSearch(search));
 
     this.displayWarningOnMissingLocation();
+  }
+
+  private configureLocationSearch(search: SearchComponent): void {
+    this.locationInputEl = search.inputEl;
+    new SourceLocationSuggest(this.app, search.inputEl, (path) => {
+      void this.handleSourceLocationSelection(path);
+    });
+    search
+      .setPlaceholder(text.SOURCE_LOCATION_PLACEHOLDER)
+      .setValue(this.plugin.settings.relativeTaskSourcePath)
+      .setDisabled(this.plugin.settings.syncWholeVault)
+      .onChange((value) => {
+        void this.saveSourceLocationPath(value);
+      });
+    // Attached to the input itself, which every redraw rebuilds, so the listener never outlives it.
+    search.inputEl.addEventListener('blur', () => this.displayWarningOnMissingLocation());
   }
 
   private async handleSourceLocationSelection(path: string): Promise<void> {
