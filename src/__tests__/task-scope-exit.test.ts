@@ -17,10 +17,7 @@ describe('TaskSync scope-exit handling', () => {
       new FakeNote('# Nothing here'),
       links,
       { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }), removeTask },
-      undefined,
-      undefined,
-      undefined,
-      () => true, // still found in some other, non-ignored vault file
+      { existsOutsideIgnoredFiles: () => true }, // still found in some other, non-ignored vault file
     );
 
     await sync.run(PROJECT);
@@ -41,10 +38,7 @@ describe('TaskSync scope-exit handling', () => {
       new FakeNote('# Nothing here'),
       links,
       { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }), removeTask },
-      undefined,
-      undefined,
-      undefined,
-      () => false, // genuinely gone, the default for a sync that never wires scope
+      { existsOutsideIgnoredFiles: () => false }, // genuinely gone, the default for a sync that never wires scope
     );
 
     await sync.run(PROJECT);
@@ -73,10 +67,7 @@ describe('TaskSync scope-exit handling', () => {
         }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
-      () => true,
+      { orphans, existsOutsideIgnoredFiles: () => true },
     );
 
     await sync.run(PROJECT);
@@ -110,10 +101,7 @@ describe('TaskSync scope-exit handling', () => {
         updateTaskDescription,
         removeTask,
       },
-      undefined,
-      undefined,
-      orphans,
-      () => true,
+      { orphans, existsOutsideIgnoredFiles: () => true },
     );
 
     await sync.run(PROJECT);
@@ -126,7 +114,7 @@ describe('TaskSync scope-exit handling', () => {
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 
-  it('resolves an out-of-scope task the moment it re-enters scope, the same way re-linking resolves an orphan', async () => {
+  it('resolves an out-of-scope task the moment it re-enters scope, as re-linking resolves an orphan', async () => {
     jest.useFakeTimers();
     const note = new FakeNote('# Nothing here');
     const links = new TaskLinkStore([
@@ -148,10 +136,7 @@ describe('TaskSync scope-exit handling', () => {
         updateTaskDescription,
         removeTask,
       },
-      undefined,
-      undefined,
-      orphans,
-      () => true,
+      { orphans, existsOutsideIgnoredFiles: () => true },
     );
 
     await sync.run(PROJECT);

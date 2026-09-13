@@ -27,7 +27,12 @@ interface Callbacks {
   onRelevantChange: jest.Mock;
 }
 
-function listenerWith(settings: Partial<TaskChangeListenerSettings>): { listener: TaskChangeListener; calls: Callbacks } {
+interface ListenerContext {
+  listener: TaskChangeListener;
+  calls: Callbacks;
+}
+
+function listenerWith(settings: Partial<TaskChangeListenerSettings>): ListenerContext {
   const calls: Callbacks = {
     onLocationRenamed: jest.fn(),
     onLocationDeleted: jest.fn(),

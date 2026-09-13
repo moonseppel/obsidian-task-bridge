@@ -158,7 +158,7 @@ describe('applyNoteEdits', () => {
     );
   });
 
-  it('skips a block edit whose anchor task line no longer matches, the same safety net every other edit kind gets', () => {
+  it('skips a block edit whose anchor task line no longer matches, like every other edit kind', () => {
     const edits: NoteEdits = {
       replacements: [],
       removals: [],

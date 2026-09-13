@@ -34,9 +34,7 @@ describe('protecting a still-linked child from a provider-side cascade delete', 
           return Promise.resolve();
         },
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);

@@ -113,11 +113,13 @@ describe('TaskSync project resolution', () => {
       new TaskLinkStore(),
       {
         listTasks: remoteTasks(),
-      listProjects: projectExists,
+        listProjects: projectExists,
         createTask: () => Promise.reject(new TaskProviderError('unreachable')),
       },
-      () => {
-        saved += 1;
+      {
+        onSave: () => {
+          saved += 1;
+        },
       },
     );
 

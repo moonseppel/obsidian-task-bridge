@@ -18,35 +18,37 @@ export interface StubProviderOptions {
   getTask?: (taskId: string) => Promise<LooseProviderTask | undefined>;
 }
 
-const NOT_STUBBED = (name: string) => (): never => {
-  throw new Error(`${name} was called but this stub does not implement it.`);
-};
+/** Every port method, so a test only has to spell out the ones it actually exercises. */
+export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
+  const { listTasks, createTask, getTask } = options;
+
+  return {
+    description: { displayName: 'Todoist', defaultProjectName: 'Inbox' },
+    connect: options.connect ?? notStubbed('connect'),
+    listProjects: options.listProjects ?? notStubbed('listProjects'),
+    listTasks: listTasks
+      ? (projectId) => listTasks(projectId).then((tasks) => tasks.map(withTaskDefaults))
+      : notStubbed('listTasks'),
+    createTask: createTask ? (task) => createTask(task).then(withTaskDefaults) : notStubbed('createTask'),
+    updateTaskTitle: options.updateTaskTitle ?? notStubbed('updateTaskTitle'),
+    updateTaskDescription: options.updateTaskDescription ?? notStubbed('updateTaskDescription'),
+    updateTaskLabels: options.updateTaskLabels ?? notStubbed('updateTaskLabels'),
+    completeTask: options.completeTask ?? notStubbed('completeTask'),
+    reopenTask: options.reopenTask ?? notStubbed('reopenTask'),
+    reparentTask: options.reparentTask ?? notStubbed('reparentTask'),
+    removeTask: options.removeTask ?? notStubbed('removeTask'),
+    getTask: getTask
+      ? (taskId) => getTask(taskId).then((task) => (task === undefined ? undefined : withTaskDefaults(task)))
+      : notStubbed('getTask'),
+  };
+}
+
+function notStubbed(name: string): () => never {
+  return () => {
+    throw new Error(`${name} was called but this stub does not implement it.`);
+  };
+}
 
 function withTaskDefaults(task: LooseProviderTask): ProviderTask {
   return { isCompleted: false, projectId: '', description: '', labels: [], ...task };
-}
-
-/** Every port method, so a test only has to spell out the ones it actually exercises. */
-export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
-  return {
-    description: { displayName: 'Todoist', defaultProjectName: 'Inbox' },
-    connect: options.connect ?? NOT_STUBBED('connect'),
-    listProjects: options.listProjects ?? NOT_STUBBED('listProjects'),
-    listTasks: options.listTasks
-      ? (projectId) => options.listTasks!(projectId).then((tasks) => tasks.map(withTaskDefaults))
-      : NOT_STUBBED('listTasks'),
-    createTask: options.createTask
-      ? (task) => options.createTask!(task).then(withTaskDefaults)
-      : NOT_STUBBED('createTask'),
-    updateTaskTitle: options.updateTaskTitle ?? NOT_STUBBED('updateTaskTitle'),
-    updateTaskDescription: options.updateTaskDescription ?? NOT_STUBBED('updateTaskDescription'),
-    updateTaskLabels: options.updateTaskLabels ?? NOT_STUBBED('updateTaskLabels'),
-    completeTask: options.completeTask ?? NOT_STUBBED('completeTask'),
-    reopenTask: options.reopenTask ?? NOT_STUBBED('reopenTask'),
-    reparentTask: options.reparentTask ?? NOT_STUBBED('reparentTask'),
-    removeTask: options.removeTask ?? NOT_STUBBED('removeTask'),
-    getTask: options.getTask
-      ? (taskId) => options.getTask!(taskId).then((task) => (task === undefined ? undefined : withTaskDefaults(task)))
-      : NOT_STUBBED('getTask'),
-  };
 }

@@ -61,7 +61,7 @@ describe('TaskSync tag sync', () => {
       expect(note.content).toBe('- [ ] Renew passport #urgent #errands ^ots-a1');
     });
 
-    it('resolves a genuine tag conflict in local\'s favor when the remote task carries no last-modified time', async () => {
+    it('resolves a tag conflict in local\'s favor when the remote task has no last-modified time', async () => {
       const note = new FakeNote('- [ ] Renew passport #local-only ^ots-a1');
       const links = new TaskLinkStore([
         { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Renew passport', lastSyncedTags: ['errands'] },

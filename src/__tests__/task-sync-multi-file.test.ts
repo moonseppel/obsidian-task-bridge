@@ -74,10 +74,7 @@ describe('TaskSync across multiple files', () => {
           return Promise.resolve({ id: TASK_ID, title: task.title });
         },
       },
-      undefined,
-      undefined,
-      undefined,
-      (task) => task.tags.includes('work'),
+      { isTagInScope: (task) => task.tags.includes('work') },
     );
 
     expect(await sync.run(PROJECT)).toMatchObject({ created: 1 });
@@ -86,7 +83,7 @@ describe('TaskSync across multiple files', () => {
     expect(note.content).not.toMatch(/Untagged task \^ots-/);
   });
 
-  it('resurrects a deleted-but-conflicting line into the file it was last anchored in, not just the first file in scope', async () => {
+  it('resurrects a deleted-but-conflicting line into its last anchored file, not the first in scope', async () => {
     jest.useFakeTimers();
     const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
     const fileB = new FakeNote('- [ ] Buy milk ^ots-a1');
@@ -135,7 +132,7 @@ describe('TaskSync across multiple files', () => {
     expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
   });
 
-  it('pulls a remote-only sub-task into the same file its linked parent lives in, not any other file in scope', async () => {
+  it('pulls a remote-only sub-task into the file its linked parent lives in, not another file in scope', async () => {
     const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
     const fileB = new FakeNote('- [ ] Parent ^ots-parent1');
     const links = new TaskLinkStore([

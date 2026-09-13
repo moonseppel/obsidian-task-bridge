@@ -21,9 +21,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote(''),
       new TaskLinkStore(),
       { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }) },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -40,9 +38,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote('- [ ] Buy milk ^ots-a1'),
       links,
       { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -60,9 +56,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote('- [ ] Buy milk ^ots-a1'),
       links,
       { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -81,9 +75,7 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -105,9 +97,7 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -140,9 +130,7 @@ describe('TaskSync orphan lifecycle', () => {
         }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -168,9 +156,7 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
         removeTask,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -193,9 +179,7 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
         removeTask,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -219,9 +203,7 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);
@@ -250,9 +232,7 @@ describe('TaskSync orphan lifecycle', () => {
         }),
         updateTaskDescription,
       },
-      undefined,
-      undefined,
-      orphans,
+      { orphans },
     );
 
     await sync.run(PROJECT);

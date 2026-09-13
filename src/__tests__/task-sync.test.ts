@@ -46,8 +46,7 @@ describe('TaskSync creation and title sync', () => {
         listProjects: projectExists,
         createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
       },
-      () => undefined,
-      () => 'dev1a',
+      { getDeviceTag: () => 'dev1a' },
     );
 
     await sync.run(PROJECT);

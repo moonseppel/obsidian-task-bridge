@@ -30,7 +30,7 @@ describe('TaskSync deletion and completion', () => {
     expect(links.get('ots-a1')).toBeUndefined();
   });
 
-  it('leaves the line and the link alone when the missing task turns out to have moved to another project', async () => {
+  it('leaves the line and link alone when the missing task turns out to have moved to another project', async () => {
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
@@ -215,7 +215,7 @@ describe('TaskSync deletion and completion', () => {
     expect(links.get('ots-a1')?.lastSyncedTitle).toBe('Buy oat milk');
   });
 
-  it('deletes the task instead of resurrecting the line when the note is at least as new as the remote edit', async () => {
+  it('deletes the task instead of resurrecting the line when the note is no older than the remote edit', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
@@ -254,7 +254,7 @@ describe('TaskSync deletion and completion', () => {
     expect(removeTask).toHaveBeenCalledWith(TASK_ID);
   });
 
-  it('drops the link without calling removeTask once a direct lookup confirms the task is genuinely gone too', async () => {
+  it('drops the link without calling removeTask once a direct lookup confirms the task is gone too', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },

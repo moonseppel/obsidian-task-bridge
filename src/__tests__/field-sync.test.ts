@@ -191,7 +191,7 @@ describe('TaskSync field sync', () => {
       expect(links.get('ots-a1')?.lastSyncedDescription).toBe('Same notes');
     });
 
-    it('resolves a genuine description conflict in local\'s favor when the remote task carries no last-modified time', async () => {
+    it('resolves a description conflict in local\'s favor when the remote task has no last-modified time', async () => {
       const note = new FakeNote('- [ ] Buy milk ^ots-a1\n\tLocal notes');
       const links = new TaskLinkStore([
         { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
