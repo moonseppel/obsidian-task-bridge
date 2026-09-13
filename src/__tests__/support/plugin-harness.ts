@@ -73,6 +73,8 @@ export function makePlugin(connect = rejectingWith('not-configured')): PluginCon
 export function tfile(path: string): TFile {
   const file = new TFile();
   file.path = path;
+  file.name = path.split('/').pop() ?? path;
+  file.extension = file.name.includes('.') ? file.name.split('.').pop()! : '';
   return file;
 }
 

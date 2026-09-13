@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings, ObsidianTaskSyncSettingTab } from './settings';
 import { ProviderConnection } from './services/provider-connection';
 import { StatusReporter } from './services/status-reporter';
@@ -7,6 +7,7 @@ import { getDeviceTag } from './services/sync/device-tag';
 import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
 import { OrphanTracker } from './services/sync/orphan-tracker';
 import { SyncScheduler } from './services/sync/sync-scheduler';
+import { TaskCollection } from './services/sync/task-collection';
 import { TaskLinkStore } from './services/sync/task-links';
 import { ProjectResolution } from './services/sync/project-resolver';
 import { TaskSync } from './services/sync/task-sync';
@@ -30,10 +31,6 @@ const UNREADABLE_SETTINGS_LOG =
 const UNREADABLE_SETTINGS_NOTICE =
   'Obsidian Task Sync: the settings file could not be read and may be corrupted. ' +
   'Default settings have been restored. Check your plugin settings.';
-
-function isInLocalTrash(path: string): boolean {
-  return path === '.trash' || path.startsWith('.trash/');
-}
 
 function announce(message: string): void {
   new Notice(`Obsidian Task Sync: ${message}`, NOTICE_UNTIL_DISMISSED);
@@ -61,6 +58,17 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     () => void this.syncTasks(),
     (id) => this.registerInterval(id),
   );
+  private readonly taskCollection = new TaskCollection(
+    this.app.vault,
+    this.app.metadataCache,
+    () => this.settings,
+    (eventRef) => this.registerEvent(eventRef),
+    {
+      onLocationRenamed: (newPath, oldPath) => void this.handleLocationRenamed(newPath, oldPath),
+      onLocationDeleted: () => void this.clearSourceLocation(),
+      onRelevantChange: () => this.handleRelevantSourceChange(),
+    },
+  );
   private isSyncing = false;
   private noteChangedWhileSyncing = false;
 
@@ -71,7 +79,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       this.addSettingTab(new ObsidianTaskSyncSettingTab(this.app, this));
       this.addCommand({ id: 'sync-now', name: 'Sync now', callback: () => void this.syncTasks() });
       this.registerMarkdownPostProcessor((element) => this.hideAnchorsUnlessDebugging(element));
-      this.registerSourceNoteWatchers();
+      this.taskCollection.registerWatchers();
       this.register(() => this.scheduler.cancelPendingSync());
       this.restartSyncSchedule();
       void this.connectAndSync();
@@ -271,29 +279,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.scheduler.syncWhenTypingStops();
   }
 
-  private registerSourceNoteWatchers(): void {
-    this.registerEvent(
-      this.app.vault.on('rename', (file, oldPath) => {
-        void this.handleSourceNoteRename(file, oldPath);
-      }),
-    );
-    this.registerEvent(
-      this.app.vault.on('delete', (file) => {
-        void this.handleSourceNoteDelete(file);
-      }),
-    );
-    this.registerEvent(
-      this.app.vault.on('modify', (file) => {
-        this.handleSourceNoteModify(file);
-      }),
-    );
-  }
-
-  private handleSourceNoteModify(file: TAbstractFile): void {
-    if (file.path !== this.settings.relativeTaskSourcePath) {
-      return;
-    }
-
+  private handleRelevantSourceChange(): void {
     if (this.isSyncing) {
       this.noteChangedWhileSyncing = true;
       return;
@@ -302,39 +288,21 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     this.scheduler.syncWhenTypingStops();
   }
 
-  private async handleSourceNoteRename(file: TAbstractFile, oldPath: string): Promise<void> {
-    if (!(file instanceof TFile) || oldPath !== this.settings.relativeTaskSourcePath) {
-      return;
-    }
-
-    // Moving a note into the local trash arrives as a rename — treat it as a deletion.
-    if (isInLocalTrash(file.path)) {
-      await this.clearSourceNote();
-      return;
-    }
-
-    this.settings.relativeTaskSourcePath = file.path;
+  private async handleLocationRenamed(newPath: string, oldPath: string): Promise<void> {
+    this.settings.relativeTaskSourcePath = newPath;
     await this.saveSettings();
-    logger.info('Source note moved; setting updated', { from: oldPath, to: file.path });
+    logger.info('Source location moved; setting updated', { from: oldPath, to: newPath });
   }
 
-  private async handleSourceNoteDelete(file: TAbstractFile): Promise<void> {
-    if (file.path !== this.settings.relativeTaskSourcePath) {
-      return;
-    }
-
-    await this.clearSourceNote();
-  }
-
-  private async clearSourceNote(): Promise<void> {
+  private async clearSourceLocation(): Promise<void> {
     const previousPath = this.settings.relativeTaskSourcePath;
     this.settings.relativeTaskSourcePath = '';
 
     new Notice(
-      `Obsidian Task Sync: The source note "${previousPath}" no longer exists, ` +
+      `Obsidian Task Sync: The source note or folder "${previousPath}" no longer exists, ` +
         'so it has been cleared from the plugin settings.',
     );
-    logger.warn('Source note removed; setting cleared', { previousPath });
+    logger.warn('Source location removed; setting cleared', { previousPath });
 
     await this.saveSettings();
   }
