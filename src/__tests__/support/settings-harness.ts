@@ -99,32 +99,80 @@ export function spySettingNames(): () => string[] {
   return () => spy.mock.calls.map((call) => String(call[0]));
 }
 
-export function locationDesc(tab: ObsidianTaskSyncSettingTab): string {
-  return (tab as unknown as { locationSetting: { description: string } }).locationSetting.description;
+interface SettingInternals {
+  description: string;
+  settingEl: TestEl;
 }
 
-export function connectionDesc(tab: ObsidianTaskSyncSettingTab): string {
-  return (tab as unknown as { connectionSetting: { description: string } }).connectionSetting.description;
+interface SourceScopeInternals {
+  locationSetting: SettingInternals;
+  locationInputEl: TestEl;
+  ignoreSetting: SettingInternals;
+  isSourceLocationMissing(): boolean;
+  saveIgnorePatterns(value: string): Promise<void>;
+}
+
+interface ProviderInternals {
+  connectionSetting: SettingInternals;
+  reconnect(): Promise<void>;
+  handleTestConnection(): Promise<void>;
+  handleProjectSelection(project: { id: string; name: string }): Promise<void>;
+}
+
+function sourceScopeOf(tab: ObsidianTaskSyncSettingTab): SourceScopeInternals {
+  return (tab as unknown as { sourceScope: SourceScopeInternals }).sourceScope;
+}
+
+function providerSettingsOf(tab: ObsidianTaskSyncSettingTab): ProviderInternals {
+  return (tab as unknown as { providerSettings: ProviderInternals }).providerSettings;
+}
+
+export function locationDesc(tab: ObsidianTaskSyncSettingTab): string {
+  return sourceScopeOf(tab).locationSetting.description;
 }
 
 export function isSourceLocationMissing(tab: ObsidianTaskSyncSettingTab): boolean {
-  return (tab as unknown as { isSourceLocationMissing(): boolean }).isSourceLocationMissing();
+  return sourceScopeOf(tab).isSourceLocationMissing();
 }
 
 export function settingRow(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { locationSetting: { settingEl: TestEl } }).locationSetting.settingEl;
+  return sourceScopeOf(tab).locationSetting.settingEl;
 }
 
 export function locationInput(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { locationInputEl: TestEl }).locationInputEl;
+  return sourceScopeOf(tab).locationInputEl;
 }
 
 export function ignoreDesc(tab: ObsidianTaskSyncSettingTab): string {
-  return (tab as unknown as { ignoreSetting: { description: string } }).ignoreSetting.description;
+  return sourceScopeOf(tab).ignoreSetting.description;
 }
 
 export function ignoreRow(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { ignoreSetting: { settingEl: TestEl } }).ignoreSetting.settingEl;
+  return sourceScopeOf(tab).ignoreSetting.settingEl;
+}
+
+export function saveIgnorePatterns(tab: ObsidianTaskSyncSettingTab, value: string): Promise<void> {
+  return sourceScopeOf(tab).saveIgnorePatterns(value);
+}
+
+export function connectionDesc(tab: ObsidianTaskSyncSettingTab): string {
+  return providerSettingsOf(tab).connectionSetting.description;
+}
+
+export function connectionRow(tab: ObsidianTaskSyncSettingTab): TestEl {
+  return providerSettingsOf(tab).connectionSetting.settingEl;
+}
+
+export function reconnect(tab: ObsidianTaskSyncSettingTab): Promise<void> {
+  return providerSettingsOf(tab).reconnect();
+}
+
+export function testConnection(tab: ObsidianTaskSyncSettingTab): Promise<void> {
+  return providerSettingsOf(tab).handleTestConnection();
+}
+
+export function selectProject(tab: ObsidianTaskSyncSettingTab, project: { id: string; name: string }): Promise<void> {
+  return providerSettingsOf(tab).handleProjectSelection(project);
 }
 
 export interface TestFragment {
@@ -138,8 +186,4 @@ export function tokenDescription(setDesc: jest.SpyInstance): TestFragment {
     .find((value) => typeof value !== 'string');
 
   return fragment as TestFragment;
-}
-
-export function connectionRow(tab: ObsidianTaskSyncSettingTab): TestEl {
-  return (tab as unknown as { connectionSetting: { settingEl: TestEl } }).connectionSetting.settingEl;
 }

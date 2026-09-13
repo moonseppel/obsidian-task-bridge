@@ -1,7 +1,4 @@
-import {
-  makeTab,
-  flushPendingWork,
-} from './support/settings-harness';
+import { flushPendingWork, makeTab, reconnect, testConnection } from './support/settings-harness';
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -47,7 +44,7 @@ describe('ObsidianTaskSyncSettingTab project list', () => {
     await flushPendingWork();
     refreshKnownProjects.mockClear();
 
-    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
+    await reconnect(tab);
 
     expect(refreshKnownProjects).toHaveBeenCalledTimes(1);
   });
@@ -58,7 +55,7 @@ describe('ObsidianTaskSyncSettingTab project list', () => {
     await flushPendingWork();
     refreshKnownProjects.mockClear();
 
-    await (tab as unknown as { handleTestConnection(): Promise<void> }).handleTestConnection();
+    await testConnection(tab);
 
     expect(refreshKnownProjects).toHaveBeenCalledTimes(1);
   });
@@ -68,7 +65,7 @@ describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
   it('picks a project as soon as credentials arrive, without waiting for a restart', async () => {
     const { tab, ensureProjectSelected } = makeTab('');
 
-    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
+    await reconnect(tab);
 
     expect(ensureProjectSelected).toHaveBeenCalledTimes(1);
   });
@@ -76,7 +73,7 @@ describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
   it('refreshes the list before choosing, so the same list is not fetched twice', async () => {
     const { tab, refreshKnownProjects, ensureProjectSelected } = makeTab('');
 
-    await (tab as unknown as { reconnect(): Promise<void> }).reconnect();
+    await reconnect(tab);
 
     expect(refreshKnownProjects.mock.invocationCallOrder[0]).toBeLessThan(
       ensureProjectSelected.mock.invocationCallOrder[0],
@@ -86,7 +83,7 @@ describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
   it('also picks a project after the connection is tested', async () => {
     const { tab, ensureProjectSelected } = makeTab('');
 
-    await (tab as unknown as { handleTestConnection(): Promise<void> }).handleTestConnection();
+    await testConnection(tab);
 
     expect(ensureProjectSelected).toHaveBeenCalledTimes(1);
   });

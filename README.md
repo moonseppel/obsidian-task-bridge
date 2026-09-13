@@ -250,7 +250,7 @@ of it.
 ```
 src/
   main.ts           # Plugin lifecycle & wiring
-  settings.ts       # Settings interface, defaults, and setting tab
+  settings.ts       # Settings interface, defaults, and the setting tab that arranges its sections
   stored-data.ts    # Reads and validates what was written to data.json
   services/
     task-provider.ts        # Provider-neutral interface the plugin talks to
@@ -299,6 +299,8 @@ src/
   views/
     source-location-suggest.ts # Picker for the source note or folder
     tag-suggest.ts             # Picker for the source tag, offering tags already in the vault
+    source-scope-settings.ts   # Settings rows for which tasks are synced
+    provider-settings.ts       # Settings rows for the provider: credentials, connection and project
     project-suggest.ts         # Picker for the Todoist project
     suggestions.ts             # Matching and capping shared by the pickers
     rendered-anchor.ts         # Hides sync anchors in reading view

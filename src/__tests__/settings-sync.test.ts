@@ -1,10 +1,7 @@
 import { SearchComponent, Setting, ToggleComponent } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../settings';
 import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
-import {
-  makeTab,
-  spySettingNames,
-} from './support/settings-harness';
+import { makeTab, selectProject, spySettingNames } from './support/settings-harness';
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -60,9 +57,7 @@ describe('ObsidianTaskSyncSettingTab sync section', () => {
     const { tab, plugin, saveSettings } = makeTab('');
     tab.display();
 
-    await (tab as unknown as {
-      handleProjectSelection(project: { id: string; name: string }): Promise<void>;
-    }).handleProjectSelection({ id: 'p1', name: 'Errands' });
+    await selectProject(tab, { id: 'p1', name: 'Errands' });
 
     expect(plugin.settings.projectId).toBe('p1');
     expect(plugin.settings.projectName).toBe('Errands');

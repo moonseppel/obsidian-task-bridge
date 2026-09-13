@@ -2,7 +2,8 @@ import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/s
 
 export const WHOLE_VAULT_DISPLAY_NAME = 'Sync the whole vault';
 export const WHOLE_VAULT_DESC =
-  'Sync every task in the vault. Overrides the note or folder selected below, which stays disabled while this is checked.';
+  'Sync every task in the vault. Overrides the note or folder selected below, ' +
+  'which stays disabled while this is checked.';
 
 export const SOURCE_LOCATION_DISPLAY_NAME = 'Note or folder';
 export const SOURCE_LOCATION_DESC =
@@ -23,9 +24,8 @@ export const IGNORE_PATTERNS_DESC =
   'the conflict copies a third-party sync tool creates. "*" matches any run of characters.';
 export const IGNORE_PATTERNS_PLACEHOLDER = 'Example: *.sync-conflict-*';
 
-export function ignorePatternIneffectiveWarning(): string {
-  return 'This pattern will not take effect: the note selected above is always synced regardless of ignore patterns.';
-}
+export const IGNORE_PATTERNS_INEFFECTIVE_WARNING =
+  'This pattern will not take effect: the note selected above is always synced regardless of ignore patterns.';
 
 export function missingLocationWarning(path: string): string {
   return `Note or folder not found at "${path}" — pick an existing one or clear the field.`;
@@ -46,11 +46,12 @@ export function projectDescription(defaultProjectName: string): string {
 
 export const SYNC_DISPLAY_NAME = 'Sync';
 export const SYNC_INTERVAL_DISPLAY_NAME = 'Check for changes every';
+
 export function syncIntervalDescription(providerName: string): string {
   return (
-    `How often ${providerName} is polled for title changes, in minutes ` +
+    `How often ${providerName} is polled for changes, in minutes ` +
     `(${MIN_SYNC_INTERVAL_MINUTES}–${MAX_SYNC_INTERVAL_MINUTES}). ` +
-    'Changes made in Obsidian are sent as soon as the note is saved.'
+    'Changes made in Obsidian are sent shortly after you stop editing.'
   );
 }
 

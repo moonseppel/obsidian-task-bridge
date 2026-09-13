@@ -8,6 +8,7 @@ import {
   locationInput,
   ignoreDesc,
   ignoreRow,
+  saveIgnorePatterns,
   spySettingNames,
 } from './support/settings-harness';
 
@@ -204,9 +205,7 @@ describe('ObsidianTaskSyncSettingTab ignore-pattern setting', () => {
     const { tab, plugin } = makeTab('');
     tab.display();
 
-    await (
-      tab as unknown as { saveIgnorePatterns(value: string): Promise<void> }
-    ).saveIgnorePatterns('*.sync-conflict-*');
+    await saveIgnorePatterns(tab, '*.sync-conflict-*');
 
     expect(plugin.settings.ignoreFilePatterns).toBe('*.sync-conflict-*');
   });
