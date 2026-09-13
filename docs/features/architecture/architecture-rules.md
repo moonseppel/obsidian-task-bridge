@@ -28,3 +28,8 @@
 26. A sub-task added directly in the provider under a task this plugin already links is pulled into the note as a new indented line — a deliberate, narrow exception to only ever syncing an Obsidian-originated task; one with no linked ancestor anywhere in its chain is still never pulled in.
 27. A task's parent is compared independently, the same way every other field is, against what both sides last agreed on, and a genuine conflict is resolved by the same recency rule as a title conflict. Pushing a reparent never touches the note; pulling one that clears the parent reindents the line in place, and pulling one to a specific new parent relocates the line's whole subtree, reindented, under the new parent.
 28. Removing a task first reparents its still-linked children to top-level, never recursively, since the provider cascades a delete to every descendant and a grandchild's own parent is the child being spared, not the task being removed.
+29. Task-source code lives in one module: a submodule that finds in-scope tasks, and a submodule that reacts to vault changes.
+30. Scope — note, folder, or vault; an optional tag; an ignore pattern — is derived fresh every pass, never stored.
+31. An ignore pattern applies only to folder or vault scope, never to an explicitly selected note.
+32. A tag filter composes with any scope — note, folder, or vault — rather than being exclusive to one.
+33. A block id missing from scope is checked vault-wide (ignored files excluded) before being treated as deleted: not found anywhere is deleted as usual; found elsewhere is out of scope, flagged and removed on the same timing as an orphan.
