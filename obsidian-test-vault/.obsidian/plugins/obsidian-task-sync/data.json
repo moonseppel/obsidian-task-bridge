@@ -8,12 +8,14 @@
     {
       "blockId": "ots-ib7kpp4v",
       "providerTaskId": "6hV7qcF7M563hGpc",
-      "lastSyncedTitle": "Buy milk"
+      "lastSyncedTitle": "Buy milk",
+      "lastSyncedDescription": "another description without bullet point"
     },
     {
       "blockId": "ots-0pc0073d",
       "providerTaskId": "6hV7qc9xc4JWpXmc",
-      "lastSyncedTitle": "Call the dentist"
+      "lastSyncedTitle": "Call the dentist",
+      "lastSyncedDescription": "- task description"
     },
     {
       "blockId": "ots-jg1w8hw3",
@@ -28,7 +30,8 @@
     {
       "blockId": "ots-hrtzbvim-5daxh6",
       "providerTaskId": "6hVRR4GQhFHm9cwc",
-      "lastSyncedTitle": "neuer task"
+      "lastSyncedTitle": "neuer task",
+      "lastSyncedDescription": "^ots-hrtzbvim-5daxh6"
     }
   ],
   "orphanedTasks": [],
