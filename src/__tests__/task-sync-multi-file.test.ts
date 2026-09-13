@@ -1,0 +1,137 @@
+import { TaskLinkStore } from '../services/sync/task-links';
+import { NewTask } from '../services/task-provider';
+import { FakeNote, PROJECT, TASK_ID, makeMultiFileSync, projectExists, remoteTasks } from './support/sync-harness';
+
+describe('TaskSync across multiple files', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('creates a task for an unlinked line in each in-scope file', async () => {
+    const fileA = new FakeNote('- [ ] Buy milk');
+    const fileB = new FakeNote('- [ ] Walk the dog');
+    const created: NewTask[] = [];
+    let nextId = 1;
+    const sync = makeMultiFileSync(
+      new Map([
+        ['A.md', fileA],
+        ['B.md', fileB],
+      ]),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: `task-${nextId++}`, title: task.title });
+        },
+      },
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 2 });
+    expect(fileA.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
+    expect(fileB.content).toMatch(/^- \[ \] Walk the dog \^ots-[a-z0-9]{8}$/);
+    expect(created.map((task) => task.title).sort()).toEqual(['Buy milk', 'Walk the dog']);
+  });
+
+  it('pulls a remote title change into whichever file the task is actually anchored in', async () => {
+    const fileA = new FakeNote('- [ ] Other task ^ots-b1');
+    const fileB = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'ots-b1', providerTaskId: 'other-task-id', lastSyncedTitle: 'Other task' },
+    ]);
+    const sync = makeMultiFileSync(
+      new Map([
+        ['A.md', fileA],
+        ['B.md', fileB],
+      ]),
+      links,
+      {
+        listTasks: remoteTasks(
+          { id: TASK_ID, title: 'Buy oat milk' },
+          { id: 'other-task-id', title: 'Other task' },
+        ),
+      },
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
+    expect(fileB.content).toBe('- [ ] Buy oat milk ^ots-a1');
+    expect(fileA.content).toBe('- [ ] Other task ^ots-b1');
+  });
+
+  it('skips a task line whose tag does not match the configured filter', async () => {
+    const note = new FakeNote('- [ ] Tagged task #work\n- [ ] Untagged task');
+    const created: NewTask[] = [];
+    const sync = makeMultiFileSync(
+      new Map([['A.md', note]]),
+      new TaskLinkStore(),
+      {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: TASK_ID, title: task.title });
+        },
+      },
+      undefined,
+      undefined,
+      undefined,
+      (task) => task.tags.includes('work'),
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ created: 1 });
+    expect(created.map((task) => task.title)).toEqual(['Tagged task']);
+    expect(note.content).toContain('Untagged task\n'.trim());
+    expect(note.content).not.toMatch(/Untagged task \^ots-/);
+  });
+
+  it('resurrects a deleted-but-conflicting line into the file it was last anchored in, not just the first file in scope', async () => {
+    jest.useFakeTimers();
+    const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
+    const fileB = new FakeNote('- [ ] Buy milk ^ots-a1');
+    fileB.modifiedAt = 1_000;
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'ots-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    // Starts agreeing with the line, so establishing lastKnownFilePath below does not itself pull
+    // a title change; only changed to a conflicting title once the line is about to disappear.
+    let remoteTitle = 'Buy milk';
+    let remoteUpdatedAt: number | undefined;
+    const sync = makeMultiFileSync(
+      new Map([
+        ['A.md', fileA],
+        ['B.md', fileB],
+      ]),
+      links,
+      {
+        listTasks: () =>
+          Promise.resolve([
+            { id: TASK_ID, title: remoteTitle, updatedAt: remoteUpdatedAt },
+            { id: 'other-id', title: 'Unrelated' },
+          ]),
+        removeTask,
+      },
+    );
+
+    // Establishes ots-a1's lastKnownFilePath as B.md.
+    await sync.run(PROJECT);
+    expect(links.get('ots-a1')?.lastKnownFilePath).toBe('B.md');
+
+    // The line disappears from B.md, racing a remote title change newer than B.md's mtime.
+    fileB.content = '';
+    remoteTitle = 'Buy oat milk';
+    remoteUpdatedAt = 2_000;
+    await sync.run(PROJECT); // first pass to notice it missing, starting its grace period
+    jest.advanceTimersByTime(60_000);
+
+    const outcome = await sync.run(PROJECT);
+
+    expect(outcome).toMatchObject({ conflicted: 1, resurrectedLine: 1, removedTask: 0 });
+    expect(removeTask).not.toHaveBeenCalledWith(TASK_ID);
+    expect(fileB.content).toBe('- [ ] Buy oat milk ^ots-a1');
+    expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
+  });
+});

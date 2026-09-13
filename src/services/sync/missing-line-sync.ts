@@ -1,7 +1,9 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
+import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
-import { SyncPass } from './sync-pass';
+import { SourceNote } from './source-note';
+import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
 
@@ -9,21 +11,39 @@ import { TaskLink, TaskLinkStore } from './task-links';
 const RESURRECTED_LINE_PREFIX = '- ';
 const RESURRECTED_LINE_CHECKBOX = ' ';
 
-/** Walks every stored link, not the note's lines: a deleted line is exactly one the note lacks. */
+export interface MissingLineRunContext {
+  readonly project: ResolvedProject;
+  /** Every block id anchoring a task line in any file scanned this run, across every file. */
+  readonly takenBlockIds: ReadonlySet<string>;
+  /** This run's scanned file paths, so a link that has never been seen still has an unambiguous
+   *  resurrection target when there is only ever one file it could have come from. */
+  readonly scannedPaths: readonly string[];
+}
+
+/**
+ * Walks every stored link, not any file's lines: a deleted line is exactly one no scanned file
+ * still has. Runs once per whole run rather than once per file, since a link's block id may have
+ * moved to a different file within the same scope without ever truly vanishing.
+ */
 export class MissingLineSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
   private readonly grace: GracePeriod;
+  private readonly noteFor: (path: string) => SourceNote;
 
-  constructor(provider: TaskProvider, links: TaskLinkStore, grace: GracePeriod) {
+  constructor(provider: TaskProvider, links: TaskLinkStore, grace: GracePeriod, noteFor: (path: string) => SourceNote) {
     this.provider = provider;
     this.links = links;
     this.grace = grace;
+    this.noteFor = noteFor;
   }
 
-  async run(pass: SyncPass): Promise<void> {
+  async run(context: MissingLineRunContext): Promise<SyncOutcome> {
+    const outcome = emptyOutcome(context.project.resolution);
+    const remoteTasks = byTaskId(context.project.tasks);
+
     for (const link of [...this.links.values()]) {
-      if (pass.takenBlockIds.has(link.blockId)) {
+      if (context.takenBlockIds.has(link.blockId)) {
         continue;
       }
 
@@ -31,31 +51,41 @@ export class MissingLineSync {
         continue;
       }
 
-      await this.resolve(pass, link);
+      await this.resolve(context, remoteTasks, link, outcome);
     }
 
     this.grace.sweep();
+    return outcome;
   }
 
   /** A vanished line says nothing about the task, so the task is checked rather than assumed gone. */
-  private async resolve(pass: SyncPass, link: TaskLink): Promise<void> {
-    const remoteTask = pass.remoteTasks.get(link.providerTaskId);
+  private async resolve(
+    context: MissingLineRunContext,
+    remoteTasks: ReadonlyMap<string, ProviderTask>,
+    link: TaskLink,
+    outcome: SyncOutcome,
+  ): Promise<void> {
+    const remoteTask = remoteTasks.get(link.providerTaskId);
 
     if (remoteTask === undefined) {
-      await this.resolveAgainstAbsentTask(pass, link);
+      await this.resolveAgainstAbsentTask(context, link, outcome);
       return;
     }
 
     if (remoteTask.title.length > 0 && remoteTask.title !== link.lastSyncedTitle) {
-      await this.resolveConflict(pass, link, remoteTask);
+      await this.resolveConflict(context, link, remoteTask, outcome);
       return;
     }
 
-    await this.removeTask(pass, link);
+    await this.removeTask(context, link, outcome);
   }
 
   /** Moved out of this project is left untouched; completed here is tidied up like a deletion. */
-  private async resolveAgainstAbsentTask(pass: SyncPass, link: TaskLink): Promise<void> {
+  private async resolveAgainstAbsentTask(
+    context: MissingLineRunContext,
+    link: TaskLink,
+    outcome: SyncOutcome,
+  ): Promise<void> {
     const found = await this.provider.getTask(link.providerTaskId);
 
     if (found === undefined) {
@@ -63,42 +93,78 @@ export class MissingLineSync {
       return;
     }
 
-    if (found.projectId !== pass.projectId || !found.isCompleted) {
+    if (found.projectId !== context.project.id || !found.isCompleted) {
       return;
     }
 
-    await this.removeTask(pass, link);
+    await this.removeTask(context, link, outcome);
   }
 
   /**
-   * Deleting a line touches the note's mtime like any other edit, so it stands in for when the
-   * deletion happened. A resurrected line is appended: its old position no longer exists.
+   * Deleting a line touches its file's mtime like any other edit, so the file the block id was
+   * last known to live in stands in for when the deletion happened. With no such file recorded —
+   * or one that has since vanished entirely — there is nowhere to resurrect a line into, so the
+   * deletion stands rather than guessing a location.
    */
-  private async resolveConflict(pass: SyncPass, link: TaskLink, remoteTask: ProviderTask): Promise<void> {
-    pass.outcome.conflicted += 1;
+  private async resolveConflict(
+    context: MissingLineRunContext,
+    link: TaskLink,
+    remoteTask: ProviderTask,
+    outcome: SyncOutcome,
+  ): Promise<void> {
+    outcome.conflicted += 1;
+    const path = link.lastKnownFilePath ?? soleScannedPath(context.scannedPaths);
 
-    if (remoteTask.updatedAt === undefined || remoteTask.updatedAt <= pass.localModifiedAt) {
-      await this.removeTask(pass, link);
+    if (path === undefined) {
+      await this.removeTask(context, link, outcome);
       return;
     }
 
-    pass.appended.push(
-      formatTaskLine({
-        prefix: RESURRECTED_LINE_PREFIX,
-        checkbox: RESURRECTED_LINE_CHECKBOX,
-        title: remoteTask.title,
-        tags: [],
-        blockId: link.blockId,
-      }),
-    );
-    this.links.set({ ...link, lastSyncedTitle: remoteTask.title });
-    pass.outcome.resurrectedLine += 1;
+    let localModifiedAt: number;
+
+    try {
+      localModifiedAt = await this.noteFor(path).lastModified();
+    } catch {
+      await this.removeTask(context, link, outcome);
+      return;
+    }
+
+    if (remoteTask.updatedAt === undefined || remoteTask.updatedAt <= localModifiedAt) {
+      await this.removeTask(context, link, outcome);
+      return;
+    }
+
+    await this.noteFor(path).applyEdits({
+      replacements: [],
+      removals: [],
+      blocks: [],
+      appended: [
+        formatTaskLine({
+          prefix: RESURRECTED_LINE_PREFIX,
+          checkbox: RESURRECTED_LINE_CHECKBOX,
+          title: remoteTask.title,
+          tags: [],
+          blockId: link.blockId,
+        }),
+      ],
+    });
+    this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
+    outcome.resurrectedLine += 1;
   }
 
-  private async removeTask(pass: SyncPass, link: TaskLink): Promise<void> {
-    await promoteChildrenToTopLevel(this.provider, [...pass.remoteTasks.values()], link.providerTaskId, pass.projectId);
+  private async removeTask(context: MissingLineRunContext, link: TaskLink, outcome: SyncOutcome): Promise<void> {
+    await promoteChildrenToTopLevel(this.provider, context.project.tasks, link.providerTaskId, context.project.id);
     await this.provider.removeTask(link.providerTaskId);
     this.links.delete(link.blockId);
-    pass.outcome.removedTask += 1;
+    outcome.removedTask += 1;
   }
+}
+
+function byTaskId(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
+  return new Map(tasks.map((task): [string, ProviderTask] => [task.id, task]));
+}
+
+/** Unambiguous only when scope resolves to exactly one file. */
+function soleScannedPath(scannedPaths: readonly string[]): string | undefined {
+  return scannedPaths.length === 1 ? scannedPaths[0] : undefined;
 }

@@ -15,6 +15,8 @@ export interface TaskLink {
   lastSyncedTags?: readonly string[];
   /** The block id of the parent task both sides last agreed on, or undefined for top-level. */
   lastSyncedParentBlockId?: string;
+  /** The path of the file this block id was last found anchored in, across any pass. */
+  lastKnownFilePath?: string;
 }
 
 export class TaskLinkStore {
@@ -74,7 +76,8 @@ function isTaskLink(value: unknown): value is TaskLink {
     (value.lastSyncedDone === undefined || typeof value.lastSyncedDone === 'boolean') &&
     (value.lastSyncedDescription === undefined || typeof value.lastSyncedDescription === 'string') &&
     (value.lastSyncedTags === undefined || isStringArray(value.lastSyncedTags)) &&
-    (value.lastSyncedParentBlockId === undefined || isNonEmptyString(value.lastSyncedParentBlockId))
+    (value.lastSyncedParentBlockId === undefined || isNonEmptyString(value.lastSyncedParentBlockId)) &&
+    (value.lastKnownFilePath === undefined || isNonEmptyString(value.lastKnownFilePath))
   );
 }
 

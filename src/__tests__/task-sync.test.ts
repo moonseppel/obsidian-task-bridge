@@ -73,6 +73,7 @@ describe('TaskSync creation and title sync', () => {
       lastSyncedTitle: 'Buy milk',
       lastSyncedDescription: '',
       lastSyncedTags: [],
+      lastKnownFilePath: 'Tasks.md',
     });
   });
 

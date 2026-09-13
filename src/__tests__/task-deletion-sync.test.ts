@@ -47,6 +47,7 @@ describe('TaskSync deletion and completion', () => {
       blockId: 'ots-a1',
       providerTaskId: TASK_ID,
       lastSyncedTitle: 'Buy milk',
+      lastKnownFilePath: 'Tasks.md',
     });
   });
 
@@ -133,6 +134,7 @@ describe('TaskSync deletion and completion', () => {
       lastSyncedTitle: 'Buy oat milk',
       lastSyncedDescription: '',
       lastSyncedTags: [],
+      lastKnownFilePath: 'Tasks.md',
     });
   });
 

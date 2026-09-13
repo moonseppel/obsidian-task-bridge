@@ -46,6 +46,7 @@ describe('TaskSync linking and block ids', () => {
       blockId: 'ots-a1',
       providerTaskId: TASK_ID,
       lastSyncedTitle: 'Buy milk',
+      lastKnownFilePath: 'Tasks.md',
     });
   });
 

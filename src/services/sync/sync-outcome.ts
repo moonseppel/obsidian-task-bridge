@@ -29,3 +29,21 @@ export function emptyOutcome(projectResolution: ProjectResolution): SyncOutcome 
     projectResolution,
   };
 }
+
+/** Sums each file's pass into one outcome for the run, since a project is resolved only once. */
+export function mergeOutcomes(outcomes: readonly SyncOutcome[], projectResolution: ProjectResolution): SyncOutcome {
+  return outcomes.reduce(
+    (total, outcome) => ({
+      created: total.created + outcome.created,
+      pushed: total.pushed + outcome.pushed,
+      pulled: total.pulled + outcome.pulled,
+      conflicted: total.conflicted + outcome.conflicted,
+      removedLine: total.removedLine + outcome.removedLine,
+      removedTask: total.removedTask + outcome.removedTask,
+      recreatedTask: total.recreatedTask + outcome.recreatedTask,
+      resurrectedLine: total.resurrectedLine + outcome.resurrectedLine,
+      projectResolution,
+    }),
+    emptyOutcome(projectResolution),
+  );
+}

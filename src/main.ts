@@ -46,18 +46,6 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce);
-  private readonly taskSync = new TaskSync({
-    note: new ObsidianSourceNote(this.app.vault, () => this.sourceNoteFile),
-    provider: this.provider,
-    links: this.taskLinks,
-    saveLinks: () => this.saveSettings(),
-    getDeviceTag: () => getDeviceTag(window.localStorage),
-    orphans: this.orphanedTasks,
-  });
-  private readonly scheduler = new SyncScheduler(
-    () => void this.syncTasks(),
-    (id) => this.registerInterval(id),
-  );
   private readonly taskCollection = new TaskCollection(
     this.app.vault,
     this.app.metadataCache,
@@ -68,6 +56,20 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       onLocationDeleted: () => void this.clearSourceLocation(),
       onRelevantChange: () => this.handleRelevantSourceChange(),
     },
+  );
+  private readonly taskSync = new TaskSync({
+    filesInScope: () => this.taskCollection.finder.filesInScope().map((file) => file.path),
+    noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
+    isTagInScope: (task) => this.taskCollection.finder.isTagInScope(task),
+    provider: this.provider,
+    links: this.taskLinks,
+    saveLinks: () => this.saveSettings(),
+    getDeviceTag: () => getDeviceTag(window.localStorage),
+    orphans: this.orphanedTasks,
+  });
+  private readonly scheduler = new SyncScheduler(
+    () => void this.syncTasks(),
+    (id) => this.registerInterval(id),
   );
   private isSyncing = false;
   private noteChangedWhileSyncing = false;
@@ -200,23 +202,16 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       return true;
     }
 
-    if (this.sourceNoteFile === null) {
-      logger.debug('Task sync skipped', 'no source note is configured');
+    if (this.taskCollection.finder.filesInScope().length === 0) {
+      logger.debug('Task sync skipped', 'no task source is configured');
       return true;
     }
 
     return false;
   }
 
-  private get sourceNoteFile(): TFile | null {
-    const path = this.settings.relativeTaskSourcePath;
-
-    if (path.length === 0) {
-      return null;
-    }
-
+  private fileAt(path: string): TFile | null {
     const file = this.app.vault.getAbstractFileByPath(path);
-
     return file instanceof TFile ? file : null;
   }
 

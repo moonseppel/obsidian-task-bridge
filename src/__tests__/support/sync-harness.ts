@@ -2,6 +2,7 @@ import { NoteEdits, applyNoteEdits } from '../../services/sync/note-edits';
 import { OrphanTracker } from '../../services/sync/orphan-tracker';
 import { SourceNote } from '../../services/sync/source-note';
 import { composeRemoteDescription } from '../../services/sync/task-description';
+import { ParsedTaskLine } from '../../services/sync/task-line';
 import { TaskLinkStore } from '../../services/sync/task-links';
 import { TaskSync } from '../../services/sync/task-sync';
 import { LooseProviderTask, stubProvider } from './stub-provider';
@@ -41,6 +42,8 @@ export class FakeNote implements SourceNote {
   }
 }
 
+const SOLE_PATH = 'Tasks.md';
+
 export function makeSync(
   note: FakeNote,
   links: TaskLinkStore,
@@ -50,7 +53,8 @@ export function makeSync(
   orphans?: OrphanTracker,
 ): TaskSync {
   return new TaskSync({
-    note,
+    filesInScope: () => [SOLE_PATH],
+    noteFor: () => note,
     provider: stubProvider(provider),
     links,
     saveLinks: async () => {
@@ -58,6 +62,38 @@ export function makeSync(
     },
     getDeviceTag,
     orphans,
+  });
+}
+
+/** For a scenario spanning more than one file, each mapped to its own `FakeNote`. */
+export function makeMultiFileSync(
+  notesByPath: ReadonlyMap<string, FakeNote>,
+  links: TaskLinkStore,
+  provider: Parameters<typeof stubProvider>[0],
+  onSave: () => void = () => undefined,
+  getDeviceTag?: () => string,
+  orphans?: OrphanTracker,
+  isTagInScope?: (task: ParsedTaskLine) => boolean,
+): TaskSync {
+  return new TaskSync({
+    filesInScope: () => [...notesByPath.keys()],
+    noteFor: (path) => {
+      const note = notesByPath.get(path);
+
+      if (note === undefined) {
+        throw new Error(`No fake note registered for path "${path}".`);
+      }
+
+      return note;
+    },
+    provider: stubProvider(provider),
+    links,
+    saveLinks: async () => {
+      onSave();
+    },
+    getDeviceTag,
+    orphans,
+    isTagInScope,
   });
 }
 
