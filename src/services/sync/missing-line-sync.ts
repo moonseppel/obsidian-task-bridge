@@ -30,12 +30,20 @@ export class MissingLineSync {
   private readonly links: TaskLinkStore;
   private readonly grace: GracePeriod;
   private readonly noteFor: (path: string) => SourceNote;
+  private readonly existsOutsideIgnoredFiles: (blockId: string) => boolean;
 
-  constructor(provider: TaskProvider, links: TaskLinkStore, grace: GracePeriod, noteFor: (path: string) => SourceNote) {
+  constructor(
+    provider: TaskProvider,
+    links: TaskLinkStore,
+    grace: GracePeriod,
+    noteFor: (path: string) => SourceNote,
+    existsOutsideIgnoredFiles: (blockId: string) => boolean = () => false,
+  ) {
     this.provider = provider;
     this.links = links;
     this.grace = grace;
     this.noteFor = noteFor;
+    this.existsOutsideIgnoredFiles = existsOutsideIgnoredFiles;
   }
 
   async run(context: MissingLineRunContext): Promise<SyncOutcome> {
@@ -69,6 +77,13 @@ export class MissingLineSync {
 
     if (remoteTask === undefined) {
       await this.resolveAgainstAbsentTask(context, link, outcome);
+      return;
+    }
+
+    // Still anchored somewhere outside the configured scope: left alone here, on the same
+    // flag-then-remove timing OrphanHousekeeping already gives a task whose link doesn't point
+    // back — moving out of scope resolves the same way re-entering scope resolves an orphan.
+    if (this.existsOutsideIgnoredFiles(link.blockId)) {
       return;
     }
 

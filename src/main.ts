@@ -61,6 +61,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     filesInScope: () => this.taskCollection.finder.filesInScope().map((file) => file.path),
     noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
     isTagInScope: (task) => this.taskCollection.finder.isTagInScope(task),
+    existsOutsideIgnoredFiles: (blockId) => this.taskCollection.finder.existsOutsideIgnoredFiles(blockId),
     provider: this.provider,
     links: this.taskLinks,
     saveLinks: () => this.saveSettings(),

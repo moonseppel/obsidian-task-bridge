@@ -40,6 +40,9 @@ export interface TaskSyncDependencies {
   readonly orphans?: OrphanTracker;
   /** A task line not passing this predicate is skipped entirely, as if it were not there. */
   readonly isTagInScope?: (task: ParsedTaskLine) => boolean;
+  /** Whether a block id anchors a task line in some non-ignored vault file outside this run's
+   *  scanned scope — the signal that tells a task merely moved out of scope from one truly gone. */
+  readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
 }
 
 export class TaskSync {
@@ -72,6 +75,7 @@ export class TaskSync {
       this.links,
       new GracePeriod(CREATION_GRACE_PERIOD_MS),
       this.noteFor,
+      dependencies.existsOutsideIgnoredFiles,
     );
     this.remoteChildSync = new RemoteChildSync(this.links, this.getDeviceTag);
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
@@ -96,7 +100,7 @@ export class TaskSync {
       // Committed even when the work above threw: a provider task whose link went unsaved would be
       // created a second time next pass, and housekeeping must not risk what already succeeded.
       await this.saveLinks();
-      await this.orphanHousekeeping.run(project.tasks, project.id);
+      await this.orphanHousekeeping.run(project.tasks, project.id, runWideTakenBlockIds);
     }
 
     return mergeOutcomes(outcomes, project.resolution);

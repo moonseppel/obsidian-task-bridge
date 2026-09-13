@@ -17,8 +17,11 @@ interface AnchoredTask {
 }
 
 /**
- * A task carrying this plugin's block id whose link doesn't point back at it is orphaned. Every
- * task in the project is checked, since re-linking can resolve one the note never mentions.
+ * A task is tracked on this same delayed-removal schedule for either of two reasons: its block id
+ * carries no link that points back at it (orphaned), or its link is intact but the block id was
+ * not found anywhere this run scanned (moved out of the configured scope — rule 33). Every task in
+ * the project is checked regardless of reason, since re-linking or scope re-entry can resolve one
+ * the note never mentions.
  */
 export class OrphanHousekeeping {
   private readonly provider: TaskProvider;
@@ -31,29 +34,33 @@ export class OrphanHousekeeping {
     this.orphans = orphans;
   }
 
-  async run(tasks: Iterable<ProviderTask>, projectId: string): Promise<void> {
+  async run(tasks: Iterable<ProviderTask>, projectId: string, scannedBlockIds: ReadonlySet<string>): Promise<void> {
     const now = Date.now();
     const allTasks = [...tasks];
-    const stillOrphaned = new Set<string>();
+    const stillTracked = new Set<string>();
 
     for (const anchored of anchoredTasksIn(allTasks)) {
-      if (this.isLinkedBack(anchored)) {
+      if (this.isConfirmedInScope(anchored, scannedBlockIds)) {
         await this.unflagIfFlagged(anchored);
         continue;
       }
 
       this.orphans.track(anchored.id, now);
 
-      // Excluded from stillOrphaned rather than tracked: it is gone, not merely orphaned.
+      // Excluded from stillTracked rather than tracked: it is gone, not merely pending removal.
       if (await this.removeIfDue(anchored.id, now, allTasks, projectId)) {
         continue;
       }
 
-      stillOrphaned.add(anchored.id);
+      stillTracked.add(anchored.id);
       await this.flagIfDue(anchored, now);
     }
 
-    this.orphans.keepOnly(stillOrphaned);
+    this.orphans.keepOnly(stillTracked);
+  }
+
+  private isConfirmedInScope(anchored: AnchoredTask, scannedBlockIds: ReadonlySet<string>): boolean {
+    return this.isLinkedBack(anchored) && scannedBlockIds.has(anchored.blockId);
   }
 
   private isLinkedBack(anchored: AnchoredTask): boolean {

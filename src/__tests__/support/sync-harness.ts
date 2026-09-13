@@ -42,7 +42,7 @@ export class FakeNote implements SourceNote {
   }
 }
 
-const SOLE_PATH = 'Tasks.md';
+export const SOLE_PATH = 'Tasks.md';
 
 export function makeSync(
   note: FakeNote,
@@ -51,6 +51,7 @@ export function makeSync(
   onSave: () => void = () => undefined,
   getDeviceTag?: () => string,
   orphans?: OrphanTracker,
+  existsOutsideIgnoredFiles?: (blockId: string) => boolean,
 ): TaskSync {
   return new TaskSync({
     filesInScope: () => [SOLE_PATH],
@@ -62,6 +63,7 @@ export function makeSync(
     },
     getDeviceTag,
     orphans,
+    existsOutsideIgnoredFiles,
   });
 }
 
