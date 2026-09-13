@@ -123,12 +123,9 @@ files — it has no idea they are related, and reconciles each on its own.
 ## Where Feature 5's recency mechanism stands per case
 
 - **Actually helps:** case 6 and case 11 (and the plain single-device conflict).
-- **Bystander, for better or worse:** cases 1, 3, 5, and 10 — these self-heal
-  or are harmless regardless of what Feature 5 does.
-- **Powerless — the damage happens before any sync pass runs:** cases 2, 4,
-  7, 8, and 9.
-- **The wrong tool for the job — a signal-quality problem, not a
-  resolution-policy problem:** case 12.
+- **Bystander, for better or worse:** cases 1, 3, 5, and 10 — these self-heal or are harmless regardless of what Feature 5 does.
+- **Powerless — the damage happens before any sync pass runs:** cases 2, 4, 7, 8, and 9.
+- **The wrong tool for the job — a signal-quality problem, not a resolution-policy problem:** case 12.
 
 Cases 2, 4, 7, 8, and 9 are all instances of the same root cause already
 named in the README's Feature 4 "Known limitations": the note and

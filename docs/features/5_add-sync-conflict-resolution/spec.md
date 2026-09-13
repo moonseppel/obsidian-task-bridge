@@ -28,8 +28,7 @@
 - **AND** the plugin's stored data does not currently link that block id to this task
 - **AND** that has been true for at least 60 minutes
 - **WHEN** a sync pass runs
-- **THEN** the task's description is updated to say it was created by this plugin, is now
-  orphaned, has no matching task in Obsidian, and will be removed in 2 days
+- **THEN** the task's description is updated to say it was created by this plugin, is now orphaned, has no matching task in Obsidian, and will be removed in 2 days
 - **AND** the plugin records that removal date for the task in its own stored data
 
 ### Scenario: A flagged orphan is removed on schedule

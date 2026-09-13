@@ -15,7 +15,7 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 
 **Feature 2: Complete** — Select a single source note in settings: a fuzzy note picker in the plugin settings, the selection persists across restarts, follows the note when it is renamed or moved, and is cleared (with a notice) when the note is deleted.
 
-**Feature 3: Complete** — Establish the Todoist connection: pick a Todoist API token in the settings, the connection is established when Obsidian starts, and a "Test connection" button reports the current state. Todoist-specific code lives behind a provider-neutral interface, and an opt-in integration suite checks the live Todoist API.
+**Feature 3: Complete** — Establish the Todoist connection: pick a Todoist API token in the settings, the connection is established when Obsidian starts, and a "Test connection" button reports the current state. Todoist-specific code lives behind a provider-neutral interface, and an integration suite checks the live Todoist API.
 
 **Feature 4: Complete** — Sync task titles both ways: a checkbox line in the source note becomes a
 Todoist task, and a title changed in Todoist is written back into the note. Tasks are anchored with
@@ -51,7 +51,13 @@ A task that loses its parent — on either side — becomes a standalone task on
 recency rule as every other field, and a sub-task added directly under an already-synced task in
 Todoist is pulled in too, even though it didn't originate in Obsidian.
 
-Next: Feature 9 — finding tasks across the whole vault.
+**Feature 9: Complete** — Finding tasks across the vault: the task source can be a single note, a
+folder with everything under it, or the whole vault, optionally narrowed to task lines carrying a
+tag. File name patterns can be ignored, such as the conflict copies a third-party sync tool leaves
+behind. A task whose line moves out of scope is flagged and eventually removed like an orphan,
+rather than deleted outright.
+
+Next: Feature 11 — due dates, recurrence and more fields sourced from the Tasks plugin.
 
 ## Connecting to Todoist
 
@@ -67,8 +73,8 @@ that it is not carried along by vault sync, backups, or a git repository.
 
 ## How syncing works
 
-Pick a source note and a Todoist project in the settings, and every checkbox line in that note is
-kept in step with a task in that project.
+Choose which tasks to sync and a Todoist project in the settings, and every checkbox line in scope
+is kept in step with a task in that project.
 
 ```markdown
 - [ ] Buy milk #errands ^ots-a1b2c3
@@ -87,35 +93,50 @@ anchor, is a Todoist label. A task indented one level under another is its Todoi
 five fields — title, state, description, tags, parent — sync both ways and independently of each
 other. See [Nested tasks](#nested-tasks) for how nesting itself works.
 
-The anchor is hidden by default, in reading view and while editing alike, and **Debug mode** in the
-settings brings it back. See [Debug mode](#debug-mode) for what that costs.
+The anchor is hidden in reading view unless **Debug mode** is on; Live Preview always shows it. See
+[Debug mode](#debug-mode) for why.
 
-A sync runs when the plugin loads, two seconds after you stop typing in the source note, on the
-poll interval, and whenever you run **Sync now** from the command palette. Editing the note while
-a sync is already running schedules another pass, so a change made in that window is not left
-waiting for the next poll.
+A sync runs when the plugin loads, ten seconds after you stop editing a note in scope, on the poll
+interval, and whenever you run **Sync now** from the command palette. Editing a note while a sync is
+already running schedules another pass, so a change made in that window is not left waiting for the
+next poll.
+
+### Which tasks are synced
+
+- **Note or folder** — a note syncs just that note; a folder syncs every note under it, however deeply nested
+- **Sync the whole vault** — syncs every note in the vault; the note or folder field stays visible but disabled while this is on
+- **Tag** — only task lines carrying this trailing `#tag` are synced, on top of whichever of the above applies; leave it empty to sync every task in scope
+- **Ignore file patterns** — comma-separated file names skipped when scanning a folder or the whole vault, such as the conflict copies a third-party sync tool creates; `*` matches any run of characters, and matching ignores case
+
+A note you selected explicitly is always synced, even if an ignore pattern matches it, and the
+settings warn you when that happens. Scope is worked out fresh on every sync. The configured note or
+folder is followed when it is renamed or moved, and cleared with a notice when it is deleted.
+
+A task line that moves out of scope — into a note outside the configured folder, or into an ignored
+file — is not treated as deleted. Its Todoist task is flagged and removed on the same schedule as an
+[orphaned task](#orphaned-tasks), and picked up again if the line comes back into scope first.
 
 ### Which project tasks go to
 
 Your Inbox, until you choose otherwise. The project list is remembered in `data.json`, so the
 picker still offers your projects when you are offline. It is refreshed only when you open the
-settings, change the API token, or press **Test connection**. The project setting starts on the Inbox as soon as the
-connection is established, and picking a suggestion is the only way to change it, so it can never be
-left empty. A sync therefore never stalls for want of a project.
+settings, change the API token, or press **Test connection**. The project setting starts on the
+Inbox as soon as the connection is established, and picking a suggestion is the only way to change
+it, so it can never be left empty. A sync therefore never stalls for want of a project.
 
 If the project you chose is later deleted in Todoist, syncing falls back to the Inbox, remembers
 that, and tells you once so the change is never silent.
 
 ### What wins when both sides changed
 
-Title, state, description, tags and parent are each judged on their own: a conflict on one field never
-affects what happens to another. A change on only one side always wins outright: it is pushed or
-pulled, no contest. When both sides changed a field since they last agreed, and to different
-values, it is a genuine conflict, and the newer edit wins — the source note's modification time
-against the Todoist task's. When recency can't be told, because the remote timestamp is missing or
-the two are exactly equal, the Obsidian edit wins, deterministically, so the outcome never flips
-back and forth from one sync to the next. When both sides happened to change a field to the *same*
-value, there is nothing to reconcile and neither side is touched.
+Title, state, description, tags and parent are each judged on their own: a conflict on one field
+never affects what happens to another. A change on only one side always wins outright: it is pushed
+or pulled, no contest. When both sides changed a field since they last agreed, and to different
+values, it is a genuine conflict, and the newer edit wins — the note's modification time against
+the Todoist task's. When recency can't be told, because the remote timestamp is missing or the two
+are exactly equal, the Obsidian edit wins, deterministically, so the outcome never flips back and
+forth from one sync to the next. When both sides happened to change a field to the *same* value,
+there is nothing to reconcile and neither side is touched.
 
 ### Task identity and duplicate avoidance
 
@@ -138,17 +159,17 @@ is reverted and nothing more happens; otherwise it is removed once the date pass
 
 ### Task deletion
 
-Deleting a task line in the note removes its linked Todoist task; deleting a task in Todoist
-removes its linked line. Either way, the deletion is only acted on once it has held for 60 seconds
-across passes, the same grace period creating a task already gives a lagging vault-sync tool.
-Moving a task to a different Todoist project is not treated as a deletion: the line and the link
-are both left exactly as they are, and are picked up again if the task ever moves back. A deletion
-that conflicts with a concurrent edit on the other side is resolved by the same recency rule as a
-title conflict, except the newer edit resurrects what the older side deleted — recreating the task
-from an edited line, or re-appending a line (at the end of the note) from an edited task — instead
-of the edit being silently lost. Deleting a task that still has synced sub-tasks does not take them
-down with it: they are promoted to top-level in Todoist first, since Todoist itself would otherwise
-delete every descendant of a removed task along with it.
+Deleting a task line in a note removes its linked Todoist task; deleting a task in Todoist removes
+its linked line. Either way, the deletion is only acted on once it has held for 60 seconds across
+passes, the same grace period creating a task already gives a lagging vault-sync tool. Moving a task
+to a different Todoist project is not treated as a deletion: the line and the link are both left
+exactly as they are, and are picked up again if the task ever moves back. A deletion that conflicts
+with a concurrent edit on the other side is resolved by the same recency rule as a title conflict,
+except the newer edit resurrects what the older side deleted — recreating the task from an edited
+line, or re-appending a line (at the end of the note it was last seen in) from an edited task —
+instead of the edit being silently lost. Deleting a task that still has synced sub-tasks does not
+take them down with it: they are promoted to top-level in Todoist first, since Todoist itself would
+otherwise delete every descendant of a removed task along with it.
 
 ### Nested tasks
 
@@ -173,44 +194,39 @@ directly in Todoist with no synced task anywhere above it in its chain still isn
 ## Debug mode
 
 One switch in the settings, off by default, for when something needs diagnosing. It does two things:
-it reveals the `^ots-` anchors, and it prints this plugin's debug logging to the developer console.
+it reveals this plugin's `^ots-` anchors in reading view, and it prints this plugin's debug logging
+to the developer console.
 
-With debug mode off, the anchors are hidden in two different ways, because Obsidian renders the two
-views differently.
+Reading view offers no CSS hook for a block identifier, so while debug mode is off the plugin edits
+the rendered text instead, matching on the `ots-` prefix. Only its own anchors are touched, and only
+the rendered copy: the note on disk keeps its anchor. This applies as views are drawn, so a reading
+view that is already open may need reopening after you flip the switch. Obsidian itself swallows a
+block identifier that terminates a block, which is what the last item of a list does; those never
+reach the page, so no setting can reveal them there.
 
-- **Reading view** offers no CSS hook for a block identifier, so the plugin edits the rendered text
-  instead, matching on the `ots-` prefix. Only its own anchors are touched, and only the rendered
-  copy: the note on disk keeps its anchor. This applies as views are drawn, so a reading view that is
-  already open may need reopening after you flip the switch
-- **Live Preview** does expose a class, so a rule in `styles.css` hides it. The class carries no hint
-  of which plugin wrote the identifier, so while debug mode is off this hides **every** block
-  identifier in your vault, not only this plugin's. The line your cursor is on is left alone, because
-  hiding the text under the caret makes arrow keys skip across it
+Live Preview shows the anchors on every task line regardless of this setting. Hiding them only on
+the lines the cursor is not on made the end of a line jump around as the cursor moved onto and off
+of it.
 
-Turning debug mode on reverses both. One caveat in reading view: Obsidian itself swallows a block
-identifier that terminates a block, which is what the last item of a list does. Those never reach the
-page, so no setting can reveal them. Live Preview shows all of them.
+## Known limitations
 
-### Known limitations
-
-- Only the title syncs. A `- [x]` line is created in Todoist as an open task, because completion
-  state is not synced yet
-- A task moved to a different Todoist project stops being synced by this plugin until it is moved
-  back; it is not deleted, but its line and the task no longer affect each other in the meantime
-- Tasks created directly in Todoist are not pulled into the note, unless they are a sub-task nested
-  under a task this plugin already syncs. Otherwise, only tasks this plugin created are followed,
-  which is what "partial two-way sync" means
-- The note and `data.json` are separate files. If they get out of step, through a partial restore or
-  a third-party vault sync running slightly behind, task identity and the 60-second grace period
-  usually re-link the line to its existing task rather than duplicating it — but a link that never
-  catches up still ends up creating a second task eventually
+- Any checkbox character other than a space counts as done, so a custom state such as `[/]` or `[-]` syncs as a completed task
+- A line resurrected from a Todoist edit is appended as a plain `- [ ]` line at the end of its note, carrying only the title; its original position and list marker are not restored
+- A Todoist label containing a space, or any other character a `#tag` cannot hold, is left untouched in Todoist rather than synced into the note
+- A task moved to a different Todoist project stops being synced by this plugin until it is moved back; it is not deleted, but its line and the task no longer affect each other in the meantime
+- Moving a task in Todoist under a parent whose line lives in a different note is not reflected in Obsidian yet; the move is retried on every sync rather than acted on with stale information
+- Tasks created directly in Todoist are not pulled into a note, unless they are a sub-task nested under a task this plugin already syncs. Otherwise, only tasks this plugin created are followed, which is what "partial two-way sync" means
+- Conflicts are resolved by comparing the device's clock with Todoist's, so a device whose clock is badly off can pick the wrong winner
+- Todoist offers no trash for tasks, so a task this plugin removes is deleted permanently
+- The notes and `data.json` are separate files. If they get out of step, through a partial restore or a third-party vault sync running slightly behind, task identity and the 60-second grace period usually re-link the line to its existing task rather than duplicating it — but a link that never catches up still ends up creating a second task eventually
 
 ## Installation
 
 1. Clone this repository
 2. Run `npm install`
 3. Build with `npm run build`
-4. Copy `dist/main.js` and `manifest.json` to your Obsidian test vault
+4. Copy `dist/main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/obsidian-task-sync/`
+5. Enable **Obsidian Task Sync** under **Settings → Community plugins**
 
 ## Development
 
@@ -222,7 +238,7 @@ page, so no setting can reveal them. Live Preview shows all of them.
 
 ### Scripts
 
-- `npm run dev` — Watch mode for development
+- `npm run dev` — Watch mode for development; every build is also copied into `obsidian-test-vault`
 - `npm run build` — Production build
 - `npm test` — Run every test, offline and integration. Requires `OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN`
 - `npm run test:unit` — Run the offline suite on its own, no token needed
@@ -251,6 +267,9 @@ src/
       todoist-payloads.ts     # Maps Todoist JSON onto the plugin's own types
       todoist-provider.ts     # Todoist implementation of the provider interface
     sync/
+      task-collection.ts      # The task-source module: composes the finder and the change listener
+      task-finder.ts          # Which files and task lines are in scope
+      task-change-listener.ts # Which vault events matter to the configured scope
       task-line.ts            # Parses and formats a markdown checkbox line
       block-id.ts             # Mints the block ids that anchor tasks
       device-tag.ts           # The per-device tag baked into freshly minted block ids
@@ -259,10 +278,10 @@ src/
       tag-set.ts              # Canonical, order-independent comparison of a task's tags
       orphan-tracker.ts       # Tracks how long a task has been orphaned, and its removal date
       orphan-notice.ts        # The courtesy description notice for a flagged orphan
-      orphan-housekeeping.ts  # Flags, un-flags and removes orphaned tasks each pass
-      task-sync.ts            # Orchestrates one sync pass over the note and the project's tasks
+      orphan-housekeeping.ts  # Flags, un-flags and removes orphaned tasks each run
+      task-sync.ts            # Orchestrates one run over every file in scope and the project's tasks
       linked-line-sync.ts     # Syncs every field of one already-linked line
-      missing-line-sync.ts    # Resolves links whose note line has vanished
+      missing-line-sync.ts    # Resolves links whose line has vanished from every scanned file
       remote-child-sync.ts    # Pulls a provider-only sub-task of a linked task in as a new line
       parent-sync.ts          # Syncs which task a line is nested under, including relocation
       task-tree.ts            # Indentation-derived parentage, subtree spans, and reindenting
@@ -271,19 +290,25 @@ src/
       grace-period.ts         # The debounce shared by creation and deletion
       project-resolver.ts     # Falls back to the provider's default project
       note-edits.ts           # Applies a pass's line edits to the note content
-      sync-pass.ts            # One pass's working state, from note lines to outcome
-      sync-outcome.ts         # What a pass reports back once it's done
-      source-note.ts          # The port a sync pass reads and writes the note through
+      sync-pass.ts            # One file's working state, from note lines to outcome
+      sync-outcome.ts         # What a run reports back once it's done
+      source-note.ts          # The port a sync pass reads and writes a note through
       sync-scheduler.ts       # The poll and the debounce that start a sync
-      obsidian-source-note.ts # Adapter over the vault for the configured note
+      obsidian-source-note.ts # Adapter over the vault for one note in scope
   views/
-    source-note-suggest.ts  # Fuzzy note picker for the source-note setting
-    project-suggest.ts      # Picker for the Todoist project
-    rendered-anchor.ts      # Hides sync anchors in reading view
-    settings-text.ts        # Wording for the settings tab
+    source-location-suggest.ts # Picker for the source note or folder
+    tag-suggest.ts             # Picker for the source tag, offering tags already in the vault
+    project-suggest.ts         # Picker for the Todoist project
+    rendered-anchor.ts         # Hides sync anchors in reading view
+    settings-text.ts           # Wording for the settings tab
   utils/
-    logger.ts       # Logging utility
-    sync-interval.ts  # Bounds and parsing for the poll interval
+    logger.ts                 # Logging utility
+    external-text.ts          # Makes text from outside the plugin safe to display or store
+    ignore-pattern.ts         # The wildcard matcher behind ignore file patterns
+    query-filter.ts           # Case-insensitive filtering shared by the pickers
+    sync-interval.ts          # Bounds and parsing for the poll interval
+    connection-status-text.ts # Describes a connection status in words
+    type-guards.ts            # Narrowing helpers for untrusted values
   __tests__/        # Jest tests
   __mocks__/        # Mock definitions for testing
   __integration__/  # Tests that call the real Todoist API
@@ -301,21 +326,17 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Providers authenticate themselves** — how a provider is authenticated varies too much to model centrally, so the provider draws its own credential rows and owns the values behind them; the settings tab only asks whether it is ready to connect
 - **Transport port** — provider clients speak to an `HttpClient` rather than to a concrete transport, so the plugin can use Obsidian's `requestUrl` (CORS-free, works on desktop and mobile) while the integration tests drive the identical code over `fetch`
 - **Clear error handling and user feedback** — failures are typed (`not-configured`, `project-missing`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
-- **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and
-  `data.json` maps that id to the provider's task id plus the title both sides last agreed on. The
-  provider's id never enters the note, so switching providers rewrites one file rather than every note
-- **Duplicate avoidance** — the same block id is also embedded in the provider task's description,
-  so a line data.json has lost track of can be found and re-linked instead of duplicated, and a
-  per-device tag keeps two devices from ever minting the same id in the first place
-- **Orphan lifecycle** — a task that loses its link is flagged, then removed, on a schedule tracked
-  entirely in the plugin's own data; the description notice it gets is a courtesy only
-- **Deletion sync** — a linked line missing from the note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
+- **Task source** — one module decides which tasks are in scope and which vault changes matter, derived fresh from the settings every time rather than stored
+- **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and `data.json` maps that id to the provider's task id plus what both sides last agreed on for each field. The provider's id never enters the note, so switching providers rewrites one file rather than every note
+- **Duplicate avoidance** — the same block id is also embedded in the provider task's description, so a line `data.json` has lost track of can be found and re-linked instead of duplicated, and a per-device tag keeps two devices from ever minting the same id in the first place
+- **Orphan lifecycle** — a task that loses its link, or whose line moves out of scope, is flagged, then removed, on a schedule tracked entirely in the plugin's own data; the description notice it gets is a courtesy only
+- **Deletion sync** — a linked line missing from every scanned note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
 - **Nested tasks** — a line's parent is derived from indentation every pass rather than stored as a setting, so it stays correct through renames and reordering; relocating a task moves its whole subtree, description and nested children included
 
 Future versions will add:
 
-- Finding tasks across the whole vault, not just one source note (feature 9)
-- More Tasks-plugin-sourced fields, starting with priority (feature 11)
+- Mapping the Tasks plugin's custom checkbox states onto Todoist (feature 10)
+- Due dates, recurrence and more fields sourced from the Tasks plugin (feature 11)
 
 ## License
 
@@ -330,16 +351,15 @@ npm test
 ```
 
 Tests cover:
-- Plugin structure and lifecycle hooks
-- Error handling and graceful failure
-- Settings load/save and the source-note setting tab
-- Source-note picker filtering, and rename/delete tracking of the configured note
-- The Todoist client's request shape and its mapping of API failures
-- Connection status handling and how it is reported in the settings tab
-- Task line parsing, block id minting (including the per-device tag), and the link store's
-  tolerance of corrupt data
-- The sync pass in both directions, conflict resolution by recency, re-linking and the creation
-  grace period, and the orphaned-task lifecycle — including what it keeps when a call fails midway
+
+- Plugin structure, lifecycle hooks, and graceful failure
+- Settings load/save, including tolerance of a corrupt `data.json`
+- The settings tab: source scope, tag and ignore patterns, credentials, connection status, project picker, sync interval and debug mode
+- Following a renamed or moved source location, and clearing a deleted one
+- The Todoist client's request shape, pagination, and its mapping of API failures
+- Task line parsing, description blocks, tags, indentation-derived nesting, and block id minting (including the per-device tag)
+- The sync run in both directions for every field, across one or many files, with conflict resolution by recency
+- Re-linking and the creation grace period, deletion sync, and the orphaned-task lifecycle — including what is kept when a call fails midway
 
 ### Integration tests
 
