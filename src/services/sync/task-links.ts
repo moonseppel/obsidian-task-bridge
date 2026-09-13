@@ -26,6 +26,12 @@ export interface LinkedParent {
   readonly providerTaskId?: string;
 }
 
+/** How a task is named in the debug log: by its ids alone, never by anything the task says. */
+export interface LinkIds {
+  readonly blockId: string;
+  readonly taskId: string;
+}
+
 export class TaskLinkStore {
   private readonly byBlockId: Map<string, TaskLink>;
 
@@ -78,6 +84,10 @@ export class TaskLinkStore {
   toStored(): TaskLink[] {
     return [...this.byBlockId.values()];
   }
+}
+
+export function linkIds(link: TaskLink): LinkIds {
+  return { blockId: link.blockId, taskId: link.providerTaskId };
 }
 
 function toTaskLinks(stored: unknown): TaskLink[] {

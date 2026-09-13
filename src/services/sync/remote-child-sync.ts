@@ -1,9 +1,12 @@
+import { Logger } from '../../utils/logger';
 import { ProviderTask } from '../task-provider';
 import { createBlockId } from './block-id';
 import { SyncPass, recordInsertUnder } from './sync-pass';
 import { leadingWhitespace } from './task-description';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /** One file's pass, plus every provider task already linked or pulled in so far this pass. */
 interface ChildPull {
@@ -84,6 +87,7 @@ export class RemoteChildSync {
       lastSyncedTitle: task.title,
       lastSyncedParentBlockId: parentBlockId,
     });
+    logger.debug('Pulled a remote-only sub-task under a linked task', { blockId, taskId: task.id, parentBlockId });
 
     return blockId;
   }

@@ -1,3 +1,4 @@
+import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
 import { appendingOnly } from './note-edits';
@@ -7,7 +8,9 @@ import { SourceNote } from './source-note';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { indexTasksById } from './task-index';
 import { formatTaskLine } from './task-line';
-import { TaskLink, TaskLinkStore } from './task-links';
+import { TaskLink, TaskLinkStore, linkIds } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /** The original marker (bullet vs. numbered, checked vs. not) is gone and cannot be restored. */
 const RESURRECTED_LINE_PREFIX = '- ';
@@ -70,19 +73,24 @@ export class MissingLineSync {
     };
 
     for (const link of [...this.links.values()]) {
-      if (context.takenBlockIds.has(link.blockId)) {
-        continue;
-      }
-
-      if (this.grace.isPending(link.blockId)) {
-        continue;
-      }
-
-      await this.resolve(sweep, link);
+      await this.sweepLink(sweep, link);
     }
 
     this.grace.sweep();
     return sweep.outcome;
+  }
+
+  private async sweepLink(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
+    if (sweep.takenBlockIds.has(link.blockId)) {
+      return;
+    }
+
+    if (this.grace.isPending(link.blockId)) {
+      logger.debug('Line missing from every scanned note; waiting out the grace period', linkIds(link));
+      return;
+    }
+
+    await this.resolve(sweep, link);
   }
 
   /** A vanished line says nothing about the task, so the task is checked rather than assumed gone. */
@@ -94,10 +102,10 @@ export class MissingLineSync {
       return;
     }
 
-    // Still anchored somewhere outside the configured scope: left alone here, on the same
-    // flag-then-remove timing OrphanHousekeeping already gives a task whose link doesn't point
-    // back — moving out of scope resolves the same way re-entering scope resolves an orphan.
+    // Still anchored outside the configured scope: orphan housekeeping flags and removes it on its own
+    // timing, the same way re-entering scope resolves an orphan.
     if (this.existsOutsideIgnoredFiles(link.blockId)) {
+      logger.debug('Line moved out of scope; left to orphan housekeeping', linkIds(link));
       return;
     }
 
@@ -114,13 +122,17 @@ export class MissingLineSync {
     const found = await this.provider.getTask(link.providerTaskId);
 
     if (found === undefined) {
+      logger.debug('Line and task are both gone; dropping the link', linkIds(link));
       this.links.delete(link.blockId);
       return;
     }
 
     if (found.projectId === sweep.project.id && found.isCompleted) {
       await this.removeTask(sweep, link);
+      return;
     }
+
+    logger.debug('Line gone while its task is still active elsewhere; left alone', linkIds(link));
   }
 
   /**
@@ -150,6 +162,7 @@ export class MissingLineSync {
     try {
       return remoteTask.updatedAt > (await this.noteFor(path).lastModified());
     } catch {
+      logger.debug('Note the line was last seen in is gone; the deletion stands', { path });
       return false;
     }
   }
@@ -166,9 +179,11 @@ export class MissingLineSync {
 
     await this.noteFor(path).applyEdits(appendingOnly([resurrected]));
     this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
+    logger.debug('Remote edit is newer than the line deletion; resurrected the line', { ...linkIds(link), path });
   }
 
   private async removeTask(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
+    logger.debug('Removing the task of a line deleted from its note', linkIds(link));
     await promoteChildrenToTopLevel(this.provider, sweep.project, link.providerTaskId);
     await this.provider.removeTask(link.providerTaskId);
     this.links.delete(link.blockId);

@@ -45,6 +45,7 @@ export class LinkedLineSync {
     const localDone = isDone(line.task);
 
     await syncField(line, {
+      field: 'completion',
       local: localDone,
       remote: remote.isDone,
       lastSynced: link.lastSyncedDone ?? false,
@@ -66,6 +67,7 @@ export class LinkedLineSync {
     const remote = remoteTask.title.length > 0 ? remoteTask.title : link.lastSyncedTitle;
 
     await syncField(linked.line, {
+      field: 'title',
       local: linked.line.task.title,
       remote,
       lastSynced: link.lastSyncedTitle,
@@ -82,6 +84,7 @@ export class LinkedLineSync {
     const remote = extractUserDescription(remoteTask.description);
 
     await syncField(line, {
+      field: 'description',
       local: localBlock.text,
       remote,
       lastSynced: link.lastSyncedDescription ?? '',
@@ -100,6 +103,7 @@ export class LinkedLineSync {
     const unsyncable = remoteTask.labels.filter((label) => !isRepresentableAsTag(label));
 
     const change: FieldChange<readonly string[]> = {
+      field: 'tags',
       local,
       remote,
       lastSynced: link.lastSyncedTags ?? [],

@@ -1,9 +1,12 @@
+import { Logger } from '../../utils/logger';
 import { TaskProvider } from '../task-provider';
 import { createBlockId } from './block-id';
 import { LineUnderSync, LinkedLine, localParentBlockId, recordTaskEdit } from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { composeRemoteDescription, readDescriptionBlock } from './task-description';
-import { TaskLinkStore } from './task-links';
+import { TaskLinkStore, linkIds } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /**
  * Gives a line a link to a provider task: to one that already carries its block id, to a newly
@@ -36,6 +39,7 @@ export class LineLinker {
 
     const link = { blockId, providerTaskId: match.id, lastSyncedTitle: match.title };
     this.links.set(link);
+    logger.debug('Re-linked a line to the task already carrying its block id', linkIds(link));
 
     return { line, link };
   }
@@ -56,6 +60,7 @@ export class LineLinker {
   async recreate(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
 
+    logger.debug('Recreating a task deleted remotely while its line carried a newer edit', linkIds(link));
     await this.createAndLink(line, link.blockId);
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
@@ -86,5 +91,6 @@ export class LineLinker {
       lastSyncedTags: canonicalTags(task.tags),
       lastSyncedParentBlockId: parent.blockId,
     });
+    logger.debug('Created and linked a task', { blockId, taskId: created.id, parentTaskId: parent.providerTaskId });
   }
 }

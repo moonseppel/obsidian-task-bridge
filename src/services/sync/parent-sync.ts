@@ -1,8 +1,11 @@
+import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { FieldChange, syncField } from './field-sync';
 import { LinkedLine, localParentBlockId, recordMoveUnder, recordReindent } from './sync-pass';
 import { leadingWhitespace } from './task-description';
-import { TaskLinkStore } from './task-links';
+import { TaskLinkStore, linkIds } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /**
  * Syncs which task a line is nested under, both directions, by the same recency rule every other
@@ -25,6 +28,7 @@ export class ParentSync {
     const remote = remoteParentBlockId(line.pass.remoteTasks, remoteTask);
 
     const change: FieldChange<string | undefined> = {
+      field: 'parent',
       local,
       remote,
       lastSynced: link.lastSyncedParentBlockId,
@@ -78,7 +82,10 @@ export class ParentSync {
     const newParentLineNumber = line.pass.lineNumberByBlockId.get(newParentBlockId);
 
     if (newParentLineNumber === undefined) {
-      // The new parent has no line of its own here yet; retried once it does.
+      logger.debug('New parent has no line in this note yet; relocation retried next pass', {
+        ...linkIds(link),
+        newParentBlockId,
+      });
       return;
     }
 

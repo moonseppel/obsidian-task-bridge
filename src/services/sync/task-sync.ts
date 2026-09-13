@@ -1,4 +1,5 @@
-import { TaskProvider } from '../task-provider';
+import { Logger } from '../../utils/logger';
+import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
@@ -19,7 +20,9 @@ import {
   recordRemoval,
 } from './sync-pass';
 import { ParsedTaskLine, parseTaskLine } from './task-line';
-import { TaskLinkStore } from './task-links';
+import { TaskLinkStore, linkIds } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /** A vault-sync tool can deliver `data.json` behind the note, so neither an unrecognized block id
  * nor a vanished line is acted on until it has looked that way for this long. */
@@ -83,6 +86,7 @@ export class TaskSync {
     const paths = this.filesInScope();
     const scannedBlockIds = new Set<string>();
     const outcomes: SyncOutcome[] = [];
+    logRunStart(project, paths);
 
     try {
       for (const path of paths) {
@@ -92,8 +96,7 @@ export class TaskSync {
       outcomes.push(await this.missingLineSync.run({ project, takenBlockIds: scannedBlockIds, scannedPaths: paths }));
     } finally {
       this.creationGrace.sweep();
-      // Committed even when the work above threw: a provider task whose link went unsaved would be
-      // created a second time next pass, and housekeeping must not risk what already succeeded.
+      // Saved before housekeeping, even if the work above threw: an unsaved link would get its task created twice.
       await this.saveLinks();
       outcomes.push(await this.orphanHousekeeping.run(project, scannedBlockIds));
     }
@@ -122,6 +125,7 @@ export class TaskSync {
       pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
     }
 
+    logger.debug('Note synced', { path, outcome: pass.outcome });
     return pass.outcome;
   }
 
@@ -174,6 +178,7 @@ export class TaskSync {
     }
 
     if (line.task.blockId !== undefined && this.creationGrace.isPending(line.task.blockId)) {
+      logger.debug('New line waiting out the creation grace period', { blockId: line.task.blockId });
       return;
     }
 
@@ -200,10 +205,7 @@ export class TaskSync {
     const found = await this.provider.getTask(link.providerTaskId);
 
     if (found !== undefined) {
-      if (found.projectId === line.pass.projectId && found.isCompleted) {
-        await this.lineSync.syncCompletion(linked, { isDone: true, updatedAt: found.updatedAt });
-      }
-
+      await this.syncAgainstTaskFoundElsewhere(linked, found);
       return;
     }
 
@@ -212,9 +214,20 @@ export class TaskSync {
       return;
     }
 
+    logger.debug('Linked task was deleted remotely; removing its line', linkIds(link));
     recordRemoval(line);
     this.links.delete(link.blockId);
     line.pass.outcome.removedLine += 1;
+  }
+
+  /** Completed in this project is pulled into the checkbox; anything else is left exactly as it is. */
+  private async syncAgainstTaskFoundElsewhere(linked: LinkedLine, found: ProviderTask): Promise<void> {
+    if (found.projectId === linked.line.pass.projectId && found.isCompleted) {
+      await this.lineSync.syncCompletion(linked, { isDone: true, updatedAt: found.updatedAt });
+      return;
+    }
+
+    logger.debug('Linked task is still active elsewhere; leaving line and link alone', linkIds(linked.link));
   }
 }
 
@@ -223,4 +236,13 @@ async function writeCollectedEdits(note: SourceNote, pass: SyncPass): Promise<nu
   const edits = collectedEdits(pass);
 
   return hasAnyEdit(edits) ? note.applyEdits(edits) : 0;
+}
+
+function logRunStart(project: ResolvedProject, paths: readonly string[]): void {
+  logger.debug('Sync run started', {
+    projectId: project.id,
+    projectResolution: project.resolution.kind,
+    remoteTasks: project.tasks.length,
+    notesInScope: paths.length,
+  });
 }

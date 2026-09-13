@@ -1,4 +1,5 @@
 import { sanitizeForDisplay } from '../../utils/external-text';
+import { Logger } from '../../utils/logger';
 import { HttpClient, HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
 import {
@@ -25,6 +26,8 @@ const JSON_CONTENT_TYPE = 'application/json';
 const PAGE_SIZE = 200;
 /** Guards against a server that keeps handing back a cursor; 200 pages is far past any real vault. */
 const MAX_PAGES = 200;
+
+const logger = new Logger('ObsidianTaskSync:Todoist');
 
 export type TodoistTokenReader = () => string;
 
@@ -164,6 +167,15 @@ export class TodoistApiClient {
   }
 
   private async send(call: ApiCall): Promise<HttpResponse> {
+    const startedAt = Date.now();
+    const response = await this.transmit(call);
+    const durationMs = Date.now() - startedAt;
+
+    logger.debug('Todoist answered', { method: call.method, path: call.path, status: response.status, durationMs });
+    return response;
+  }
+
+  private async transmit(call: ApiCall): Promise<HttpResponse> {
     const request = {
       url: `${API_BASE_URL}${call.path}`,
       method: call.method,

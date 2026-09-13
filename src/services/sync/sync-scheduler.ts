@@ -1,3 +1,6 @@
+import { Logger } from '../../utils/logger';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 const MILLISECONDS_PER_MINUTE = 60_000;
 /** Long enough that a burst of keystrokes settles into one sync. */
 const DEBOUNCE_MS = 10_000;
@@ -26,7 +29,10 @@ export class SyncScheduler {
   restartPolling(everyMinutes: number): void {
     this.cancelPoll();
 
-    const id = window.setInterval(() => this.run(), everyMinutes * MILLISECONDS_PER_MINUTE);
+    const id = window.setInterval(() => {
+      logger.debug('Poll interval elapsed; syncing');
+      this.run();
+    }, everyMinutes * MILLISECONDS_PER_MINUTE);
     this.cancelPoll = () => window.clearInterval(id);
     this.registerInterval(id);
   }
@@ -36,6 +42,7 @@ export class SyncScheduler {
 
     const id = window.setTimeout(() => {
       this.cancelPending = NOTHING_TO_CANCEL;
+      logger.debug('Edits have settled; syncing');
       this.run();
     }, DEBOUNCE_MS);
 

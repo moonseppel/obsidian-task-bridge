@@ -197,6 +197,13 @@ One switch in the settings, off by default, for when something needs diagnosing.
 it reveals this plugin's `^ots-` anchors in reading view, and it prints this plugin's debug logging
 to the developer console.
 
+The debug log records every decision a sync makes — which field was pushed or pulled and why, every
+task created, re-linked, removed or resurrected, every step of the orphan lifecycle — and every
+request to Todoist with its status and duration. Tasks are named by block id and Todoist task id
+only: titles, descriptions, tags, note text and your API token never appear in it, so it is safe to
+attach to a bug report. Without debug mode the console still shows the plugin loading, connection
+and project changes, failures, and a summary of every sync that changed something.
+
 Reading view offers no CSS hook for a block identifier, so while debug mode is off the plugin edits
 the rendered text instead, matching on the `ots-` prefix. Only its own anchors are touched, and only
 the rendered copy: the note on disk keeps its anchor. This applies as views are drawn, so a reading

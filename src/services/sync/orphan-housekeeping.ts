@@ -1,3 +1,4 @@
+import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
 import { OrphanTracker } from './orphan-tracker';
@@ -5,7 +6,9 @@ import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { composeRemoteDescription, extractUserDescription } from './task-description';
-import { TaskLinkStore } from './task-links';
+import { LinkIds, TaskLinkStore } from './task-links';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 /** How long a task stays orphaned before its description is flagged with a removal notice. */
 const FLAG_AFTER_MS = 60 * 60_000;
@@ -68,6 +71,10 @@ export class OrphanHousekeeping {
       return;
     }
 
+    if (this.orphans.get(anchored.id) === undefined) {
+      logger.debug('Task has no link back to it or its line left scope; tracking it for removal', idsOf(anchored));
+    }
+
     this.orphans.track(anchored.id, sweep.now);
 
     // A removed task is gone rather than merely pending removal, so only one still standing stays tracked.
@@ -104,6 +111,7 @@ export class OrphanHousekeeping {
     await this.provider.updateTaskDescription(anchored.id, notice);
     this.orphans.flag(anchored.id, removalDueAt);
     sweep.outcome.flaggedOrphans += 1;
+    logger.debug('Flagged an orphaned task for removal', { ...idsOf(anchored), removalDueAt });
   }
 
   private async removeIfDue(anchored: AnchoredTask, sweep: HousekeepingSweep): Promise<boolean> {
@@ -116,6 +124,7 @@ export class OrphanHousekeeping {
     await promoteChildrenToTopLevel(this.provider, sweep.project, anchored.id);
     await this.provider.removeTask(anchored.id);
     sweep.outcome.removedOrphans += 1;
+    logger.debug('Removed an orphaned task whose removal date passed', idsOf(anchored));
 
     return true;
   }
@@ -130,6 +139,7 @@ export class OrphanHousekeeping {
 
     await this.provider.updateTaskDescription(anchored.id, composeRemoteDescription(userText, anchored.blockId));
     sweep.outcome.unflaggedOrphans += 1;
+    logger.debug('Un-flagged a task that is linked and in scope again', idsOf(anchored));
   }
 }
 
@@ -139,4 +149,8 @@ function* anchoredTasksIn(tasks: Iterable<ProviderTask>): Generator<AnchoredTask
       yield { id: task.id, blockId: task.embeddedBlockId, description: task.description };
     }
   }
+}
+
+function idsOf(anchored: AnchoredTask): LinkIds {
+  return { blockId: anchored.blockId, taskId: anchored.id };
 }

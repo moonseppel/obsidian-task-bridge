@@ -49,6 +49,7 @@ export class ProjectSelection {
   async refresh(): Promise<void> {
     try {
       this.remembered = await this.listProjects();
+      this.logger.debug('Project list refreshed', { projects: this.remembered.length });
       await this.saveSettings();
     } catch (error) {
       this.logger.warn('Could not refresh the project list; keeping the one from last time', error);

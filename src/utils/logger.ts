@@ -1,3 +1,6 @@
+import { sanitizeForDisplay } from './external-text';
+import { isRecord } from './type-guards';
+
 /**
  * Off unless the user turns debug mode on. Reading `process.env` instead would throw on mobile,
  * where Obsidian gives plugins no Node globals.
@@ -48,6 +51,24 @@ export class Logger {
       return;
     }
 
-    to(line, data);
+    to(line, displayable(data));
   }
+}
+
+/**
+ * Anything logged may have come from outside the plugin, so a string — on its own or as a field of a
+ * plain object — is made safe to display first, while an error is kept whole so its stack survives.
+ */
+function displayable(data: unknown): unknown {
+  if (typeof data === 'string') {
+    return sanitizeForDisplay(data);
+  }
+
+  if (!isRecord(data) || Object.getPrototypeOf(data) !== Object.prototype) {
+    return data;
+  }
+
+  return Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [key, typeof value === 'string' ? sanitizeForDisplay(value) : value]),
+  );
 }

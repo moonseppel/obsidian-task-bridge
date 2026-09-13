@@ -1,5 +1,8 @@
 import { TAbstractFile, TFile } from 'obsidian';
 import { matchesIgnorePattern } from '../../utils/ignore-pattern';
+import { Logger } from '../../utils/logger';
+
+const logger = new Logger('ObsidianTaskSync:Sync');
 
 export interface TaskChangeListenerSettings {
   readonly relativeTaskSourcePath: string;
@@ -70,6 +73,7 @@ export class TaskChangeListener {
 
   private reactIfRelevant(file: TAbstractFile): void {
     if (file instanceof TFile && this.isRelevant(file)) {
+      logger.debug('Note in scope changed', { path: file.path });
       this.callbacks.onRelevantChange();
     }
   }
