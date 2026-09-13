@@ -164,6 +164,10 @@ export class Notice {
   }
 }
 
+export const Platform = {
+  isMobile: false,
+};
+
 export interface RequestUrlParam {
   url: string;
   method?: string;

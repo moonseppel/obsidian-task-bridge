@@ -1,4 +1,5 @@
 import { TaskLink, TaskLinkStore } from '../services/sync/task-links';
+import { Logger } from '../utils/logger';
 
 function restored(stored: unknown): TaskLinkStore {
   const store = new TaskLinkStore();
@@ -112,5 +113,27 @@ describe('TaskLinkStore', () => {
 
   it('keeps the sound entries when only some are malformed', () => {
     expect(restored([LINK, { blockId: 'ots-b2' }]).size).toBe(1);
+  });
+});
+
+describe('TaskLinkStore restoring stored links', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('warns about stored entries it had to drop as unreadable', () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+    restored([BARE, { blockId: 'ots-b1' }]);
+
+    expect(warn).toHaveBeenCalledWith('Dropped unreadable task links from the plugin data', { unreadable: 1 });
+  });
+
+  it('stays quiet when nothing was stored yet', () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+    restored(undefined);
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

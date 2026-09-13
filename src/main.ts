@@ -1,4 +1,4 @@
-import { Plugin, TFile } from 'obsidian';
+import { Platform, Plugin, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings, ObsidianTaskSyncSettingTab } from './settings';
 import { ProjectSelection } from './services/project-selection';
 import { ProviderConnection } from './services/provider-connection';
@@ -92,7 +92,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       this.restartSyncSchedule();
       void this.connectAndSync();
 
-      logger.info('Obsidian Task Sync plugin loaded');
+      logger.info('Obsidian Task Sync plugin loaded', { version: this.manifest.version, platform: platformName() });
     } catch (error) {
       logger.error('Plugin load failed', error);
       inform(LOAD_FAILED_NOTICE);
@@ -115,6 +115,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   applyDebugMode(): void {
     setDebugLogging(this.settings.debugMode);
     document.body.toggleClass(DEBUG_BODY_CLASS, this.settings.debugMode);
+    logger.info(this.settings.debugMode ? 'Debug mode is on' : 'Debug mode is off');
   }
 
   async refreshKnownProjects(): Promise<void> {
@@ -127,6 +128,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
 
   restartSyncSchedule(): void {
     this.scheduler.restartPolling(this.settings.syncIntervalMinutes);
+    logger.info('Checking for changes on a timer', { everyMinutes: this.settings.syncIntervalMinutes });
   }
 
   async syncTasks(): Promise<void> {
@@ -200,4 +202,8 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
 
     await this.saveSettings();
   }
+}
+
+function platformName(): string {
+  return Platform.isMobile ? 'mobile' : 'desktop';
 }

@@ -1,4 +1,4 @@
-import { NoteEdits, applyNoteEdits } from '../../services/sync/note-edits';
+import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/sync/note-edits';
 import { OrphanTracker } from '../../services/sync/orphan-tracker';
 import { SourceNote } from '../../services/sync/source-note';
 import { composeRemoteDescription } from '../../services/sync/task-description';
@@ -47,9 +47,13 @@ export class FakeNote implements SourceNote {
     return this.modifiedAt;
   }
 
-  async applyEdits(edits: NoteEdits): Promise<void> {
+  async applyEdits(edits: NoteEdits): Promise<number> {
+    const skipped = countSkippedEdits(this.content, edits);
+
     this.saves += 1;
     this.content = applyNoteEdits(this.content, edits);
+
+    return skipped;
   }
 }
 

@@ -1,4 +1,5 @@
 import { isNonEmptyString, isRecord, isStringArray } from '../../utils/type-guards';
+import { warnAboutUnreadableEntries } from '../../utils/unreadable-entries';
 
 /**
  * Ties one Obsidian block id to one provider task, plus what both sides last agreed on for each
@@ -37,9 +38,12 @@ export class TaskLinkStore {
    * Anything malformed is dropped rather than trusted: a bad link would duplicate a task.
    */
   replaceAll(stored: unknown): void {
+    const links = toTaskLinks(stored);
+
+    warnAboutUnreadableEntries('task links', stored, links.length);
     this.byBlockId.clear();
 
-    for (const link of toTaskLinks(stored)) {
+    for (const link of links) {
       this.byBlockId.set(link.blockId, link);
     }
   }

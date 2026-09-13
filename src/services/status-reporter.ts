@@ -1,7 +1,7 @@
 import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { ConnectionStatus } from './provider-connection';
-import { SyncOutcome } from './sync/sync-outcome';
+import { SyncOutcome, changedAnything } from './sync/sync-outcome';
 import { TaskProviderError, TaskProviderFailure, isTransientFailure } from './task-provider-error';
 
 const SYNC_FAILED_MESSAGE = 'Syncing tasks failed unexpectedly. Check the console for details.';
@@ -13,14 +13,22 @@ interface SyncFailure {
   message: string;
 }
 
+/** What a quiet sync covered: the notes it scanned and the tasks linked once it was done. */
+interface Coverage {
+  readonly filesScanned: number;
+  readonly linkedTasks: number;
+}
+
 /**
- * Turns what the sync did into logs and notices. It remembers the failure it last spoke about, so
- * a condition that persists across every poll is reported when it changes rather than every time.
+ * Turns what the sync did into logs and notices. It remembers what it last spoke about — a failure,
+ * or what a quiet sync covered — so a condition that persists across every poll is reported when it
+ * changes rather than every time, while the log still shows that syncing is working at all.
  */
 export class StatusReporter {
   private readonly logger: Logger;
   private readonly notify: NotifyUser;
   private spokenAbout: TaskProviderFailure | undefined = undefined;
+  private reportedCoverage: Coverage | undefined = undefined;
 
   constructor(logger: Logger, notify: NotifyUser) {
     this.logger = logger;
@@ -43,18 +51,25 @@ export class StatusReporter {
   }
 
   reportSyncOutcome(outcome: SyncOutcome): void {
+    const coverage = { filesScanned: outcome.filesScanned, linkedTasks: outcome.linkedTasks };
+    const coverageChanged = !sameCoverage(coverage, this.reportedCoverage);
+
     this.spokenAbout = undefined;
+    this.reportedCoverage = coverage;
 
-    if (didNothing(outcome)) {
+    if (changedAnything(outcome)) {
+      this.logger.info('Task sync finished', outcome);
+    } else if (coverageChanged) {
+      this.logger.info('Task sync is up to date', coverage);
+    } else {
       this.logger.debug('Task sync finished with nothing to do');
-      return;
     }
-
-    this.logger.info('Task sync finished', outcome);
   }
 
   reportSyncFailure(error: unknown): void {
     const { failure, message } = describeFailure(error);
+
+    this.reportedCoverage = undefined;
 
     if (failure === this.spokenAbout) {
       return;
@@ -72,16 +87,11 @@ export class StatusReporter {
   }
 }
 
-function didNothing(outcome: SyncOutcome): boolean {
+function sameCoverage(current: Coverage, reported: Coverage | undefined): boolean {
   return (
-    outcome.created +
-      outcome.pushed +
-      outcome.pulled +
-      outcome.removedLine +
-      outcome.removedTask +
-      outcome.recreatedTask +
-      outcome.resurrectedLine ===
-    0
+    reported !== undefined &&
+    current.filesScanned === reported.filesScanned &&
+    current.linkedTasks === reported.linkedTasks
   );
 }
 

@@ -95,10 +95,10 @@ export class TaskSync {
       // Committed even when the work above threw: a provider task whose link went unsaved would be
       // created a second time next pass, and housekeeping must not risk what already succeeded.
       await this.saveLinks();
-      await this.orphanHousekeeping.run(project, scannedBlockIds);
+      outcomes.push(await this.orphanHousekeeping.run(project, scannedBlockIds));
     }
 
-    return mergeOutcomes(outcomes, project.resolution);
+    return { ...mergeOutcomes(outcomes, project.resolution), filesScanned: paths.length, linkedTasks: this.links.size };
   }
 
   /** One file's whole pass: sync every line, pull remote-only children, then commit its own edits. */
@@ -119,7 +119,7 @@ export class TaskSync {
       // never be written, and the next pass would try to create it again.
       pass.takenBlockIds.forEach((blockId) => scannedBlockIds.add(blockId));
       this.recordLastKnownFile(pass, path);
-      await applyCollectedEdits(note, pass);
+      pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
     }
 
     return pass.outcome;
@@ -218,10 +218,9 @@ export class TaskSync {
   }
 }
 
-async function applyCollectedEdits(note: SourceNote, pass: SyncPass): Promise<void> {
+/** Resolves to how many edits were left unwritten because their lines changed while the pass ran. */
+async function writeCollectedEdits(note: SourceNote, pass: SyncPass): Promise<number> {
   const edits = collectedEdits(pass);
 
-  if (hasAnyEdit(edits)) {
-    await note.applyEdits(edits);
-  }
+  return hasAnyEdit(edits) ? note.applyEdits(edits) : 0;
 }

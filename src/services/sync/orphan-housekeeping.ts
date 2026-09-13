@@ -1,8 +1,9 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { orphanNoticeDescription, stripOrphanNotice } from './orphan-notice';
 import { OrphanTracker } from './orphan-tracker';
-import { ProjectTasks } from './project-resolver';
+import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
+import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { composeRemoteDescription, extractUserDescription } from './task-description';
 import { TaskLinkStore } from './task-links';
 
@@ -15,6 +16,15 @@ interface AnchoredTask {
   readonly id: string;
   readonly blockId: string;
   readonly description: string;
+}
+
+/** One housekeeping run: what it checks against, the moment it started, and what it has done so far. */
+interface HousekeepingSweep {
+  readonly project: ResolvedProject;
+  readonly scannedBlockIds: ReadonlySet<string>;
+  readonly now: number;
+  readonly stillTracked: Set<string>;
+  readonly outcome: SyncOutcome;
 }
 
 /**
@@ -35,26 +45,36 @@ export class OrphanHousekeeping {
     this.orphans = orphans;
   }
 
-  async run(project: ProjectTasks, scannedBlockIds: ReadonlySet<string>): Promise<void> {
-    const now = Date.now();
-    const stillTracked = new Set<string>();
+  async run(project: ResolvedProject, scannedBlockIds: ReadonlySet<string>): Promise<SyncOutcome> {
+    const sweep: HousekeepingSweep = {
+      project,
+      scannedBlockIds,
+      now: Date.now(),
+      stillTracked: new Set(),
+      outcome: emptyOutcome(project.resolution),
+    };
 
     for (const anchored of anchoredTasksIn(project.tasks)) {
-      if (this.isConfirmedInScope(anchored, scannedBlockIds)) {
-        await this.unflagIfFlagged(anchored);
-        continue;
-      }
-
-      this.orphans.track(anchored.id, now);
-
-      // A removed task is gone rather than merely pending removal, so only one still standing stays tracked.
-      if (!(await this.removeIfDue(anchored.id, project, now))) {
-        stillTracked.add(anchored.id);
-        await this.flagIfDue(anchored, now);
-      }
+      await this.housekeep(anchored, sweep);
     }
 
-    this.orphans.keepOnly(stillTracked);
+    this.orphans.keepOnly(sweep.stillTracked);
+    return sweep.outcome;
+  }
+
+  private async housekeep(anchored: AnchoredTask, sweep: HousekeepingSweep): Promise<void> {
+    if (this.isConfirmedInScope(anchored, sweep.scannedBlockIds)) {
+      await this.unflagIfFlagged(anchored, sweep);
+      return;
+    }
+
+    this.orphans.track(anchored.id, sweep.now);
+
+    // A removed task is gone rather than merely pending removal, so only one still standing stays tracked.
+    if (!(await this.removeIfDue(anchored, sweep))) {
+      sweep.stillTracked.add(anchored.id);
+      await this.flagIfDue(anchored, sweep);
+    }
   }
 
   private isConfirmedInScope(anchored: AnchoredTask, scannedBlockIds: ReadonlySet<string>): boolean {
@@ -66,40 +86,42 @@ export class OrphanHousekeeping {
   }
 
   /** Most orphans resolve themselves via a re-link a pass or two later, so flagging waits. */
-  private async flagIfDue(anchored: AnchoredTask, now: number): Promise<void> {
+  private async flagIfDue(anchored: AnchoredTask, sweep: HousekeepingSweep): Promise<void> {
     const record = this.orphans.get(anchored.id);
 
     if (record === undefined || record.removalDueAt !== undefined) {
       return;
     }
 
-    if (now - record.firstSeenOrphanedAt < FLAG_AFTER_MS) {
+    if (sweep.now - record.firstSeenOrphanedAt < FLAG_AFTER_MS) {
       return;
     }
 
-    const removalDueAt = now + REMOVAL_GRACE_MS;
+    const removalDueAt = sweep.now + REMOVAL_GRACE_MS;
     const userText = extractUserDescription(anchored.description);
     const notice = orphanNoticeDescription(anchored.blockId, removalDueAt, userText);
 
     await this.provider.updateTaskDescription(anchored.id, notice);
     this.orphans.flag(anchored.id, removalDueAt);
+    sweep.outcome.flaggedOrphans += 1;
   }
 
-  private async removeIfDue(providerTaskId: string, project: ProjectTasks, now: number): Promise<boolean> {
-    const record = this.orphans.get(providerTaskId);
+  private async removeIfDue(anchored: AnchoredTask, sweep: HousekeepingSweep): Promise<boolean> {
+    const record = this.orphans.get(anchored.id);
 
-    if (record?.removalDueAt === undefined || now < record.removalDueAt) {
+    if (record?.removalDueAt === undefined || sweep.now < record.removalDueAt) {
       return false;
     }
 
-    await promoteChildrenToTopLevel(this.provider, project, providerTaskId);
-    await this.provider.removeTask(providerTaskId);
+    await promoteChildrenToTopLevel(this.provider, sweep.project, anchored.id);
+    await this.provider.removeTask(anchored.id);
+    sweep.outcome.removedOrphans += 1;
 
     return true;
   }
 
   /** The notice is a courtesy only — never read back — so reverting it decides nothing. */
-  private async unflagIfFlagged(anchored: AnchoredTask): Promise<void> {
+  private async unflagIfFlagged(anchored: AnchoredTask, sweep: HousekeepingSweep): Promise<void> {
     if (this.orphans.get(anchored.id)?.removalDueAt === undefined) {
       return;
     }
@@ -107,6 +129,7 @@ export class OrphanHousekeeping {
     const userText = stripOrphanNotice(extractUserDescription(anchored.description));
 
     await this.provider.updateTaskDescription(anchored.id, composeRemoteDescription(userText, anchored.blockId));
+    sweep.outcome.unflaggedOrphans += 1;
   }
 }
 

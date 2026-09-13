@@ -1,4 +1,5 @@
 import { isNonEmptyString, isRecord } from '../../utils/type-guards';
+import { warnAboutUnreadableEntries } from '../../utils/unreadable-entries';
 
 /** A provider task carrying this plugin's block id but no live link back to it. */
 export interface OrphanRecord {
@@ -21,9 +22,12 @@ export class OrphanTracker {
    * Anything malformed is dropped rather than trusted: a bad record would misdate a removal.
    */
   replaceAll(stored: unknown): void {
+    const records = toOrphanRecords(stored);
+
+    warnAboutUnreadableEntries('orphaned-task records', stored, records.length);
     this.byTaskId.clear();
 
-    for (const record of toOrphanRecords(stored)) {
+    for (const record of records) {
       this.byTaskId.set(record.providerTaskId, record);
     }
   }

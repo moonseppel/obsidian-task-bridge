@@ -2,6 +2,7 @@ import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings } from './settings';
 import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderProject } from './services/task-provider';
 import { isNonEmptyString, isRecord } from './utils/type-guards';
+import { warnAboutUnreadableEntries } from './utils/unreadable-entries';
 
 /**
  * Reads what was written to `data.json` last time. Every value is checked rather than trusted,
@@ -31,7 +32,10 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
 
 /** Anything malformed is dropped: a bad entry would offer the user a project that cannot exist. */
 export function toKnownProjects(stored: unknown): ProviderProject[] {
-  return Array.isArray(stored) ? stored.filter(isProviderProject) : [];
+  const projects = Array.isArray(stored) ? stored.filter(isProviderProject) : [];
+
+  warnAboutUnreadableEntries('remembered projects', stored, projects.length);
+  return projects;
 }
 
 /**

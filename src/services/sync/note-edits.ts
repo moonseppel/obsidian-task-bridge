@@ -61,7 +61,7 @@ export function appendingOnly(lines: readonly string[]): NoteEdits {
  */
 export function applyNoteEdits(content: string, edits: NoteEdits): string {
   const original = content.split('\n');
-  const stillReads = (guard: LineGuard): boolean => original[guard.lineNumber] === guard.expected;
+  const stillReads = readsAsExpected(original);
   const lines = new EditableLines(original);
 
   edits.replacements.filter(stillReads).forEach((edit) => lines.replace(edit.lineNumber, edit.replacement));
@@ -70,6 +70,19 @@ export function applyNoteEdits(content: string, edits: NoteEdits): string {
   edits.structure.filter((edit) => guardsOf(edit).every(stillReads)).forEach((edit) => applyStructure(lines, edit));
 
   return appendLines(lines.texts().join('\n'), edits.appended);
+}
+
+/** The edits applyNoteEdits leaves out because a line guarding them no longer reads as the pass saw it. */
+export function countSkippedEdits(content: string, edits: NoteEdits): number {
+  const stillReads = readsAsExpected(content.split('\n'));
+  const lineGuards: LineGuard[] = [...edits.replacements, ...edits.removals, ...edits.blocks.map(anchorOf)];
+  const skippedLineEdits = lineGuards.filter((guard) => !stillReads(guard)).length;
+
+  return skippedLineEdits + edits.structure.filter((edit) => !guardsOf(edit).every(stillReads)).length;
+}
+
+function readsAsExpected(original: readonly string[]): (guard: LineGuard) => boolean {
+  return (guard) => original[guard.lineNumber] === guard.expected;
 }
 
 function anchorOf(block: BlockEdit): LineGuard {

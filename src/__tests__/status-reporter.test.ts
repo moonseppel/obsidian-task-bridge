@@ -1,36 +1,74 @@
 import { StatusReporter } from '../services/status-reporter';
-import { SyncOutcome } from '../services/sync/sync-outcome';
+import { SyncOutcome, emptyOutcome } from '../services/sync/sync-outcome';
+import { TaskProviderError } from '../services/task-provider-error';
 import { Logger } from '../utils/logger';
 
 function outcomeWith(overrides: Partial<SyncOutcome> = {}): SyncOutcome {
+  return { ...emptyOutcome({ kind: 'configured' }), filesScanned: 2, linkedTasks: 3, ...overrides };
+}
+
+function spyOnLevels(): { debug: jest.SpyInstance; info: jest.SpyInstance } {
+  jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
   return {
-    created: 0,
-    pushed: 0,
-    pulled: 0,
-    conflicted: 0,
-    removedLine: 0,
-    removedTask: 0,
-    recreatedTask: 0,
-    resurrectedLine: 0,
-    projectResolution: { kind: 'configured' },
-    ...overrides,
+    debug: jest.spyOn(Logger.prototype, 'debug').mockImplementation(),
+    info: jest.spyOn(Logger.prototype, 'info').mockImplementation(),
   };
 }
 
-describe('StatusReporter.reportSyncOutcome', () => {
+function reporter(): StatusReporter {
+  return new StatusReporter(new Logger('test'), () => undefined);
+}
+
+describe('StatusReporter.reportSyncOutcome for a quiet sync', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('logs at debug when every counter is zero', () => {
-    const debug = jest.spyOn(Logger.prototype, 'debug').mockImplementation();
-    const info = jest.spyOn(Logger.prototype, 'info').mockImplementation();
-    const reporter = new StatusReporter(new Logger('test'), () => undefined);
+  it('reports the first one at info, so the log shows syncing works at all', () => {
+    const { info } = spyOnLevels();
 
-    reporter.reportSyncOutcome(outcomeWith());
+    reporter().reportSyncOutcome(outcomeWith());
 
+    expect(info).toHaveBeenCalledWith('Task sync is up to date', { filesScanned: 2, linkedTasks: 3 });
+  });
+
+  it('logs one at debug once what it covers has already been reported', () => {
+    const { debug, info } = spyOnLevels();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncOutcome(outcomeWith());
+    statusReporter.reportSyncOutcome(outcomeWith());
+
+    expect(info).toHaveBeenCalledTimes(1);
     expect(debug).toHaveBeenCalledWith('Task sync finished with nothing to do');
-    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('reports one at info again once the notes or links it covers change', () => {
+    const { info } = spyOnLevels();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncOutcome(outcomeWith());
+    statusReporter.reportSyncOutcome(outcomeWith({ linkedTasks: 4 }));
+
+    expect(info).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports one at info again after a failure, so the recovery shows', () => {
+    const { info } = spyOnLevels();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncOutcome(outcomeWith());
+    statusReporter.reportSyncFailure(new TaskProviderError('unreachable'));
+    statusReporter.reportSyncOutcome(outcomeWith());
+
+    expect(info).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('StatusReporter.reportSyncOutcome for a sync that changed something', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it.each<[string, Partial<SyncOutcome>]>([
@@ -41,13 +79,15 @@ describe('StatusReporter.reportSyncOutcome', () => {
     ['removedTask', { removedTask: 1 }],
     ['recreatedTask', { recreatedTask: 1 }],
     ['resurrectedLine', { resurrectedLine: 1 }],
-  ])('logs at info, not debug, when %s is non-zero', (_name, overrides) => {
-    const debug = jest.spyOn(Logger.prototype, 'debug').mockImplementation();
-    const info = jest.spyOn(Logger.prototype, 'info').mockImplementation();
-    const reporter = new StatusReporter(new Logger('test'), () => undefined);
+    ['flaggedOrphans', { flaggedOrphans: 1 }],
+    ['unflaggedOrphans', { unflaggedOrphans: 1 }],
+    ['removedOrphans', { removedOrphans: 1 }],
+    ['skippedEdits', { skippedEdits: 1 }],
+  ])('logs every counter at info, not debug, when %s is non-zero', (_name, overrides) => {
+    const { debug, info } = spyOnLevels();
     const outcome = outcomeWith(overrides);
 
-    reporter.reportSyncOutcome(outcome);
+    reporter().reportSyncOutcome(outcome);
 
     expect(info).toHaveBeenCalledWith('Task sync finished', outcome);
     expect(debug).not.toHaveBeenCalled();

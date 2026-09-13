@@ -1,6 +1,7 @@
 import * as obsidian from 'obsidian';
 import ObsidianTaskSyncPlugin from '../main';
 import { TaskProviderFailure } from '../services/task-provider-error';
+import { Logger } from '../utils/logger';
 import {
   makePlugin,
   rejectingWith,
@@ -40,6 +41,15 @@ describe('ObsidianTaskSyncPlugin', () => {
       const { plugin, addSettingTab } = makePlugin();
       await plugin.onload();
       expect(addSettingTab).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs its version and platform once loaded, for bug reports', async () => {
+      const info = jest.spyOn(Logger.prototype, 'info').mockImplementation();
+      const { plugin } = makePlugin();
+
+      await plugin.onload();
+
+      expect(info).toHaveBeenCalledWith('Obsidian Task Sync plugin loaded', { version: '0.1.0', platform: 'desktop' });
     });
   });
 

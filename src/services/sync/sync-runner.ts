@@ -27,6 +27,7 @@ export class SyncRunner {
   private readonly logger: Logger;
   private isSyncing = false;
   private changedWhileSyncing = false;
+  private reportedNoNotesInScope = false;
 
   constructor(dependencies: SyncRunnerDependencies) {
     this.hasFilesInScope = dependencies.hasFilesInScope;
@@ -44,6 +45,7 @@ export class SyncRunner {
 
     this.isSyncing = true;
     this.changedWhileSyncing = false;
+    this.reportedNoNotesInScope = false;
 
     try {
       const outcome = await this.sync();
@@ -74,11 +76,22 @@ export class SyncRunner {
     }
 
     if (!this.hasFilesInScope()) {
-      this.logger.debug('Task sync skipped', 'no task source is configured');
+      this.reportNoNotesInScope();
       return true;
     }
 
     return false;
+  }
+
+  /** Said once at info, since it holds until the settings change, and only at debug after that. */
+  private reportNoNotesInScope(): void {
+    if (this.reportedNoNotesInScope) {
+      this.logger.debug('Task sync skipped', 'no notes are in scope');
+      return;
+    }
+
+    this.reportedNoNotesInScope = true;
+    this.logger.info('No notes are in scope, so nothing is synced until a note, folder or the whole vault is chosen');
   }
 
   private followUpIfChangedWhileSyncing(): void {
