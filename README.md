@@ -258,6 +258,7 @@ src/
     task-provider-error.ts  # Typed connection failures
     provider-connection.ts  # Current connection status and how to re-establish it
     status-reporter.ts      # Turns sync results and failures into logs and notices
+    project-selection.ts    # Which project tasks go to, and the remembered project list
     http/
       http-client.ts          # Transport port
       obsidian-http-client.ts # Adapter over Obsidian's requestUrl
@@ -295,6 +296,7 @@ src/
       sync-outcome.ts         # What a run reports back once it's done
       source-note.ts          # The port a sync pass reads and writes a note through
       sync-scheduler.ts       # The poll and the debounce that start a sync
+      sync-runner.ts          # Runs one sync at a time, following up on edits made mid-sync
       obsidian-source-note.ts # Adapter over the vault for one note in scope
   views/
     source-location-suggest.ts # Picker for the source note or folder
@@ -304,6 +306,7 @@ src/
     project-suggest.ts         # Picker for the Todoist project
     suggestions.ts             # Matching and capping shared by the pickers
     rendered-anchor.ts         # Hides sync anchors in reading view
+    notices.ts                 # The plugin's notices, prefixed with its name
     settings-text.ts           # Wording for the settings tab
   utils/
     logger.ts                 # Logging utility

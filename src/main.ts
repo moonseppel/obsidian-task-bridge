@@ -1,59 +1,59 @@
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Plugin, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings, ObsidianTaskSyncSettingTab } from './settings';
+import { ProjectSelection } from './services/project-selection';
 import { ProviderConnection } from './services/provider-connection';
 import { StatusReporter } from './services/status-reporter';
-import { ProviderProject, defaultProjectOf } from './services/task-provider';
+import { ProviderProject } from './services/task-provider';
 import { getDeviceTag } from './services/sync/device-tag';
 import { ObsidianSourceNote } from './services/sync/obsidian-source-note';
 import { OrphanTracker } from './services/sync/orphan-tracker';
+import { SyncRunner } from './services/sync/sync-runner';
 import { SyncScheduler } from './services/sync/sync-scheduler';
 import { TaskCollection } from './services/sync/task-collection';
 import { TaskLinkStore } from './services/sync/task-links';
-import { ProjectResolution } from './services/sync/project-resolver';
 import { TaskSync } from './services/sync/task-sync';
 import { TodoistCredentials } from './services/todoist/todoist-credentials';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
 import { readProviderCredentials, readStoredField, toKnownProjects, toSettings } from './stored-data';
-import { sanitizeForDisplay } from './utils/external-text';
 import { Logger, setDebugLogging } from './utils/logger';
+import { announce, inform } from './views/notices';
 import { hideRenderedAnchors } from './views/rendered-anchor';
 
 const logger = new Logger('ObsidianTaskSync');
-const NOTICE_UNTIL_DISMISSED = 0;
 const DEBUG_BODY_CLASS = 'obsidian-task-sync-debug';
 const LOAD_FAILED_NOTICE =
-  'Failed to load Obsidian Task Sync plugin. ' +
-  'Check console for details or contact the author with the console output.';
+  'failed to load. Check the console for details, or contact the author with the console output.';
 const UNREADABLE_SETTINGS_LOG =
   'Settings file could not be read; falling back to defaults. ' +
   'Corrupted file is retained until settings are re-saved.';
 const UNREADABLE_SETTINGS_NOTICE =
-  'Obsidian Task Sync: the settings file could not be read and may be corrupted. ' +
+  'the settings file could not be read and may be corrupted. ' +
   'Default settings have been restored. Check your plugin settings.';
-
-function announce(message: string): void {
-  new Notice(`Obsidian Task Sync: ${message}`, NOTICE_UNTIL_DISMISSED);
-}
 
 export default class ObsidianTaskSyncPlugin extends Plugin {
   settings: ObsidianTaskSyncSettings = { ...DEFAULT_SETTINGS };
   taskLinks = new TaskLinkStore();
   orphanedTasks = new OrphanTracker();
-  /** The last project list seen, so the picker still offers choices while offline. */
-  knownProjects: ProviderProject[] = [];
   readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce);
-  private readonly taskCollection = new TaskCollection({
+  private readonly projects = new ProjectSelection({
+    listProjects: () => this.provider.listProjects(),
+    settings: () => this.settings,
+    saveSettings: () => this.saveSettings(),
+    logger,
+    announce,
+  });
+  private readonly taskCollection: TaskCollection = new TaskCollection({
     vault: this.app.vault,
     metadataCache: this.app.metadataCache,
     readSettings: () => this.settings,
     registerEvent: (eventRef) => this.registerEvent(eventRef),
     callbacks: {
-      onLocationRenamed: (newPath, oldPath) => void this.handleLocationRenamed(newPath, oldPath),
+      onLocationRenamed: (newPath, oldPath) => void this.followRenamedLocation(newPath, oldPath),
       onLocationDeleted: () => void this.clearSourceLocation(),
-      onRelevantChange: () => this.handleRelevantSourceChange(),
+      onRelevantChange: () => this.syncRunner.handleRelevantChange(),
     },
   });
   private readonly taskSync = new TaskSync({
@@ -71,8 +71,14 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     () => void this.syncTasks(),
     (id) => this.registerInterval(id),
   );
-  private isSyncing = false;
-  private noteChangedWhileSyncing = false;
+  private readonly syncRunner: SyncRunner = new SyncRunner({
+    hasFilesInScope: () => this.taskCollection.filesInScope().length > 0,
+    sync: () => this.taskSync.run(this.settings.projectId),
+    adoptProject: (resolution) => this.projects.adopt(resolution),
+    reporter: this.reporter,
+    syncWhenTypingStops: () => this.scheduler.syncWhenTypingStops(),
+    logger,
+  });
 
   async onload(): Promise<void> {
     try {
@@ -89,13 +95,17 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       logger.info('Obsidian Task Sync plugin loaded');
     } catch (error) {
       logger.error('Plugin load failed', error);
-      new Notice(LOAD_FAILED_NOTICE);
+      inform(LOAD_FAILED_NOTICE);
     }
   }
 
   async onunload(): Promise<void> {
     document.body.removeClass(DEBUG_BODY_CLASS);
     logger.info('Obsidian Task Sync plugin unloaded');
+  }
+
+  get knownProjects(): readonly ProviderProject[] {
+    return this.projects.knownProjects;
   }
 
   async connectToTaskProvider(): Promise<void> {
@@ -107,35 +117,12 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     document.body.toggleClass(DEBUG_BODY_CLASS, this.settings.debugMode);
   }
 
-  /** Deliberately rare: only opening the settings, changing the token, or testing the connection. */
   async refreshKnownProjects(): Promise<void> {
-    try {
-      this.knownProjects = await this.provider.listProjects();
-      await this.saveSettings();
-    } catch (error) {
-      logger.warn('Could not refresh the project list; keeping the one from last time', error);
-    }
+    await this.projects.refresh();
   }
 
-  /**
-   * Leaves the settings showing a real project from the first connection onwards. Called wherever
-   * a connection is established, so pasting a token fills the field in without a restart.
-   */
   async ensureProjectSelected(): Promise<void> {
-    if (this.settings.projectId.length > 0) {
-      return;
-    }
-
-    // Nothing has been remembered yet, so the list has to be asked for before a default exists.
-    if (this.knownProjects.length === 0) {
-      await this.refreshKnownProjects();
-    }
-
-    try {
-      await this.storeProject(defaultProjectOf(this.knownProjects));
-    } catch (error) {
-      logger.warn('Could not determine a default project yet', error);
-    }
+    await this.projects.ensureSelected();
   }
 
   restartSyncSchedule(): void {
@@ -143,24 +130,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   }
 
   async syncTasks(): Promise<void> {
-    if (this.shouldSkipSync()) {
-      return;
-    }
-
-    this.isSyncing = true;
-    this.noteChangedWhileSyncing = false;
-
-    try {
-      const outcome = await this.taskSync.run(this.settings.projectId);
-      await this.adoptResolvedProject(outcome.projectResolution);
-      this.reporter.reportSyncOutcome(outcome);
-    } catch (error) {
-      this.reporter.reportSyncFailure(error);
-    } finally {
-      this.isSyncing = false;
-    }
-
-    this.syncAgainIfNoteChanged();
+    await this.syncRunner.run();
   }
 
   async loadSettings(): Promise<void> {
@@ -170,14 +140,14 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       stored = await this.loadData();
     } catch (error) {
       logger.warn(UNREADABLE_SETTINGS_LOG, error);
-      new Notice(UNREADABLE_SETTINGS_NOTICE);
+      inform(UNREADABLE_SETTINGS_NOTICE);
     }
 
     this.settings = toSettings(stored);
     this.credentials.restore(readProviderCredentials(stored));
     this.taskLinks.replaceAll(readStoredField(stored, 'taskLinks'));
     this.orphanedTasks.replaceAll(readStoredField(stored, 'orphanedTasks'));
-    this.knownProjects = toKnownProjects(readStoredField(stored, 'knownProjects'));
+    this.projects.remember(toKnownProjects(readStoredField(stored, 'knownProjects')));
   }
 
   async saveSettings(): Promise<void> {
@@ -185,7 +155,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       ...this.settings,
       taskLinks: this.taskLinks.toStored(),
       orphanedTasks: this.orphanedTasks.toStored(),
-      knownProjects: this.knownProjects,
+      knownProjects: this.projects.knownProjects,
       providerCredentials: this.credentials.toStored(),
     });
   }
@@ -194,20 +164,6 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     if (!this.settings.debugMode) {
       hideRenderedAnchors(element);
     }
-  }
-
-  private shouldSkipSync(): boolean {
-    if (this.isSyncing) {
-      logger.debug('Task sync skipped', 'a sync is already running');
-      return true;
-    }
-
-    if (this.taskCollection.filesInScope().length === 0) {
-      logger.debug('Task sync skipped', 'no task source is configured');
-      return true;
-    }
-
-    return false;
   }
 
   private fileAt(path: string): TFile | undefined {
@@ -226,64 +182,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     await this.syncTasks();
   }
 
-  /** The sync falls back to the provider's default project, so remember where it actually went. */
-  private async adoptResolvedProject(resolution: ProjectResolution): Promise<void> {
-    if (resolution.kind === 'configured') {
-      return;
-    }
-
-    const previousName = this.settings.projectName;
-    await this.storeProject(resolution.project);
-
-    if (resolution.kind === 'replaced') {
-      this.reportReplacedProject(previousName, resolution.project.name);
-    }
-  }
-
-  private async storeProject(project: ProviderProject): Promise<void> {
-    this.settings.projectId = project.id;
-    this.settings.projectName = project.name;
-    await this.saveSettings();
-    logger.info('Project selected', sanitizeForDisplay(project.name));
-  }
-
-  private reportReplacedProject(previousName: string, currentName: string): void {
-    const previous = sanitizeForDisplay(previousName);
-    const current = sanitizeForDisplay(currentName);
-
-    logger.warn('Configured project is gone; fell back to the default', { from: previous, to: current });
-    announce(
-      `the project "${previous}" no longer exists, so tasks are now synced to "${current}". ` +
-        'Pick a different project in the settings if that is not what you want.',
-    );
-  }
-
-  /**
-   * An edit made while a sync was running scheduled nothing, so it would otherwise wait for the
-   * poll, which can be a day away. Our own write raises the same event; rather than telling the
-   * two apart, the extra pass is allowed to run and find nothing to do. It writes nothing, so it
-   * raises no event of its own and the chain always ends.
-   */
-  private syncAgainIfNoteChanged(): void {
-    if (!this.noteChangedWhileSyncing) {
-      return;
-    }
-
-    this.noteChangedWhileSyncing = false;
-    logger.debug('The source note changed while syncing; running another pass');
-    this.scheduler.syncWhenTypingStops();
-  }
-
-  private handleRelevantSourceChange(): void {
-    if (this.isSyncing) {
-      this.noteChangedWhileSyncing = true;
-      return;
-    }
-
-    this.scheduler.syncWhenTypingStops();
-  }
-
-  private async handleLocationRenamed(newPath: string, oldPath: string): Promise<void> {
+  private async followRenamedLocation(newPath: string, oldPath: string): Promise<void> {
     this.settings.relativeTaskSourcePath = newPath;
     await this.saveSettings();
     logger.info('Source location moved; setting updated', { from: oldPath, to: newPath });
@@ -293,8 +192,8 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     const previousPath = this.settings.relativeTaskSourcePath;
     this.settings.relativeTaskSourcePath = '';
 
-    new Notice(
-      `Obsidian Task Sync: The source note or folder "${previousPath}" no longer exists, ` +
+    inform(
+      `the source note or folder "${previousPath}" no longer exists, ` +
         'so it has been cleared from the plugin settings.',
     );
     logger.warn('Source location removed; setting cleared', { previousPath });

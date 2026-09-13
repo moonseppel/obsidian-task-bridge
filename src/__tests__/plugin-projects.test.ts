@@ -9,12 +9,19 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+async function pluginRemembering(projects: unknown[]): Promise<PluginContext> {
+  const context = makePlugin();
+  context.loadData.mockResolvedValue({ knownProjects: projects });
+  await context.plugin.loadSettings();
+
+  return context;
+}
+
 describe('ObsidianTaskSyncPlugin remembered projects', () => {
   const PROJECT = { id: 'p1', name: 'Errands', isDefault: false };
 
   it('persists the project list alongside the settings', async () => {
-    const { plugin, saveData } = makePlugin();
-    plugin.knownProjects = [PROJECT];
+    const { plugin, saveData } = await pluginRemembering([PROJECT]);
 
     await plugin.saveSettings();
 
@@ -45,8 +52,7 @@ describe('ObsidianTaskSyncPlugin remembered projects', () => {
   });
 
   it('keeps the previous list when the provider cannot be reached', async () => {
-    const { plugin } = makePlugin();
-    plugin.knownProjects = [PROJECT];
+    const { plugin } = await pluginRemembering([PROJECT]);
     (plugin as unknown as { provider: { listProjects: () => Promise<never> } }).provider = {
       listProjects: () => Promise.reject(new TaskProviderError('unreachable')),
     };
@@ -57,8 +63,7 @@ describe('ObsidianTaskSyncPlugin remembered projects', () => {
   });
 
   it('replaces the list on a successful refresh', async () => {
-    const { plugin } = makePlugin();
-    plugin.knownProjects = [PROJECT];
+    const { plugin } = await pluginRemembering([PROJECT]);
     (plugin as unknown as { provider: { listProjects: () => Promise<unknown> } }).provider = {
       listProjects: () => Promise.resolve([{ id: 'p2', name: 'Inbox', isDefault: true }]),
     };
@@ -92,9 +97,8 @@ describe('ObsidianTaskSyncPlugin choosing a default project', () => {
   });
 
   it('uses the remembered list rather than asking again', async () => {
-    const { plugin } = makePlugin();
+    const { plugin } = await pluginRemembering([INBOX]);
     plugin.settings = settingsWith();
-    plugin.knownProjects = [INBOX];
 
     await plugin.ensureProjectSelected();
 
