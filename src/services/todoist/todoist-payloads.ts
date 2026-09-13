@@ -3,6 +3,12 @@ import { isRecord } from '../../utils/type-guards';
 import { HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
 
+/**
+ * The block id may be anywhere in the description, never assumed to be at a fixed position,
+ * since the user is free to edit the description after the plugin wrote it.
+ */
+const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/;
+
 export interface TodoistUser {
   id: string;
   fullName: string;
@@ -27,6 +33,14 @@ export interface TodoistTask {
   description: string;
   labels: string[];
   parentId?: string;
+}
+
+export interface NewTodoistTask {
+  readonly content: string;
+  readonly projectId: string;
+  readonly description?: string;
+  readonly labels?: readonly string[];
+  readonly parentId?: string;
 }
 
 export interface Page {
@@ -105,6 +119,16 @@ export function toTodoistTask(payload: unknown): TodoistTask {
   };
 }
 
+export function toCreateTaskPayload(task: NewTodoistTask): Record<string, unknown> {
+  return {
+    content: task.content,
+    project_id: task.projectId,
+    ...(task.description === undefined ? {} : { description: task.description }),
+    ...(task.labels === undefined || task.labels.length === 0 ? {} : { labels: task.labels }),
+    ...(task.parentId === undefined ? {} : { parent_id: task.parentId }),
+  };
+}
+
 export function parseJson(body: string): unknown {
   try {
     return JSON.parse(body);
@@ -168,12 +192,6 @@ function toEpochMs(value: unknown): number | undefined {
 
   return Number.isNaN(parsed) ? undefined : parsed;
 }
-
-/**
- * The block id may be anywhere in the description, never assumed to be at a fixed position,
- * since the user is free to edit the description after the plugin wrote it.
- */
-const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/;
 
 function findEmbeddedBlockId(value: unknown): string | undefined {
   if (typeof value !== 'string') {

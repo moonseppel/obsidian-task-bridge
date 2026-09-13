@@ -2,6 +2,7 @@ import { sanitizeForDisplay } from '../../utils/external-text';
 import { HttpClient, HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
 import {
+  NewTodoistTask,
   TodoistProject,
   TodoistTask,
   TodoistUser,
@@ -9,6 +10,7 @@ import {
   isDeletedTaskPayload,
   parseJson,
   throwOnErrorStatus,
+  toCreateTaskPayload,
   toPage,
   toTodoistProject,
   toTodoistTask,
@@ -25,6 +27,14 @@ const PAGE_SIZE = 200;
 const MAX_PAGES = 200;
 
 export type TodoistTokenReader = () => string;
+
+interface ApiCall {
+  readonly method: 'GET' | 'POST' | 'DELETE';
+  readonly path: string;
+  readonly payload?: Record<string, unknown>;
+  /** What a 404 means for this call; to most calls it is simply unexpected. */
+  readonly notFound?: TaskProviderFailure;
+}
 
 export class TodoistApiClient {
   private readonly http: HttpClient;
@@ -48,51 +58,40 @@ export class TodoistApiClient {
     return (await this.getAllPages('/tasks', { project_id: projectId })).map(toTodoistTask);
   }
 
-  async createTask(
-    content: string,
-    projectId: string,
-    description?: string,
-    labels?: readonly string[],
-    parentId?: string,
-  ): Promise<TodoistTask> {
-    return toTodoistTask(
-      await this.post(
-        '/tasks',
-        {
-          content,
-          project_id: projectId,
-          ...(description === undefined ? {} : { description }),
-          ...(labels === undefined || labels.length === 0 ? {} : { labels }),
-          ...(parentId === undefined ? {} : { parent_id: parentId }),
-        },
-        'project-missing',
-      ),
-    );
+  async createTask(task: NewTodoistTask): Promise<TodoistTask> {
+    const created = await this.request({
+      method: 'POST',
+      path: '/tasks',
+      payload: toCreateTaskPayload(task),
+      notFound: 'project-missing',
+    });
+
+    return toTodoistTask(created);
   }
 
   async updateTaskContent(taskId: string, content: string): Promise<TodoistTask> {
-    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { content }));
+    return toTodoistTask(await this.post(taskPath(taskId), { content }));
   }
 
   async updateTaskDescription(taskId: string, description: string): Promise<TodoistTask> {
-    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { description }));
+    return toTodoistTask(await this.post(taskPath(taskId), { description }));
   }
 
   async updateTaskLabels(taskId: string, labels: readonly string[]): Promise<TodoistTask> {
-    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}`, { labels }));
+    return toTodoistTask(await this.post(taskPath(taskId), { labels }));
   }
 
   async deleteTask(taskId: string): Promise<void> {
-    await this.request('DELETE', `/tasks/${encodeURIComponent(taskId)}`);
+    await this.request({ method: 'DELETE', path: taskPath(taskId) });
   }
 
   /** Todoist completes a task through this dedicated action, not a general field update. */
   async completeTask(taskId: string): Promise<void> {
-    await this.request('POST', `/tasks/${encodeURIComponent(taskId)}/close`);
+    await this.request({ method: 'POST', path: taskPath(taskId, 'close') });
   }
 
   async reopenTask(taskId: string): Promise<void> {
-    await this.request('POST', `/tasks/${encodeURIComponent(taskId)}/reopen`);
+    await this.request({ method: 'POST', path: taskPath(taskId, 'reopen') });
   }
 
   /**
@@ -103,7 +102,7 @@ export class TodoistApiClient {
   async moveTask(taskId: string, parentId: string | undefined, projectId: string): Promise<TodoistTask> {
     const target = parentId === undefined ? { project_id: projectId } : { parent_id: parentId };
 
-    return toTodoistTask(await this.post(`/tasks/${encodeURIComponent(taskId)}/move`, target));
+    return toTodoistTask(await this.post(taskPath(taskId, 'move'), target));
   }
 
   /**
@@ -111,7 +110,7 @@ export class TodoistApiClient {
    * the body, so both signals are checked before treating a task as found.
    */
   async getTask(taskId: string): Promise<TodoistTask | undefined> {
-    const response = await this.send('GET', `/tasks/${encodeURIComponent(taskId)}`);
+    const response = await this.send({ method: 'GET', path: taskPath(taskId) });
 
     if (response.status === 404) {
       return undefined;
@@ -128,7 +127,7 @@ export class TodoistApiClient {
   }
 
   async deleteProject(projectId: string): Promise<void> {
-    await this.request('DELETE', `/projects/${encodeURIComponent(projectId)}`);
+    await this.request({ method: 'DELETE', path: `/projects/${encodeURIComponent(projectId)}` });
   }
 
   private async getAllPages(path: string, query: Record<string, string>): Promise<unknown[]> {
@@ -150,35 +149,26 @@ export class TodoistApiClient {
   }
 
   private async get(path: string): Promise<unknown> {
-    return this.request('GET', path);
+    return this.request({ method: 'GET', path });
   }
 
-  private async post(
-    path: string,
-    payload: Record<string, unknown>,
-    notFound: TaskProviderFailure = 'unexpected',
-  ): Promise<unknown> {
-    return this.request('POST', path, JSON.stringify(payload), notFound);
+  private async post(path: string, payload: Record<string, unknown>): Promise<unknown> {
+    return this.request({ method: 'POST', path, payload });
   }
 
-  private async request(
-    method: string,
-    path: string,
-    body?: string,
-    notFound: TaskProviderFailure = 'unexpected',
-  ): Promise<unknown> {
-    const response = await this.send(method, path, body);
-    throwOnErrorStatus(response, notFound);
+  private async request(call: ApiCall): Promise<unknown> {
+    const response = await this.send(call);
+    throwOnErrorStatus(response, call.notFound ?? 'unexpected');
 
-    return response.text.trim().length === 0 ? null : parseJson(response.text);
+    return response.text.trim().length === 0 ? undefined : parseJson(response.text);
   }
 
-  private async send(method: string, path: string, body?: string): Promise<HttpResponse> {
+  private async send(call: ApiCall): Promise<HttpResponse> {
     const request = {
-      url: `${API_BASE_URL}${path}`,
-      method,
+      url: `${API_BASE_URL}${call.path}`,
+      method: call.method,
       headers: { Authorization: `Bearer ${this.readToken()}` },
-      ...(body === undefined ? {} : { body, contentType: JSON_CONTENT_TYPE }),
+      ...(call.payload === undefined ? {} : { body: JSON.stringify(call.payload), contentType: JSON_CONTENT_TYPE }),
     };
 
     try {
@@ -187,6 +177,12 @@ export class TodoistApiClient {
       throw new TaskProviderError('unreachable', sanitizeForDisplay(describeCause(error)));
     }
   }
+}
+
+function taskPath(taskId: string, action?: string): string {
+  const path = `/tasks/${encodeURIComponent(taskId)}`;
+
+  return action === undefined ? path : `${path}/${action}`;
 }
 
 function pageQuery(query: Record<string, string>, cursor: string): Record<string, string> {

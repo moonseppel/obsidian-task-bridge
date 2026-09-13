@@ -26,9 +26,15 @@ export class TodoistProvider implements TaskProvider {
   }
 
   async createTask(task: NewTask): Promise<ProviderTask> {
-    return toProviderTask(
-      await this.api.createTask(task.title, task.projectId, task.description, task.labels, task.parentId),
-    );
+    const created = await this.api.createTask({
+      content: task.title,
+      projectId: task.projectId,
+      description: task.description,
+      labels: task.labels,
+      parentId: task.parentId,
+    });
+
+    return toProviderTask(created);
   }
 
   async updateTaskTitle(taskId: string, title: string): Promise<void> {

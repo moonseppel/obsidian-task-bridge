@@ -1,4 +1,5 @@
 import { TodoistApiClient, TodoistTask, TodoistUser } from '../services/todoist/todoist-api-client';
+import { NewTodoistTask } from '../services/todoist/todoist-payloads';
 import { TodoistProvider } from '../services/todoist/todoist-provider';
 
 function todoistTask(overrides: Partial<TodoistTask> = {}): TodoistTask {
@@ -161,9 +162,9 @@ describe('TodoistProvider task and project mapping', () => {
   it('sends the description on to the API client when creating a task', async () => {
     const created: Array<string | undefined> = [];
     const provider = providerOver({
-      createTask: (content: string, _projectId: string, description?: string) => {
-        created.push(description);
-        return Promise.resolve(todoistTask({ content, description: description ?? '' }));
+      createTask: (task: NewTodoistTask) => {
+        created.push(task.description);
+        return Promise.resolve(todoistTask({ content: task.content, description: task.description ?? '' }));
       },
     });
 
@@ -175,16 +176,9 @@ describe('TodoistProvider task and project mapping', () => {
   it('sends labels on to the API client when creating a task', async () => {
     const created: Array<readonly string[] | undefined> = [];
     const provider = providerOver({
-      createTask: (content: string, _projectId: string, _description?: string, labels?: readonly string[]) => {
-        created.push(labels);
-        return Promise.resolve({
-          id: 't1',
-          content,
-          isCompleted: false,
-          projectId: 'p1',
-          description: '',
-          labels: labels === undefined ? [] : [...labels],
-        });
+      createTask: (task: NewTodoistTask) => {
+        created.push(task.labels);
+        return Promise.resolve(todoistTask({ content: task.content, labels: [...(task.labels ?? [])] }));
       },
     });
 
@@ -196,9 +190,9 @@ describe('TodoistProvider task and project mapping', () => {
   it('creates a task from a title and a project', async () => {
     const created: Array<[string, string]> = [];
     const provider = providerOver({
-      createTask: (content: string, projectId: string) => {
-        created.push([content, projectId]);
-        return Promise.resolve({ id: 't1', content, isCompleted: false, projectId, description: '', labels: [] });
+      createTask: (task: NewTodoistTask) => {
+        created.push([task.content, task.projectId]);
+        return Promise.resolve(todoistTask({ content: task.content, projectId: task.projectId }));
       },
     });
 
@@ -216,9 +210,9 @@ describe('TodoistProvider task and project mapping', () => {
   it('sends the parent id on to the API client when creating a nested task', async () => {
     const created: Array<string | undefined> = [];
     const provider = providerOver({
-      createTask: (content: string, _projectId: string, _description?: string, _labels?, parentId?: string) => {
-        created.push(parentId);
-        return Promise.resolve(todoistTask({ content, parentId }));
+      createTask: (task: NewTodoistTask) => {
+        created.push(task.parentId);
+        return Promise.resolve(todoistTask({ content: task.content, parentId: task.parentId }));
       },
     });
 

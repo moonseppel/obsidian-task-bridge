@@ -67,7 +67,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('creates a task, renames it, and reads the new title back', async () => {
-    const created = await client.createTask('Buy milk', project.id);
+    const created = await client.createTask({ content: 'Buy milk', projectId: project.id });
     expect(created).toMatchObject({ content: 'Buy milk' });
 
     await client.updateTaskContent(created.id, 'Buy oat milk');
@@ -77,7 +77,11 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('updates a task description and reads the new one back', async () => {
-    const created = await client.createTask('Buy milk', project.id, '^ots-a1b2c3d4');
+    const created = await client.createTask({
+      content: 'Buy milk',
+      projectId: project.id,
+      description: '^ots-a1b2c3d4',
+    });
 
     await client.updateTaskDescription(created.id, 'Now orphaned.\n^ots-a1b2c3d4');
     const tasks = await client.listTasks(project.id);
@@ -87,7 +91,11 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('round-trips a block id embedded in the description through a real fetch', async () => {
-    const created = await client.createTask('Buy milk', project.id, '^ots-a1b2c3d4');
+    const created = await client.createTask({
+      content: 'Buy milk',
+      projectId: project.id,
+      description: '^ots-a1b2c3d4',
+    });
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);
 
@@ -95,7 +103,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('carries a parseable last-modified time on a real task', async () => {
-    const created = await client.createTask('Buy milk', project.id);
+    const created = await client.createTask({ content: 'Buy milk', projectId: project.id });
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);
 
@@ -103,7 +111,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('stops listing a task once it is deleted', async () => {
-    const created = await client.createTask('Temporary', project.id);
+    const created = await client.createTask({ content: 'Temporary', projectId: project.id });
     await client.deleteTask(created.id);
 
     const ids = (await client.listTasks(project.id)).map((task) => task.id);
@@ -111,14 +119,14 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('still fetches a task directly by id', async () => {
-    const created = await client.createTask('Buy milk', project.id);
+    const created = await client.createTask({ content: 'Buy milk', projectId: project.id });
 
     await expect(client.getTask(created.id)).resolves.toMatchObject({ id: created.id, content: 'Buy milk' });
   });
 
   // Feature 6 depends on this to tell a deleted task from one that merely moved to another project.
   it('still answers a deleted task with undefined rather than an error', async () => {
-    const created = await client.createTask('Temporary', project.id);
+    const created = await client.createTask({ content: 'Temporary', projectId: project.id });
     await client.deleteTask(created.id);
 
     await expect(client.getTask(created.id)).resolves.toBeUndefined();
@@ -130,7 +138,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   });
 
   it('still refuses to create a task in an unknown project', async () => {
-    await expect(client.createTask('Nowhere', UNKNOWN_PROJECT_ID)).rejects.toMatchObject({
+    await expect(client.createTask({ content: 'Nowhere', projectId: UNKNOWN_PROJECT_ID })).rejects.toMatchObject({
       failure: 'project-missing',
     });
   });
@@ -138,7 +146,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   // Feature 7 depends on this whole group to tell "completed" apart from "deleted" or "moved".
   describe('completing and reopening a task', () => {
     it('drops a completed task from the active list, exactly like a deleted one', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       await client.completeTask(created.id);
 
       const ids = (await client.listTasks(project.id)).map((task) => task.id);
@@ -146,7 +154,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('still answers a completed task with isCompleted true, not deleted', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       await client.completeTask(created.id);
 
       await expect(client.getTask(created.id)).resolves.toMatchObject({
@@ -156,14 +164,14 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('carries the project id through on a completed task, so a move can still be told apart', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       await client.completeTask(created.id);
 
       await expect(client.getTask(created.id)).resolves.toMatchObject({ projectId: project.id });
     });
 
     it('bumps the last-modified time when completing a task', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       const before = (await client.getTask(created.id))?.updatedAt;
 
       await client.completeTask(created.id);
@@ -174,7 +182,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('reopens a completed task back onto the active list', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       await client.completeTask(created.id);
       await client.reopenTask(created.id);
 
@@ -187,7 +195,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   // Feature 7 depends on this to sync a tag as a label without a separate "create the label" step.
   describe('assigning a label Todoist has never seen before', () => {
     it('accepts it rather than failing, and echoes it back on the task', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       const label = `ots-probe-${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label]);
@@ -196,7 +204,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('keeps it listed on a fresh fetch of the task', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       const label = `ots-probe-${Date.now()}`;
       await client.updateTaskLabels(created.id, [label]);
 
@@ -210,16 +218,16 @@ describeAgainstTodoist('Todoist task round trip', () => {
   // Feature 8 depends on this whole group to nest, reparent and clear a task's parent.
   describe('nested tasks', () => {
     it('accepts a parent id at creation and echoes it back', async () => {
-      const parent = await client.createTask('Parent', project.id);
-      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+      const parent = await client.createTask({ content: 'Parent', projectId: project.id });
+      const child = await client.createTask({ content: 'Child', projectId: project.id, parentId: parent.id });
 
       expect(child.parentId).toBe(parent.id);
     });
 
     it('reparents an existing task to a specific new parent through the move action', async () => {
-      const firstParent = await client.createTask('First parent', project.id);
-      const secondParent = await client.createTask('Second parent', project.id);
-      const child = await client.createTask('Child', project.id, undefined, undefined, firstParent.id);
+      const firstParent = await client.createTask({ content: 'First parent', projectId: project.id });
+      const secondParent = await client.createTask({ content: 'Second parent', projectId: project.id });
+      const child = await client.createTask({ content: 'Child', projectId: project.id, parentId: firstParent.id });
 
       await client.moveTask(child.id, secondParent.id, project.id);
 
@@ -227,8 +235,8 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('clears a parent, promoting the task to top-level, by re-sending its current project', async () => {
-      const parent = await client.createTask('Parent', project.id);
-      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+      const parent = await client.createTask({ content: 'Parent', projectId: project.id });
+      const child = await client.createTask({ content: 'Child', projectId: project.id, parentId: parent.id });
 
       await client.moveTask(child.id, undefined, project.id);
 
@@ -238,8 +246,8 @@ describeAgainstTodoist('Todoist task round trip', () => {
     // The sync engine must reparent live children away before deleting a task, since Todoist
     // would otherwise silently take them down along with it.
     it('cascades a delete to every child task, unlike removing an unrelated task', async () => {
-      const parent = await client.createTask('Parent', project.id);
-      const child = await client.createTask('Child', project.id, undefined, undefined, parent.id);
+      const parent = await client.createTask({ content: 'Parent', projectId: project.id });
+      const child = await client.createTask({ content: 'Child', projectId: project.id, parentId: parent.id });
 
       await client.deleteTask(parent.id);
 
@@ -252,7 +260,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   // endless push once Todoist has already collapsed it on its own side.
   describe('labels that do not map cleanly onto Obsidian tags', () => {
     it('accepts a label containing a space, which no #tag syntax can represent', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       const label = `ots probe ${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label]);
@@ -261,7 +269,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
     });
 
     it('silently collapses an exact-case duplicate within the same label list', async () => {
-      const created = await client.createTask('Temporary', project.id);
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
       const label = `ots-dup-${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label, label]);

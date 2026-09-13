@@ -9,21 +9,8 @@ const TOKEN_URL = 'https://app.todoist.com/app/settings/integrations/developer';
 const DESCRIPTION_START =
   'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
   'Create a token in Todoist under Settings → Integrations → ';
-const DESCRIPTION_END = '. The token must be configured on every devices used separately.';
+const DESCRIPTION_END = '. The token must be configured separately on every device.';
 const NOTHING_SELECTED = 'Select an API token first.';
-
-// Obsidian types the secret value as a string but sends null when the field is cleared with "x".
-function toSecretName(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function describeSetting(): DocumentFragment {
-  return createFragment((description) => {
-    description.appendText(DESCRIPTION_START);
-    description.createEl('a', { text: LINK_TEXT, href: TOKEN_URL });
-    description.appendText(DESCRIPTION_END);
-  });
-}
 
 export class TodoistCredentials implements ProviderCredentials {
   private readonly app: App;
@@ -76,4 +63,17 @@ export class TodoistCredentials implements ProviderCredentials {
     await this.save();
     await host.onCredentialsChanged();
   }
+}
+
+// Obsidian types the secret value as a string but sends null when the field is cleared with "x".
+function toSecretName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function describeSetting(): DocumentFragment {
+  return createFragment((description) => {
+    description.appendText(DESCRIPTION_START);
+    description.createEl('a', { text: LINK_TEXT, href: TOKEN_URL });
+    description.appendText(DESCRIPTION_END);
+  });
 }

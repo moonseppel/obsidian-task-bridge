@@ -10,7 +10,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await expect(context.client.createTask('Buy milk', 'p1')).resolves.toEqual({
+      await expect(context.client.createTask({ content: 'Buy milk', projectId: 'p1' })).resolves.toEqual({
         id: 't1',
         content: 'Buy milk',
         isCompleted: false,
@@ -31,7 +31,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1', '^ots-a1b2c3d4');
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1', description: '^ots-a1b2c3d4' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
         content: 'Buy milk',
@@ -45,7 +45,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1');
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('description');
     });
@@ -55,7 +55,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1', undefined, ['errands', 'urgent']);
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1', labels: ['errands', 'urgent'] });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
         content: 'Buy milk',
@@ -69,7 +69,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1');
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('labels');
     });
@@ -77,7 +77,7 @@ describe('TodoistApiClient writes', () => {
     it('reports a deleted project rather than a puzzling error', async () => {
       const context = clientReplying(() => Promise.resolve({ status: 404, text: '{}' }));
 
-      await expect(context.client.createTask('Buy milk', 'p1')).rejects.toMatchObject({
+      await expect(context.client.createTask({ content: 'Buy milk', projectId: 'p1' })).rejects.toMatchObject({
         failure: 'project-missing',
       });
     });
@@ -87,7 +87,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1', undefined, undefined, 'parent-1');
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1', parentId: 'parent-1' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
         content: 'Buy milk',
@@ -101,7 +101,7 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask('Buy milk', 'p1');
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).not.toHaveProperty('parent_id');
     });
@@ -120,7 +120,7 @@ describe('TodoistApiClient writes', () => {
       expect(JSON.parse(request.body ?? '')).toEqual({ parent_id: 'parent-1' });
     });
 
-    it('clears a parent by re-sending the current project instead, since a literal null parent is rejected', async () => {
+    it('clears a parent by re-sending the current project, since a literal null parent is rejected', async () => {
       const context = clientReplying(() =>
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
