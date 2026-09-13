@@ -1,6 +1,6 @@
 import { ProviderTask } from '../task-provider';
 import { createBlockId } from './block-id';
-import { SyncPass, appendAfter } from './sync-pass';
+import { SyncPass, recordInsertUnder } from './sync-pass';
 import { leadingWhitespace } from './task-description';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
@@ -49,7 +49,7 @@ export class RemoteChildSync {
 
       const childLines = this.buildChildLines(pull, pullParentOf(link, pass.lines[lineNumber] ?? ''));
 
-      appendAfter(pass, lineNumber, childLines);
+      recordInsertUnder(pass, lineNumber, childLines);
       pass.outcome.pulled += childLines.length;
     }
   }

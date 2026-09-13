@@ -293,6 +293,7 @@ src/
       grace-period.ts         # The debounce shared by creation and deletion
       project-resolver.ts     # Falls back to the provider's default project
       note-edits.ts           # Applies a pass's line edits to the note content
+      editable-lines.ts       # Note lines that remember where a pass read them, so edits compose
       sync-pass.ts            # One file's working state, from note lines to outcome
       sync-outcome.ts         # What a run reports back once it's done
       source-note.ts          # The port a sync pass reads and writes a note through

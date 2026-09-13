@@ -1,7 +1,7 @@
 import { NoteEdits, applyNoteEdits } from '../services/sync/note-edits';
 
 function noteEdits(edits: Partial<NoteEdits>): NoteEdits {
-  return { replacements: [], removals: [], blocks: [], appended: [], ...edits };
+  return { replacements: [], removals: [], blocks: [], structure: [], appended: [], ...edits };
 }
 
 describe('applyNoteEdits replacements', () => {
@@ -83,6 +83,7 @@ describe('applyNoteEdits', () => {
       replacements: [{ lineNumber: 0, expected: '- [ ] First', replacement: '- [ ] First edited' }],
       removals: [{ lineNumber: 1, expected: '- [ ] Second' }],
       blocks: [],
+      structure: [],
       appended: ['- [ ] Third'],
     };
 
@@ -90,7 +91,7 @@ describe('applyNoteEdits', () => {
   });
 
   it('does nothing when every list is empty', () => {
-    const edits: NoteEdits = { replacements: [], removals: [], blocks: [], appended: [] };
+    const edits: NoteEdits = { replacements: [], removals: [], blocks: [], structure: [], appended: [] };
 
     expect(applyNoteEdits('- [ ] Only line', edits)).toBe('- [ ] Only line');
   });
@@ -108,6 +109,7 @@ describe('applyNoteEdits', () => {
           replacementLines: ['\tOat milk'],
         },
       ],
+      structure: [],
       appended: [],
     };
 
@@ -129,6 +131,7 @@ describe('applyNoteEdits', () => {
           replacementLines: ['\tJust one line now'],
         },
       ],
+      structure: [],
       appended: [],
     };
 
@@ -150,6 +153,7 @@ describe('applyNoteEdits', () => {
           replacementLines: ['\tFirst', '\tSecond', '\tThird'],
         },
       ],
+      structure: [],
       appended: [],
     };
 
@@ -171,6 +175,7 @@ describe('applyNoteEdits', () => {
           replacementLines: ['\tOat milk'],
         },
       ],
+      structure: [],
       appended: [],
     };
 
@@ -190,6 +195,7 @@ describe('applyNoteEdits', () => {
           replacementLines: ['\tOat milk, not regular'],
         },
       ],
+      structure: [],
       appended: [],
     };
 

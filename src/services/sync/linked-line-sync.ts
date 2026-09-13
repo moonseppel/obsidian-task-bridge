@@ -1,7 +1,7 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { FieldChange, syncField } from './field-sync';
 import { ParentSync } from './parent-sync';
-import { LinkedLine, recordBlockEdit, recordEdit } from './sync-pass';
+import { LinkedLine, recordBlockEdit, recordTaskEdit } from './sync-pass';
 import { canonicalTags, sameTagSet } from './tag-set';
 import {
   DescriptionBlock,
@@ -11,7 +11,7 @@ import {
   readDescriptionBlock,
   renderDescriptionBlock,
 } from './task-description';
-import { formatTaskLine, isDone, isRepresentableAsTag } from './task-line';
+import { isDone, isRepresentableAsTag } from './task-line';
 import { TaskLinkStore } from './task-links';
 
 export interface RemoteCompletion {
@@ -125,7 +125,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedTitle: title });
-    recordEdit(line, formatTaskLine({ ...line.task, title }));
+    recordTaskEdit(line, { title });
     line.pass.outcome.pulled += 1;
   }
 
@@ -141,7 +141,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedDone: done });
-    recordEdit(line, formatTaskLine({ ...line.task, checkbox: done ? 'x' : ' ' }));
+    recordTaskEdit(line, { checkbox: done ? 'x' : ' ' });
     line.pass.outcome.pulled += 1;
   }
 
@@ -182,7 +182,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedTags: canonicalTags(tags) });
-    recordEdit(line, formatTaskLine({ ...line.task, tags: [...tags] }));
+    recordTaskEdit(line, { tags: [...tags] });
     line.pass.outcome.pulled += 1;
   }
 }

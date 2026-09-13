@@ -1,17 +1,8 @@
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { FieldChange, syncField } from './field-sync';
-import {
-  LineUnderSync,
-  LinkedLine,
-  SyncPass,
-  appendAfter,
-  localParentBlockId,
-  recordLineEdit,
-  recordLineRemoval,
-} from './sync-pass';
+import { LinkedLine, localParentBlockId, recordMoveUnder, recordReindent } from './sync-pass';
 import { leadingWhitespace } from './task-description';
 import { TaskLinkStore } from './task-links';
-import { reindentBlock, subtreeLineNumbers } from './task-tree';
 
 /**
  * Syncs which task a line is nested under, both directions, by the same recency rule every other
@@ -76,7 +67,7 @@ export class ParentSync {
       return;
     }
 
-    reindentSubtreeInPlace(line, leadingWhitespace(line.pass.lines[oldParentLineNumber]));
+    recordReindent(line, leadingWhitespace(line.pass.lines[oldParentLineNumber]));
     this.links.set({ ...link, lastSyncedParentBlockId: undefined });
     line.pass.outcome.pulled += 1;
   }
@@ -84,19 +75,16 @@ export class ParentSync {
   /** Relocates the line and its whole subtree under the new parent's existing content. */
   private pullToNewParent(linked: LinkedLine, newParentBlockId: string): void {
     const { line, link } = linked;
-    const { pass } = line;
-    const newParentLineNumber = pass.lineNumberByBlockId.get(newParentBlockId);
+    const newParentLineNumber = line.pass.lineNumberByBlockId.get(newParentBlockId);
 
     if (newParentLineNumber === undefined) {
       // The new parent has no line of its own here yet; retried once it does.
       return;
     }
 
-    const newParentIndent = leadingWhitespace(pass.lines[newParentLineNumber]);
-
-    appendAfter(pass, newParentLineNumber, cutSubtree(line, `${newParentIndent}\t`));
+    recordMoveUnder(line, newParentLineNumber);
     this.links.set({ ...link, lastSyncedParentBlockId: newParentBlockId });
-    pass.outcome.pulled += 1;
+    line.pass.outcome.pulled += 1;
   }
 }
 
@@ -106,26 +94,4 @@ export function remoteParentBlockId(
   remoteTask: ProviderTask,
 ): string | undefined {
   return remoteTask.parentId === undefined ? undefined : remoteTasks.get(remoteTask.parentId)?.embeddedBlockId;
-}
-
-function reindentSubtreeInPlace(line: LineUnderSync, targetIndent: string): void {
-  const { pass } = line;
-  const lineNumbers = subtreeLineNumbers(pass.lines, line.lineNumber);
-  const reindented = reindentBlock(linesAt(pass, lineNumbers), leadingWhitespace(line.original), targetIndent);
-
-  lineNumbers.forEach((lineNumber, index) => recordLineEdit(pass, lineNumber, reindented[index]));
-}
-
-/** Records the subtree's removal from where it stands and hands it back, rebased onto its new indent. */
-function cutSubtree(line: LineUnderSync, newBaseIndent: string): string[] {
-  const { pass } = line;
-  const lineNumbers = subtreeLineNumbers(pass.lines, line.lineNumber);
-
-  lineNumbers.forEach((lineNumber) => recordLineRemoval(pass, lineNumber));
-
-  return reindentBlock(linesAt(pass, lineNumbers), leadingWhitespace(line.original), newBaseIndent);
-}
-
-function linesAt(pass: SyncPass, lineNumbers: readonly number[]): string[] {
-  return lineNumbers.map((lineNumber) => pass.lines[lineNumber]);
 }

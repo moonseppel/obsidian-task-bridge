@@ -34,3 +34,4 @@
 32. A tag filter composes with any scope — note, folder, or vault — rather than being exclusive to one.
 33. A block id missing from scope is checked vault-wide (ignored files excluded) before being treated as deleted: not found anywhere is deleted as usual; found elsewhere is out of scope, flagged and removed on the same timing as an orphan.
 34. Pulling a reparent to a new parent looks that parent up only in the file already being processed; across files it is not yet relocated, so it retries every pass rather than acting on stale information.
+35. Every note edit a pass records lands, even when several touch the same lines: a field pulled onto a task line builds on the fields pulled before it, and inserting, relocating or reindenting lines carries every change already made to them, because a pulled value whose note edit is lost is read back as a local change next pass and pushed, undoing the remote edit.

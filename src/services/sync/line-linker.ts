@@ -1,9 +1,8 @@
 import { TaskProvider } from '../task-provider';
 import { createBlockId } from './block-id';
-import { LineUnderSync, LinkedLine, localParentBlockId, recordEdit } from './sync-pass';
+import { LineUnderSync, LinkedLine, localParentBlockId, recordTaskEdit } from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { composeRemoteDescription, readDescriptionBlock } from './task-description';
-import { formatTaskLine } from './task-line';
 import { TaskLinkStore } from './task-links';
 
 /**
@@ -49,7 +48,7 @@ export class LineLinker {
 
     await this.createAndLink(line, blockId);
     pass.takenBlockIds.add(blockId);
-    recordEdit(line, formatTaskLine({ ...task, blockId }));
+    recordTaskEdit(line, { blockId });
     pass.outcome.created += 1;
   }
 

@@ -16,7 +16,6 @@ import {
   SyncPass,
   collectedEdits,
   createSyncPass,
-  flushPendingAppends,
   recordRemoval,
 } from './sync-pass';
 import { ParsedTaskLine, parseTaskLine } from './task-line';
@@ -115,7 +114,6 @@ export class TaskSync {
     try {
       await this.syncEveryLine(pass);
       this.remoteChildSync.run(pass);
-      flushPendingAppends(pass);
     } finally {
       // Committed even when the work above threw: a line already given a block id would otherwise
       // never be written, and the next pass would try to create it again.

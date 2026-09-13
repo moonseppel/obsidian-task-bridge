@@ -1,15 +1,18 @@
-/** Replaces one line only if it still reads as it did when the pass started. */
-export interface LineEdit {
+import { EditableLines } from './editable-lines';
+
+/** A line as the pass read it; an edit guarded by it only acts while the note still reads that way. */
+export interface LineGuard {
   readonly lineNumber: number;
   readonly expected: string;
+}
+
+/** Replaces one line only if it still reads as it did when the pass started. */
+export interface LineEdit extends LineGuard {
   readonly replacement: string;
 }
 
 /** Drops one line outright, only if it still reads as it did when the pass started. */
-export interface LineRemoval {
-  readonly lineNumber: number;
-  readonly expected: string;
-}
+export type LineRemoval = LineGuard;
 
 /**
  * Guarded by the anchoring task line rather than the block's own content, since the block may not
@@ -23,71 +26,83 @@ export interface BlockEdit {
   readonly replacementLines: readonly string[];
 }
 
-/** The edits still valid against the note as it reads now, indexed by the original line each acts on. */
-interface ValidEdits {
-  readonly replacementByLine: ReadonlyMap<number, string>;
-  /** Removed outright, or covered by a block that replaces them. */
-  readonly droppedLines: ReadonlySet<number>;
-  readonly blockByAnchor: ReadonlyMap<number, BlockEdit>;
-}
+/**
+ * Moves lines rather than rewriting them, so it is applied once every line's own text is final and
+ * the lines carry those changes along. Guarded by the lines it anchors on, not the lines it moves.
+ */
+export type StructuralEdit =
+  | { readonly kind: 'insert-under'; readonly anchor: LineGuard; readonly lines: readonly string[] }
+  | { readonly kind: 'move-under'; readonly task: LineGuard; readonly newParent: LineGuard }
+  | { readonly kind: 'reindent'; readonly task: LineGuard; readonly indent: string };
 
 /** Everything one pass wants done to the note, applied together in the same atomic write. */
 export interface NoteEdits {
   readonly replacements: readonly LineEdit[];
   readonly removals: readonly LineRemoval[];
   readonly blocks: readonly BlockEdit[];
+  readonly structure: readonly StructuralEdit[];
   readonly appended: readonly string[];
 }
 
 export function hasAnyEdit(edits: NoteEdits): boolean {
-  return edits.replacements.length + edits.removals.length + edits.blocks.length + edits.appended.length > 0;
+  const { replacements, removals, blocks, structure, appended } = edits;
+
+  return replacements.length + removals.length + blocks.length + structure.length + appended.length > 0;
 }
 
 export function appendingOnly(lines: readonly string[]): NoteEdits {
-  return { replacements: [], removals: [], blocks: [], appended: lines };
-}
-
-export function applyNoteEdits(content: string, edits: NoteEdits): string {
-  return appendLines(applyStructuralEdits(content, edits), edits.appended);
+  return { replacements: [], removals: [], blocks: [], structure: [], appended: lines };
 }
 
 /**
- * Replacements, removals and block insertions are all resolved against the same original line
- * numbers in a single pass, rather than composed sequentially, since a block growing or shrinking
- * the note would otherwise shift every later edit's target out from under it.
+ * Every edit finds its lines by where the pass read them, not by where they sit now. Each line's own
+ * text is settled first and lines are moved after, so a moved line carries every change made to it
+ * and edits touching the same lines compose instead of the last one silently undoing the others.
  */
-function applyStructuralEdits(content: string, edits: NoteEdits): string {
-  const lines = content.split('\n');
-  const valid = validEditsFor(lines, edits);
-  const result: string[] = [];
+export function applyNoteEdits(content: string, edits: NoteEdits): string {
+  const original = content.split('\n');
+  const stillReads = (guard: LineGuard): boolean => original[guard.lineNumber] === guard.expected;
+  const lines = new EditableLines(original);
 
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    if (valid.droppedLines.has(lineNumber)) {
-      continue;
-    }
+  edits.replacements.filter(stillReads).forEach((edit) => lines.replace(edit.lineNumber, edit.replacement));
+  lines.removeAll(edits.removals.filter(stillReads).map((removal) => removal.lineNumber));
+  edits.blocks.filter((block) => stillReads(anchorOf(block))).forEach((block) => replaceBlock(lines, block));
+  edits.structure.filter((edit) => guardsOf(edit).every(stillReads)).forEach((edit) => applyStructure(lines, edit));
 
-    result.push(valid.replacementByLine.get(lineNumber) ?? lines[lineNumber]);
-    result.push(...(valid.blockByAnchor.get(lineNumber)?.replacementLines ?? []));
+  return appendLines(lines.texts().join('\n'), edits.appended);
+}
+
+function anchorOf(block: BlockEdit): LineGuard {
+  return { lineNumber: block.taskLineNumber, expected: block.expectedTaskLine };
+}
+
+function replaceBlock(lines: EditableLines, block: BlockEdit): void {
+  lines.removeAll(Array.from({ length: block.lineCount }, (_, offset) => block.startLine + offset));
+  lines.insertAfter(block.taskLineNumber, block.replacementLines);
+}
+
+function guardsOf(edit: StructuralEdit): readonly LineGuard[] {
+  switch (edit.kind) {
+    case 'insert-under':
+      return [edit.anchor];
+    case 'move-under':
+      return [edit.task, edit.newParent];
+    case 'reindent':
+      return [edit.task];
   }
-
-  return result.join('\n');
 }
 
-/** Only an edit whose guard line still reads as it did when the pass started is kept. */
-function validEditsFor(lines: readonly string[], edits: NoteEdits): ValidEdits {
-  const replacements = edits.replacements.filter((edit) => lines[edit.lineNumber] === edit.expected);
-  const removals = edits.removals.filter((removal) => lines[removal.lineNumber] === removal.expected);
-  const blocks = edits.blocks.filter((block) => lines[block.taskLineNumber] === block.expectedTaskLine);
-
-  return {
-    replacementByLine: new Map(replacements.map((edit): [number, string] => [edit.lineNumber, edit.replacement])),
-    droppedLines: new Set([...removals.map((removal) => removal.lineNumber), ...blocks.flatMap(spannedLineNumbers)]),
-    blockByAnchor: new Map(blocks.map((block): [number, BlockEdit] => [block.taskLineNumber, block])),
-  };
-}
-
-function spannedLineNumbers(block: BlockEdit): number[] {
-  return Array.from({ length: block.lineCount }, (_, offset) => block.startLine + offset);
+function applyStructure(lines: EditableLines, edit: StructuralEdit): void {
+  switch (edit.kind) {
+    case 'insert-under':
+      lines.insertUnder(edit.anchor.lineNumber, edit.lines);
+      return;
+    case 'move-under':
+      lines.moveUnder(edit.task.lineNumber, edit.newParent.lineNumber);
+      return;
+    case 'reindent':
+      lines.reindent(edit.task.lineNumber, edit.indent);
+  }
 }
 
 function appendLines(content: string, lines: readonly string[]): string {
