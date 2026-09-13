@@ -134,4 +134,32 @@ describe('TaskSync across multiple files', () => {
     expect(fileB.content).toBe('- [ ] Buy oat milk ^ots-a1');
     expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
   });
+
+  it('pulls a remote-only sub-task into the same file its linked parent lives in, not any other file in scope', async () => {
+    const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
+    const fileB = new FakeNote('- [ ] Parent ^ots-parent1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'ots-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
+    ]);
+    const sync = makeMultiFileSync(
+      new Map([
+        ['A.md', fileA],
+        ['B.md', fileB],
+      ]),
+      links,
+      {
+        listTasks: remoteTasks(
+          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+          { id: 'other-id', title: 'Unrelated', embeddedBlockId: 'ots-other' },
+          { id: 'child-task', title: 'Child', parentId: 'parent-task' },
+        ),
+        listProjects: projectExists,
+      },
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
+    expect(fileB.content).toMatch(/^- \[ \] Parent \^ots-parent1\n\t- \[ \] Child \^ots-[a-z0-9]{8}$/);
+    expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
+  });
 });

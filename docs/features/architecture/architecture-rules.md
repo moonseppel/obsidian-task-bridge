@@ -33,3 +33,4 @@
 31. An ignore pattern applies only to folder or vault scope, never to an explicitly selected note.
 32. A tag filter composes with any scope — note, folder, or vault — rather than being exclusive to one.
 33. A block id missing from scope is checked vault-wide (ignored files excluded) before being treated as deleted: not found anywhere is deleted as usual; found elsewhere is out of scope, flagged and removed on the same timing as an orphan.
+34. Pulling a reparent to a new parent looks that parent up only in the file already being processed; across files it is not yet relocated, so it retries every pass rather than acting on stale information.
