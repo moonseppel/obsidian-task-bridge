@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings } from './settings';
 import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderProject } from './services/task-provider';
-import { isRecord } from './utils/type-guards';
+import { isNonEmptyString, isRecord } from './utils/type-guards';
 
 /**
  * Reads what was written to `data.json` last time. Every value is checked rather than trusted,
@@ -58,8 +58,7 @@ export function readStoredField(stored: unknown, field: string): unknown {
 function isProviderProject(value: unknown): value is ProviderProject {
   return (
     isRecord(value) &&
-    typeof value.id === 'string' &&
-    value.id.length > 0 &&
+    isNonEmptyString(value.id) &&
     typeof value.name === 'string' &&
     typeof value.isDefault === 'boolean'
   );

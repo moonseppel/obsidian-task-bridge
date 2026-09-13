@@ -1,4 +1,4 @@
-import { isRecord } from '../../utils/type-guards';
+import { isNonEmptyString, isRecord } from '../../utils/type-guards';
 
 /** A provider task carrying this plugin's block id but no live link back to it. */
 export interface OrphanRecord {
@@ -75,8 +75,4 @@ function isOrphanRecord(value: unknown): value is OrphanRecord {
     typeof value.firstSeenOrphanedAt === 'number' &&
     (value.removalDueAt === undefined || typeof value.removalDueAt === 'number')
   );
-}
-
-function isNonEmptyString(value: unknown): boolean {
-  return typeof value === 'string' && value.length > 0;
 }

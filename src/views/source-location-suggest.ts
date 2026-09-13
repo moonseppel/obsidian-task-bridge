@@ -1,7 +1,5 @@
 import { AbstractInputSuggest, App, TFile, TFolder } from 'obsidian';
-import { filterByQuery } from '../utils/query-filter';
-
-const MAX_SUGGESTIONS = 50;
+import { matchingSuggestions } from './suggestions';
 
 export type SourceLocation = TFile | TFolder;
 export type SourceLocationSelectHandler = (relativePath: string) => void;
@@ -16,18 +14,9 @@ export class SourceLocationSuggest extends AbstractInputSuggest<SourceLocation> 
   }
 
   protected getSuggestions(query: string): SourceLocation[] {
-    const locations: SourceLocation[] = [
-      ...this.app.vault.getMarkdownFiles(),
-      ...this.app.vault.getAllFolders(false),
-    ];
-    const byPath = new Map<string, SourceLocation>(
-      locations.map((location): [string, SourceLocation] => [location.path, location]),
-    );
-    const selectedPaths = filterByQuery([...byPath.keys()], query, MAX_SUGGESTIONS);
+    const locations: SourceLocation[] = [...this.app.vault.getMarkdownFiles(), ...this.app.vault.getAllFolders(false)];
 
-    return selectedPaths
-      .map((path) => byPath.get(path))
-      .filter((location): location is SourceLocation => location !== undefined);
+    return matchingSuggestions(locations, (location) => location.path, query);
   }
 
   renderSuggestion(location: SourceLocation, el: HTMLElement): void {

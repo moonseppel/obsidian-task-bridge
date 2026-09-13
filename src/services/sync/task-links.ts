@@ -1,4 +1,4 @@
-import { isRecord } from '../../utils/type-guards';
+import { isNonEmptyString, isRecord, isStringArray } from '../../utils/type-guards';
 
 /**
  * Ties one Obsidian block id to one provider task, plus what both sides last agreed on for each
@@ -79,12 +79,4 @@ function isTaskLink(value: unknown): value is TaskLink {
     (value.lastSyncedParentBlockId === undefined || isNonEmptyString(value.lastSyncedParentBlockId)) &&
     (value.lastKnownFilePath === undefined || isNonEmptyString(value.lastKnownFilePath))
   );
-}
-
-function isNonEmptyString(value: unknown): boolean {
-  return typeof value === 'string' && value.length > 0;
-}
-
-function isStringArray(value: unknown): boolean {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }

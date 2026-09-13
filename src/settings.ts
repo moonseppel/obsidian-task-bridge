@@ -285,14 +285,12 @@ export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
       .setName(text.PROJECT_DISPLAY_NAME)
       .setDesc(text.projectDescription(this.defaultProjectName))
       .addSearch((search) => {
-        new ProjectSuggest(
-          this.app,
-          search.inputEl,
-          () => this.plugin.knownProjects,
-          (project) => {
+        new ProjectSuggest(this.app, search.inputEl, {
+          readProjects: () => this.plugin.knownProjects,
+          onSelect: (project) => {
             void this.handleProjectSelection(project);
           },
-        );
+        });
         // No `onChange`: picking a suggestion is the only way to change this, so it can
         // never be left empty and a sync can never stall for want of a project.
         search

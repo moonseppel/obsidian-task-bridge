@@ -1,10 +1,8 @@
-/** Lowercase only: Obsidian treats block ids case-insensitively, and capitals break its links. */
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+import { RandomSource, randomToken } from '../../utils/random-token';
+
 const PREFIX = 'ots-';
 const LENGTH = 8;
 const MAX_ATTEMPTS = 100;
-
-export type RandomSource = () => number;
 
 /**
  * `deviceTag`, when given, is baked into every id minted here, making the same id vanishingly
@@ -17,7 +15,7 @@ export function createBlockId(
   deviceTag = '',
 ): string {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const candidate = `${PREFIX}${randomSuffix(random)}${tagSuffix(deviceTag)}`;
+    const candidate = `${PREFIX}${randomToken(LENGTH, random)}${tagSuffix(deviceTag)}`;
 
     if (!taken.has(candidate)) {
       return candidate;
@@ -29,14 +27,4 @@ export function createBlockId(
 
 function tagSuffix(deviceTag: string): string {
   return deviceTag.length === 0 ? '' : `-${deviceTag}`;
-}
-
-function randomSuffix(random: RandomSource): string {
-  let suffix = '';
-
-  for (let position = 0; position < LENGTH; position += 1) {
-    suffix += ALPHABET[Math.floor(random() * ALPHABET.length) % ALPHABET.length];
-  }
-
-  return suffix;
 }

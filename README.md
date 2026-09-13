@@ -274,6 +274,7 @@ src/
       block-id.ts             # Mints the block ids that anchor tasks
       device-tag.ts           # The per-device tag baked into freshly minted block ids
       task-links.ts           # Block id to provider task id mapping, with its stored form
+      task-index.ts           # Looks up a project's tasks by id or by embedded block id
       task-description.ts     # Reads/renders a task's description block; the provider description shape
       tag-set.ts              # Canonical, order-independent comparison of a task's tags
       orphan-tracker.ts       # Tracks how long a task has been orphaned, and its removal date
@@ -299,6 +300,7 @@ src/
     source-location-suggest.ts # Picker for the source note or folder
     tag-suggest.ts             # Picker for the source tag, offering tags already in the vault
     project-suggest.ts         # Picker for the Todoist project
+    suggestions.ts             # Matching and capping shared by the pickers
     rendered-anchor.ts         # Hides sync anchors in reading view
     settings-text.ts           # Wording for the settings tab
   utils/
@@ -306,6 +308,7 @@ src/
     external-text.ts          # Makes text from outside the plugin safe to display or store
     ignore-pattern.ts         # The wildcard matcher behind ignore file patterns
     query-filter.ts           # Case-insensitive filtering shared by the pickers
+    random-token.ts           # Random lowercase tokens for block ids and device tags
     sync-interval.ts          # Bounds and parsing for the poll interval
     connection-status-text.ts # Describes a connection status in words
     type-guards.ts            # Narrowing helpers for untrusted values

@@ -1,8 +1,7 @@
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+import { RandomSource, randomToken } from '../../utils/random-token';
+
 const LENGTH = 6;
 const STORAGE_KEY = 'obsidian-task-sync-device-tag';
-
-export type RandomSource = () => number;
 
 /**
  * Kept in the given storage, never in `data.json` — that file is exactly what a vault-sync tool
@@ -16,18 +15,8 @@ export function getDeviceTag(storage: Storage, random: RandomSource = Math.rando
     return existing;
   }
 
-  const generated = randomTag(random);
+  const generated = randomToken(LENGTH, random);
   storage.setItem(STORAGE_KEY, generated);
 
   return generated;
-}
-
-function randomTag(random: RandomSource): string {
-  let tag = '';
-
-  for (let position = 0; position < LENGTH; position += 1) {
-    tag += ALPHABET[Math.floor(random() * ALPHABET.length) % ALPHABET.length];
-  }
-
-  return tag;
 }

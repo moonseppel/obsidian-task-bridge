@@ -4,6 +4,7 @@ import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
 import { SourceNote } from './source-note';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
+import { indexTasksById } from './task-index';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
 
@@ -48,7 +49,7 @@ export class MissingLineSync {
 
   async run(context: MissingLineRunContext): Promise<SyncOutcome> {
     const outcome = emptyOutcome(context.project.resolution);
-    const remoteTasks = byTaskId(context.project.tasks);
+    const remoteTasks = indexTasksById(context.project.tasks);
 
     for (const link of [...this.links.values()]) {
       if (context.takenBlockIds.has(link.blockId)) {
@@ -173,10 +174,6 @@ export class MissingLineSync {
     this.links.delete(link.blockId);
     outcome.removedTask += 1;
   }
-}
-
-function byTaskId(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
-  return new Map(tasks.map((task): [string, ProviderTask] => [task.id, task]));
 }
 
 /** Unambiguous only when scope resolves to exactly one file. */

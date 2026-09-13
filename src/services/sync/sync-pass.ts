@@ -2,6 +2,7 @@ import { ProviderTask } from '../task-provider';
 import { BlockEdit, LineEdit, LineRemoval, NoteEdits } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
+import { indexTasksByEmbeddedBlockId, indexTasksById } from './task-index';
 import { ParsedTaskLine, collectBlockIds, parseTaskLine } from './task-line';
 import { nearestAncestorLineNumbers, subtreeSpan } from './task-tree';
 
@@ -50,8 +51,8 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): Sy
   return {
     lines,
     projectId: project.id,
-    remoteTasks: byTaskId(project.tasks),
-    remoteTasksByBlockId: byEmbeddedBlockId(project.tasks),
+    remoteTasks: indexTasksById(project.tasks),
+    remoteTasksByBlockId: indexTasksByEmbeddedBlockId(project.tasks),
     takenBlockIds: collectBlockIds(lines),
     localModifiedAt: note.modifiedAt,
     parentLineNumbers: nearestAncestorLineNumbers(lines),
@@ -136,22 +137,6 @@ function lineNumberByBlockId(lines: readonly string[]): ReadonlyMap<string, numb
 
     if (blockId !== null && blockId !== undefined) {
       found.set(blockId, lineNumber);
-    }
-  }
-
-  return found;
-}
-
-function byTaskId(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
-  return new Map(tasks.map((task): [string, ProviderTask] => [task.id, task]));
-}
-
-function byEmbeddedBlockId(tasks: readonly ProviderTask[]): Map<string, ProviderTask> {
-  const found = new Map<string, ProviderTask>();
-
-  for (const task of tasks) {
-    if (task.embeddedBlockId !== undefined) {
-      found.set(task.embeddedBlockId, task);
     }
   }
 

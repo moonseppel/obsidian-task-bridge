@@ -1,7 +1,5 @@
 import { AbstractInputSuggest, App } from 'obsidian';
-import { filterByQuery } from '../utils/query-filter';
-
-const MAX_SUGGESTIONS = 50;
+import { matchingSuggestions } from './suggestions';
 
 export type TagSelectHandler = (tag: string) => void;
 
@@ -15,7 +13,7 @@ export class TagSuggest extends AbstractInputSuggest<string> {
   }
 
   protected getSuggestions(query: string): string[] {
-    return filterByQuery([...this.vaultTags()], query, MAX_SUGGESTIONS);
+    return matchingSuggestions([...this.vaultTags()], (tag) => tag, query);
   }
 
   renderSuggestion(tag: string, el: HTMLElement): void {
