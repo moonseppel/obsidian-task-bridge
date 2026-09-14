@@ -1,7 +1,7 @@
 import { RandomSource, randomToken } from '../../utils/random-token';
 
 const LENGTH = 6;
-const STORAGE_KEY = 'obsidian-task-sync-device-tag';
+const STORAGE_KEY = 'task-bridge-device-tag';
 
 /**
  * Kept in the given storage, never in `data.json` — that file is exactly what a vault-sync tool

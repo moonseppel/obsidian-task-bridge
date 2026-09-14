@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-task-sync",
+  "name": "task-bridge",
   "version": "0.9.0",
   "private": true,
   "description": "Obsidian plugin for syncing tasks between Obsidian notes and a cloud task management platform",

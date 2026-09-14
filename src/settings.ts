@@ -1,11 +1,11 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type ObsidianTaskSyncPlugin from './main';
+import type TaskBridgePlugin from './main';
 import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderSettings } from './views/provider-settings';
 import * as text from './views/settings-text';
 import { SourceScopeSettings } from './views/source-scope-settings';
 
-export interface ObsidianTaskSyncSettings {
+export interface TaskBridgeSettings {
   relativeTaskSourcePath: string;
   syncWholeVault: boolean;
   sourceTag: string;
@@ -18,7 +18,7 @@ export interface ObsidianTaskSyncSettings {
   lastCredentialReminderAt: number;
 }
 
-export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
+export const DEFAULT_SETTINGS: TaskBridgeSettings = {
   relativeTaskSourcePath: '',
   syncWholeVault: false,
   sourceTag: '',
@@ -30,13 +30,13 @@ export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
   lastCredentialReminderAt: 0,
 };
 
-export class ObsidianTaskSyncSettingTab extends PluginSettingTab {
-  private readonly plugin: ObsidianTaskSyncPlugin;
+export class TaskBridgeSettingTab extends PluginSettingTab {
+  private readonly plugin: TaskBridgePlugin;
   private readonly sourceScope: SourceScopeSettings;
   private readonly providerSettings: ProviderSettings;
   private isOpen = false;
 
-  constructor(app: App, plugin: ObsidianTaskSyncPlugin) {
+  constructor(app: App, plugin: TaskBridgePlugin) {
     super(app, plugin);
     this.plugin = plugin;
     this.sourceScope = new SourceScopeSettings(app, plugin, () => this.display());

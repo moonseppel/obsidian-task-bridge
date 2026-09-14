@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 
-const PREFIX = 'Obsidian Task Sync: ';
+const PREFIX = 'TaskBridge: ';
 const UNTIL_DISMISSED = 0;
 
 /** For something the user has to act on, so it stays up until dismissed. */

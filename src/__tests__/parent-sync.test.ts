@@ -165,7 +165,7 @@ describe('TaskSync parent field sync', () => {
           title: 'B',
           embeddedBlockId: 'ots-b',
           parentId: 'task-c',
-          description: "B's own description\n\nObsidian Task Sync ID: ^ots-b",
+          description: "B's own description\n\nTaskBridge ID: ^ots-b",
         },
         { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'ots-g', parentId: 'task-b' },
       ),

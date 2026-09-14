@@ -2,7 +2,7 @@ import { Logger } from '../../utils/logger';
 import { TaskProviderError, failureReasonOf, isTransientFailure } from '../task-provider-error';
 import { TaskLinkStore } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /**
  * Reports a note's sync failure without stopping the run it happened in: the reason is logged once

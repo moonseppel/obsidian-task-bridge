@@ -8,14 +8,14 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncPlugin debug mode', () => {
+describe('TaskBridgePlugin debug mode', () => {
   function bodyClasses(): { hasClass(cls: string): boolean } {
     return document.body as unknown as { hasClass(cls: string): boolean };
   }
 
   afterEach(() => {
     setDebugLogging(false);
-    document.body.removeClass('obsidian-task-sync-debug');
+    document.body.removeClass('task-bridge-debug');
   });
 
   it.each([[false], [true]])('mirrors debug mode %s into debug logging', (debugMode) => {
@@ -33,7 +33,7 @@ describe('ObsidianTaskSyncPlugin debug mode', () => {
 
     plugin.applyDebugMode();
 
-    expect(bodyClasses().hasClass('obsidian-task-sync-debug')).toBe(debugMode);
+    expect(bodyClasses().hasClass('task-bridge-debug')).toBe(debugMode);
   });
 
   it('remembers the stored choice', async () => {
@@ -61,6 +61,6 @@ describe('ObsidianTaskSyncPlugin debug mode', () => {
 
     await plugin.onunload();
 
-    expect(bodyClasses().hasClass('obsidian-task-sync-debug')).toBe(false);
+    expect(bodyClasses().hasClass('task-bridge-debug')).toBe(false);
   });
 });

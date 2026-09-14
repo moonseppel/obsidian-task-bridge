@@ -99,7 +99,7 @@ describe('TaskSync tag sync', () => {
         {
           title: 'Renew passport',
           projectId: PROJECT,
-          description: `Obsidian Task Sync ID: ^${blockId}`,
+          description: `TaskBridge ID: ^${blockId}`,
           labels: ['errands', 'urgent'],
         },
       ]);

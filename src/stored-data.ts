@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings } from './settings';
+import { DEFAULT_SETTINGS, TaskBridgeSettings } from './settings';
 import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderProject } from './services/task-provider';
 import { isNonEmptyString, isRecord } from './utils/type-guards';
@@ -9,7 +9,7 @@ import { warnAboutUnreadableEntries } from './utils/unreadable-entries';
  * because a file edited by hand, restored from a backup or half-written by a vault sync would
  * otherwise reach the plugin as the wrong type.
  */
-export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
+export function toSettings(stored: unknown): TaskBridgeSettings {
   const record = isRecord(stored) ? stored : {};
 
   return {

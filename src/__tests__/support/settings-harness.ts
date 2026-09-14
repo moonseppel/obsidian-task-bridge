@@ -1,7 +1,7 @@
 import { App, Setting, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../../settings';
+import { DEFAULT_SETTINGS, TaskBridgeSettingTab } from '../../settings';
 import { TodoistCredentials } from '../../services/todoist/todoist-credentials';
-import type ObsidianTaskSyncPlugin from '../../main';
+import type TaskBridgePlugin from '../../main';
 import { ProviderConnection } from '../../services/provider-connection';
 import { stubProvider } from './stub-provider';
 import { ProviderAccount, ProviderProject } from '../../services/task-provider';
@@ -20,8 +20,8 @@ export function tfile(path: string): TFile {
 }
 
 export interface TabContext {
-  tab: ObsidianTaskSyncSettingTab;
-  plugin: ObsidianTaskSyncPlugin;
+  tab: TaskBridgeSettingTab;
+  plugin: TaskBridgePlugin;
   saveSettings: jest.Mock;
   connectToTaskProvider: jest.Mock;
   restartSyncSchedule: jest.Mock;
@@ -72,10 +72,10 @@ export function makeTab(
     ensureProjectSelected,
     knownProjects,
     credentials,
-  } as unknown as ObsidianTaskSyncPlugin;
+  } as unknown as TaskBridgePlugin;
 
   return {
-    tab: new ObsidianTaskSyncSettingTab(app, plugin),
+    tab: new TaskBridgeSettingTab(app, plugin),
     plugin,
     saveSettings,
     connectToTaskProvider,
@@ -119,59 +119,59 @@ interface ProviderInternals {
   handleProjectSelection(project: { id: string; name: string }): Promise<void>;
 }
 
-function sourceScopeOf(tab: ObsidianTaskSyncSettingTab): SourceScopeInternals {
+function sourceScopeOf(tab: TaskBridgeSettingTab): SourceScopeInternals {
   return (tab as unknown as { sourceScope: SourceScopeInternals }).sourceScope;
 }
 
-function providerSettingsOf(tab: ObsidianTaskSyncSettingTab): ProviderInternals {
+function providerSettingsOf(tab: TaskBridgeSettingTab): ProviderInternals {
   return (tab as unknown as { providerSettings: ProviderInternals }).providerSettings;
 }
 
-export function locationDesc(tab: ObsidianTaskSyncSettingTab): string {
+export function locationDesc(tab: TaskBridgeSettingTab): string {
   return sourceScopeOf(tab).locationSetting.description;
 }
 
-export function isSourceLocationMissing(tab: ObsidianTaskSyncSettingTab): boolean {
+export function isSourceLocationMissing(tab: TaskBridgeSettingTab): boolean {
   return sourceScopeOf(tab).isSourceLocationMissing();
 }
 
-export function settingRow(tab: ObsidianTaskSyncSettingTab): TestEl {
+export function settingRow(tab: TaskBridgeSettingTab): TestEl {
   return sourceScopeOf(tab).locationSetting.settingEl;
 }
 
-export function locationInput(tab: ObsidianTaskSyncSettingTab): TestEl {
+export function locationInput(tab: TaskBridgeSettingTab): TestEl {
   return sourceScopeOf(tab).locationInputEl;
 }
 
-export function ignoreDesc(tab: ObsidianTaskSyncSettingTab): string {
+export function ignoreDesc(tab: TaskBridgeSettingTab): string {
   return sourceScopeOf(tab).ignoreSetting.description;
 }
 
-export function ignoreRow(tab: ObsidianTaskSyncSettingTab): TestEl {
+export function ignoreRow(tab: TaskBridgeSettingTab): TestEl {
   return sourceScopeOf(tab).ignoreSetting.settingEl;
 }
 
-export function saveIgnorePatterns(tab: ObsidianTaskSyncSettingTab, value: string): Promise<void> {
+export function saveIgnorePatterns(tab: TaskBridgeSettingTab, value: string): Promise<void> {
   return sourceScopeOf(tab).saveIgnorePatterns(value);
 }
 
-export function connectionDesc(tab: ObsidianTaskSyncSettingTab): string {
+export function connectionDesc(tab: TaskBridgeSettingTab): string {
   return providerSettingsOf(tab).connectionSetting.description;
 }
 
-export function connectionRow(tab: ObsidianTaskSyncSettingTab): TestEl {
+export function connectionRow(tab: TaskBridgeSettingTab): TestEl {
   return providerSettingsOf(tab).connectionSetting.settingEl;
 }
 
-export function reconnect(tab: ObsidianTaskSyncSettingTab): Promise<void> {
+export function reconnect(tab: TaskBridgeSettingTab): Promise<void> {
   return providerSettingsOf(tab).reconnect();
 }
 
-export function testConnection(tab: ObsidianTaskSyncSettingTab): Promise<void> {
+export function testConnection(tab: TaskBridgeSettingTab): Promise<void> {
   return providerSettingsOf(tab).handleTestConnection();
 }
 
-export function selectProject(tab: ObsidianTaskSyncSettingTab, project: { id: string; name: string }): Promise<void> {
+export function selectProject(tab: TaskBridgeSettingTab, project: { id: string; name: string }): Promise<void> {
   return providerSettingsOf(tab).handleProjectSelection(project);
 }
 

@@ -1,21 +1,21 @@
 import { App, Setting } from 'obsidian';
-import type ObsidianTaskSyncPlugin from '../main';
+import type TaskBridgePlugin from '../main';
 import { ConnectionStatus } from '../services/provider-connection';
 import { ProviderProject } from '../services/task-provider';
 import { describeConnectionStatus } from '../utils/connection-status-text';
 import { ProjectSuggest } from './project-suggest';
 import * as text from './settings-text';
 
-const CONNECTION_FAILED_CLASS = 'obsidian-task-sync-connection-failed';
+const CONNECTION_FAILED_CLASS = 'task-bridge-connection-failed';
 
 /** The rows for the task provider: its own credentials, the connection check, and the project tasks go to. */
 export class ProviderSettings {
   private readonly app: App;
-  private readonly plugin: ObsidianTaskSyncPlugin;
+  private readonly plugin: TaskBridgePlugin;
   private readonly redraw: () => void;
   private connectionSetting?: Setting;
 
-  constructor(app: App, plugin: ObsidianTaskSyncPlugin, redraw: () => void) {
+  constructor(app: App, plugin: TaskBridgePlugin, redraw: () => void) {
     this.app = app;
     this.plugin = plugin;
     this.redraw = redraw;

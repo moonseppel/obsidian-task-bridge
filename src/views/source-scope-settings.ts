@@ -1,24 +1,24 @@
 import { App, SearchComponent, Setting, TFile, TFolder, normalizePath } from 'obsidian';
-import type ObsidianTaskSyncPlugin from '../main';
+import type TaskBridgePlugin from '../main';
 import { matchesIgnorePattern } from '../utils/ignore-pattern';
 import * as text from './settings-text';
 import { SourceLocationSuggest } from './source-location-suggest';
 import { TagSuggest } from './tag-suggest';
 
-const MISSING_ROW_CLASS = 'obsidian-task-sync-source-missing';
-const INVALID_INPUT_CLASS = 'obsidian-task-sync-source-invalid';
-const IGNORE_INEFFECTIVE_CLASS = 'obsidian-task-sync-ignore-ineffective';
+const MISSING_ROW_CLASS = 'task-bridge-source-missing';
+const INVALID_INPUT_CLASS = 'task-bridge-source-invalid';
+const IGNORE_INEFFECTIVE_CLASS = 'task-bridge-ignore-ineffective';
 
 /** The rows deciding which tasks are synced: the whole vault or a note or folder, a tag, and ignore patterns. */
 export class SourceScopeSettings {
   private readonly app: App;
-  private readonly plugin: ObsidianTaskSyncPlugin;
+  private readonly plugin: TaskBridgePlugin;
   private readonly redraw: () => void;
   private locationSetting?: Setting;
   private locationInputEl?: HTMLInputElement;
   private ignoreSetting?: Setting;
 
-  constructor(app: App, plugin: ObsidianTaskSyncPlugin, redraw: () => void) {
+  constructor(app: App, plugin: TaskBridgePlugin, redraw: () => void) {
     this.app = app;
     this.plugin = plugin;
     this.redraw = redraw;

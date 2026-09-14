@@ -27,7 +27,7 @@ const PAGE_SIZE = 200;
 /** Guards against a server that keeps handing back a cursor; 200 pages is far past any real vault. */
 const MAX_PAGES = 200;
 
-const logger = new Logger('ObsidianTaskSync:Todoist');
+const logger = new Logger('TaskBridge:Todoist');
 
 export type TodoistTokenReader = () => string;
 

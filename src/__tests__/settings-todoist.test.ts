@@ -1,6 +1,6 @@
 import { ButtonComponent, SecretComponent, Setting } from 'obsidian';
 import { TaskProviderError } from '../services/task-provider-error';
-import { ObsidianTaskSyncSettingTab } from '../settings';
+import { TaskBridgeSettingTab } from '../settings';
 import {
   makeTab,
   flushPendingWork,
@@ -14,10 +14,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncSettingTab Todoist section', () => {
+describe('TaskBridgeSettingTab Todoist section', () => {
   const ACCOUNT = { id: 'user-1', displayName: 'Jan Pralle' };
 
-  function changeTokenSecret(tab: ObsidianTaskSyncSettingTab, secretName: string): Promise<void> {
+  function changeTokenSecret(tab: TaskBridgeSettingTab, secretName: string): Promise<void> {
     const onChange = jest.spyOn(SecretComponent.prototype, 'onChange');
     tab.display();
     onChange.mock.calls[0][0](secretName);
@@ -108,7 +108,7 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
     await connection.connect();
     tab.display();
 
-    expect(connectionRow(tab).hasClass('obsidian-task-sync-connection-failed')).toBe(true);
+    expect(connectionRow(tab).hasClass('task-bridge-connection-failed')).toBe(true);
   });
 
   it('does not mark the connection row while no token is configured', async () => {
@@ -117,7 +117,7 @@ describe('ObsidianTaskSyncSettingTab Todoist section', () => {
     await connection.connect();
     tab.display();
 
-    expect(connectionRow(tab).hasClass('obsidian-task-sync-connection-failed')).toBe(false);
+    expect(connectionRow(tab).hasClass('task-bridge-connection-failed')).toBe(false);
   });
 
   it('stores the secret chosen for the API token', async () => {

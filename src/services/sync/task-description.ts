@@ -1,7 +1,7 @@
 import { parseTaskLine } from './task-line';
 
 /** Labelled so the caret-prefixed id means something to a user reading the task in the provider. */
-const ID_LABEL = 'Obsidian Task Sync ID: ';
+const ID_LABEL = 'TaskBridge ID: ';
 
 export interface DescriptionBlock {
   /** Always the line after the task line, even when lineCount is 0 and no block was found. */

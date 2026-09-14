@@ -10,7 +10,7 @@ import { indexTasksById } from './task-index';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore, linkIds } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /** The original marker (bullet vs. numbered, checked vs. not) is gone and cannot be restored. */
 const RESURRECTED_LINE_PREFIX = '- ';

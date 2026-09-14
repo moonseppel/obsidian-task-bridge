@@ -6,7 +6,7 @@ import { leadingWhitespace } from './task-description';
 import { formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /** One file's pass, every task already pulled in, and the link (if any) each one can reuse. */
 interface ChildPull {

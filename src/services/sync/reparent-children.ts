@@ -2,7 +2,7 @@ import { Logger } from '../../utils/logger';
 import { TaskProvider } from '../task-provider';
 import { ProjectTasks } from './project-resolver';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /**
  * Removing a task cascades to its descendants on the provider side (a discovered Todoist

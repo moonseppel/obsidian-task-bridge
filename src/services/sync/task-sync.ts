@@ -25,7 +25,7 @@ import {
 import { ParsedTaskLine, parseTaskLine } from './task-line';
 import { TaskLinkStore, linkIds } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /** A vault-sync tool can deliver `data.json` behind the note, so neither an unrecognized block id
  * nor a vanished line is acted on until it has looked that way for this long. */

@@ -1,5 +1,5 @@
 import * as obsidian from 'obsidian';
-import ObsidianTaskSyncPlugin from '../main';
+import TaskBridgePlugin from '../main';
 import { TaskProviderError } from '../services/task-provider-error';
 import {
   PluginContext,
@@ -16,7 +16,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncPlugin task sync', () => {
+describe('TaskBridgePlugin task sync', () => {
   function syncablePlugin(): PluginContext {
     const context = makePlugin(() => Promise.resolve({ id: 'u1', displayName: 'Jan' }));
     context.plugin.settings = settingsWith({
@@ -27,7 +27,7 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
     return context;
   }
 
-  function taskSyncOf(plugin: ObsidianTaskSyncPlugin): { run: jest.Mock } {
+  function taskSyncOf(plugin: TaskBridgePlugin): { run: jest.Mock } {
     const run = jest.fn().mockResolvedValue({
       created: 0,
       pushed: 0,
@@ -252,12 +252,12 @@ describe('ObsidianTaskSyncPlugin task sync', () => {
   });
 });
 
-describe('ObsidianTaskSyncPlugin edits made while syncing', () => {
+describe('TaskBridgePlugin edits made while syncing', () => {
   function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
   }
 
-  function pausedSync(plugin: ObsidianTaskSyncPlugin): { run: jest.Mock; finish: () => void } {
+  function pausedSync(plugin: TaskBridgePlugin): { run: jest.Mock; finish: () => void } {
     const run = jest.fn();
     let finish = (): void => undefined;
 

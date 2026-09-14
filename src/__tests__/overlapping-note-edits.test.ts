@@ -66,7 +66,7 @@ describe('TaskSync with several pulls landing on the same lines in one pass', ()
       remote({
         id: 'tp',
         title: 'P',
-        description: 'Remote note\n\nObsidian Task Sync ID: ^ots-p',
+        description: 'Remote note\n\nTaskBridge ID: ^ots-p',
         embeddedBlockId: 'ots-p',
       }),
       remote({ id: 'n1', title: 'Under P', parentId: 'tp' }),

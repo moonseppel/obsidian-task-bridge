@@ -1,7 +1,7 @@
 import { Logger } from '../../utils/logger';
 import { LineUnderSync } from './sync-pass';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 export type SyncedField = 'title' | 'completion' | 'description' | 'tags' | 'parent';
 

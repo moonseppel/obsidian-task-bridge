@@ -28,7 +28,7 @@ async function syncTouchingEveryField(): Promise<void> {
     listTasks: remoteTasks({
       id: TASK_ID,
       title: `${PRIVATE} renamed`,
-      description: [`${PRIVATE} remote description`, '', 'Obsidian Task Sync ID: ^ots-a1'].join('\n'),
+      description: [`${PRIVATE} remote description`, '', 'TaskBridge ID: ^ots-a1'].join('\n'),
       embeddedBlockId: 'ots-a1',
     }),
     listProjects: projectExists,

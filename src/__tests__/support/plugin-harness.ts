@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
-import ObsidianTaskSyncPlugin from '../../main';
-import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings } from '../../settings';
+import TaskBridgePlugin from '../../main';
+import { DEFAULT_SETTINGS, TaskBridgeSettings } from '../../settings';
 import { ProviderConnection } from '../../services/provider-connection';
 import { stubProvider } from './stub-provider';
 import { ProviderAccount } from '../../services/task-provider';
@@ -32,14 +32,14 @@ export function fakeVault(): FakeVault {
 }
 
 export interface PluginContext {
-  plugin: ObsidianTaskSyncPlugin;
+  plugin: TaskBridgePlugin;
   vault: FakeVault;
   loadData: jest.SpyInstance;
   saveData: jest.SpyInstance;
   addSettingTab: jest.SpyInstance;
 }
 
-export function settingsWith(overrides: Partial<ObsidianTaskSyncSettings> = {}): ObsidianTaskSyncSettings {
+export function settingsWith(overrides: Partial<TaskBridgeSettings> = {}): TaskBridgeSettings {
   return { ...DEFAULT_SETTINGS, ...overrides };
 }
 
@@ -51,15 +51,15 @@ export function makePlugin(connect = rejectingWith('not-configured')): PluginCon
   const vault = fakeVault();
   const app = { vault, workspace: {} } as unknown as App;
   const manifest = {
-    id: 'obsidian-task-sync',
-    name: 'Obsidian Task Sync',
+    id: 'task-bridge',
+    name: 'TaskBridge',
     version: '0.1.0',
     author: 'Test Author',
     minAppVersion: '0.15.0',
     description: 'Test plugin',
   };
   // Constructed rather than hand-assembled, so the plugin's own fields are wired as they are in use.
-  const plugin = new ObsidianTaskSyncPlugin(app, manifest);
+  const plugin = new TaskBridgePlugin(app, manifest);
   plugin.connection = new ProviderConnection(stubProvider({ connect }));
 
   const loadData = jest.spyOn(plugin, 'loadData').mockResolvedValue(null);

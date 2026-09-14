@@ -32,7 +32,7 @@ describe('TaskSync creation and title sync', () => {
     expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
     const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
     expect(created).toEqual([
-      { title: 'Buy milk', projectId: PROJECT, description: `Obsidian Task Sync ID: ^${blockId}`, labels: [] },
+      { title: 'Buy milk', projectId: PROJECT, description: `TaskBridge ID: ^${blockId}`, labels: [] },
     ]);
   });
 

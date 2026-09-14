@@ -1,5 +1,5 @@
 import { Platform, Plugin, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, ObsidianTaskSyncSettings, ObsidianTaskSyncSettingTab } from './settings';
+import { DEFAULT_SETTINGS, TaskBridgeSettings, TaskBridgeSettingTab } from './settings';
 import { ProjectSelection } from './services/project-selection';
 import { ProviderConnection } from './services/provider-connection';
 import { StatusReporter } from './services/status-reporter';
@@ -19,8 +19,8 @@ import { Logger, setDebugLogging } from './utils/logger';
 import { announce, inform } from './views/notices';
 import { hideRenderedAnchors } from './views/rendered-anchor';
 
-const logger = new Logger('ObsidianTaskSync');
-const DEBUG_BODY_CLASS = 'obsidian-task-sync-debug';
+const logger = new Logger('TaskBridge');
+const DEBUG_BODY_CLASS = 'task-bridge-debug';
 const LOAD_FAILED_NOTICE =
   'failed to load. Check the console for details, or contact the author with the console output.';
 const UNREADABLE_SETTINGS_LOG =
@@ -30,8 +30,8 @@ const UNREADABLE_SETTINGS_NOTICE =
   'the settings file could not be read and may be corrupted. ' +
   'Default settings have been restored. Check your plugin settings.';
 
-export default class ObsidianTaskSyncPlugin extends Plugin {
-  settings: ObsidianTaskSyncSettings = { ...DEFAULT_SETTINGS };
+export default class TaskBridgePlugin extends Plugin {
+  settings: TaskBridgeSettings = { ...DEFAULT_SETTINGS };
   taskLinks = new TaskLinkStore();
   orphanedTasks = new OrphanTracker();
   readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
@@ -90,7 +90,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
     try {
       await this.loadSettings();
       this.applyDebugMode();
-      this.addSettingTab(new ObsidianTaskSyncSettingTab(this.app, this));
+      this.addSettingTab(new TaskBridgeSettingTab(this.app, this));
       this.addCommand({ id: 'sync-now', name: 'Sync now', callback: () => void this.syncTasks() });
       this.registerMarkdownPostProcessor((element) => this.hideAnchorsUnlessDebugging(element));
       this.taskCollection.registerWatchers();
@@ -98,7 +98,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
       this.restartSyncSchedule();
       void this.connectAndSync();
 
-      logger.info('Obsidian Task Sync plugin loaded', { version: this.manifest.version, platform: platformName() });
+      logger.info('TaskBridge plugin loaded', { version: this.manifest.version, platform: platformName() });
     } catch (error) {
       logger.error('Plugin load failed', error);
       inform(LOAD_FAILED_NOTICE);
@@ -107,7 +107,7 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
 
   async onunload(): Promise<void> {
     document.body.removeClass(DEBUG_BODY_CLASS);
-    logger.info('Obsidian Task Sync plugin unloaded');
+    logger.info('TaskBridge plugin unloaded');
   }
 
   get knownProjects(): readonly ProviderProject[] {

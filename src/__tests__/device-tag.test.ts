@@ -22,7 +22,7 @@ describe('getDeviceTag', () => {
 
     const tag = getDeviceTag(storage);
 
-    expect(storage.getItem('obsidian-task-sync-device-tag')).toBe(tag);
+    expect(storage.getItem('task-bridge-device-tag')).toBe(tag);
   });
 
   it('reuses the stored tag rather than generating a new one on every call', () => {

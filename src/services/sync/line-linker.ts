@@ -6,7 +6,7 @@ import { canonicalTags } from './tag-set';
 import { composeRemoteDescription, readDescriptionBlock } from './task-description';
 import { TaskLinkStore, linkIds } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /**
  * Gives a line a link to a provider task: to one that already carries its block id, to a newly

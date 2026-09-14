@@ -1,5 +1,5 @@
 import * as obsidian from 'obsidian';
-import ObsidianTaskSyncPlugin from '../main';
+import TaskBridgePlugin from '../main';
 import { TaskProviderFailure } from '../services/task-provider-error';
 import { Logger } from '../utils/logger';
 import {
@@ -13,10 +13,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncPlugin', () => {
+describe('TaskBridgePlugin', () => {
   describe('Plugin structure', () => {
-    it('is an instance of ObsidianTaskSyncPlugin', () => {
-      expect(makePlugin().plugin).toBeInstanceOf(ObsidianTaskSyncPlugin);
+    it('is an instance of TaskBridgePlugin', () => {
+      expect(makePlugin().plugin).toBeInstanceOf(TaskBridgePlugin);
     });
 
     it('exposes an onload method', () => {
@@ -49,7 +49,7 @@ describe('ObsidianTaskSyncPlugin', () => {
 
       await plugin.onload();
 
-      expect(info).toHaveBeenCalledWith('Obsidian Task Sync plugin loaded', { version: '0.1.0', platform: 'desktop' });
+      expect(info).toHaveBeenCalledWith('TaskBridge plugin loaded', { version: '0.1.0', platform: 'desktop' });
     });
   });
 

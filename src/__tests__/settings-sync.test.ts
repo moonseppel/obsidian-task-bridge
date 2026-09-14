@@ -1,5 +1,5 @@
 import { SearchComponent, Setting, ToggleComponent } from 'obsidian';
-import { DEFAULT_SETTINGS, ObsidianTaskSyncSettingTab } from '../settings';
+import { DEFAULT_SETTINGS, TaskBridgeSettingTab } from '../settings';
 import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
 import { makeTab, selectProject, spySettingNames } from './support/settings-harness';
 
@@ -7,7 +7,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncSettingTab sync section', () => {
+describe('TaskBridgeSettingTab sync section', () => {
   it('offers a project row and a sync interval row', () => {
     const names = spySettingNames();
     makeTab('').tab.display();
@@ -107,11 +107,11 @@ describe('ObsidianTaskSyncSettingTab sync section', () => {
   });
 });
 
-function saveInterval(tab: ObsidianTaskSyncSettingTab, value: string): Promise<void> {
+function saveInterval(tab: TaskBridgeSettingTab, value: string): Promise<void> {
   return (tab as unknown as { saveSyncInterval(value: string): Promise<void> }).saveSyncInterval(value);
 }
 
-describe('ObsidianTaskSyncSettingTab debug section', () => {
+describe('TaskBridgeSettingTab debug section', () => {
   it('offers a debug mode row', () => {
     const names = spySettingNames();
     makeTab('').tab.display();

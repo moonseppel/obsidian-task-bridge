@@ -5,7 +5,7 @@ import { LinkedLine, localParentBlockId, recordMoveUnder, recordReindent } from 
 import { leadingWhitespace } from './task-description';
 import { TaskLinkStore, linkIds } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /**
  * Syncs which task a line is nested under, both directions, by the same recency rule every other

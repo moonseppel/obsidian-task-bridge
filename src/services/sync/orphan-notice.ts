@@ -12,7 +12,7 @@ const NOTICE_MARKER = 'It is now orphaned —';
 export function orphanNoticeDescription(blockId: string, removalDueAt: number, userText = ''): string {
   const removalDate = new Date(removalDueAt).toISOString().slice(0, 10);
   const notice =
-    'This task was created by Obsidian Task Sync. ' +
+    'This task was created by TaskBridge. ' +
     `${NOTICE_MARKER} no matching task exists in Obsidian anymore — and will be removed on ` +
     `${removalDate} unless it is re-linked before then.`;
 

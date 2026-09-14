@@ -1,6 +1,6 @@
 import { Logger } from './logger';
 
-const logger = new Logger('ObsidianTaskSync:Data');
+const logger = new Logger('TaskBridge:Data');
 
 /**
  * Warns when entries of a list read back from `data.json` had to be dropped. Nothing stored yet is

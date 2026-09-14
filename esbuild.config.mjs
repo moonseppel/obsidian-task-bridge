@@ -17,7 +17,7 @@ const copyToVaultPlugin = {
   name: 'copy-to-vault',
   setup(build) {
     build.onEnd(() => {
-      const vaultPluginDir = 'obsidian-test-vault/.obsidian/plugins/obsidian-task-sync';
+      const vaultPluginDir = 'obsidian-test-vault/.obsidian/plugins/task-bridge';
       
       // Ensure directory exists
       if (!fs.existsSync(vaultPluginDir)) {

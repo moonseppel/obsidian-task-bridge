@@ -1,6 +1,6 @@
 {
-  "id": "obsidian-task-sync",
-  "name": "Obsidian Task Sync",
+  "id": "task-bridge",
+  "name": "TaskBridge",
   "version": "0.9.0",
   "minAppVersion": "1.11.4",
   "description": "Sync Obsidian task checkboxes with a cloud task management platform",

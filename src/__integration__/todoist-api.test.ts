@@ -39,7 +39,7 @@ describeAgainstTodoist('Todoist API', () => {
  */
 describeAgainstTodoist('Todoist task round trip', () => {
   const client = clientUsing(apiToken);
-  const projectName = `obsidian-task-sync test ${Date.now()}`;
+  const projectName = `task-bridge test ${Date.now()}`;
   let project: TodoistProject;
 
   beforeAll(async () => {

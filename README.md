@@ -1,4 +1,4 @@
-# Obsidian Task Sync
+# TaskBridge
 
 An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and Todoist. If you
 are using tasks in Obsidian and want also to have the full feature set of a task manager or just
@@ -30,7 +30,7 @@ latest implemented feature.
 Requires Obsidian 1.11.4 or newer.
 
 1. In Todoist, go to **Settings → Integrations → Developer** and copy your API token.
-2. In Obsidian, open **Settings → Obsidian Task Sync**.
+2. In Obsidian, open **Settings → TaskBridge**.
 3. Next to **API token**, add the token as a secret and select it.
 
 The token is held in Obsidian's secret storage, never in the plugin's `data.json`. That storage is
@@ -190,8 +190,8 @@ of it.
 1. Clone this repository
 2. Run `npm install`
 3. Build with `npm run build`
-4. Copy `dist/main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/obsidian-task-sync/`
-5. Enable **Obsidian Task Sync** under **Settings → Community plugins**
+4. Copy `dist/main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/task-bridge/`
+5. Enable **TaskBridge** under **Settings → Community plugins**
 
 ## Development
 
@@ -309,7 +309,7 @@ already running will not see the change until it is restarted.
 
 It creates its own temporary project, does the whole task round trip inside it, and deletes that
 project when it finishes. Your existing projects and tasks are never read or modified, and nothing
-is left behind. If a run is killed part way through, a project named `obsidian-task-sync test <timestamp>`
+is left behind. If a run is killed part way through, a project named `task-bridge test <timestamp>`
 may survive and can be deleted by hand.
 
 ## Use of AI

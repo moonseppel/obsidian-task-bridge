@@ -90,7 +90,7 @@ describe('TaskSync pulling remote-only nested tasks', () => {
           id: 'parent-task',
           title: 'Parent',
           embeddedBlockId: 'ots-parent1',
-          description: 'Some description\n\nObsidian Task Sync ID: ^ots-parent1',
+          description: 'Some description\n\nTaskBridge ID: ^ots-parent1',
         },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
       ),

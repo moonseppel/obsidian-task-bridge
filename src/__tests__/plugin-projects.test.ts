@@ -17,7 +17,7 @@ async function pluginRemembering(projects: unknown[]): Promise<PluginContext> {
   return context;
 }
 
-describe('ObsidianTaskSyncPlugin remembered projects', () => {
+describe('TaskBridgePlugin remembered projects', () => {
   const PROJECT = { id: 'p1', name: 'Errands', isDefault: false };
 
   it('persists the project list alongside the settings', async () => {
@@ -74,7 +74,7 @@ describe('ObsidianTaskSyncPlugin remembered projects', () => {
   });
 });
 
-describe('ObsidianTaskSyncPlugin choosing a default project', () => {
+describe('TaskBridgePlugin choosing a default project', () => {
   const INBOX = { id: 'inbox-1', name: 'Inbox', isDefault: true };
 
   function pluginWithProjects(projects: unknown[]): PluginContext {

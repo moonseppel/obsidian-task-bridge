@@ -1,6 +1,6 @@
 import { Logger } from '../../utils/logger';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 const MILLISECONDS_PER_MINUTE = 60_000;
 /** Long enough that a burst of keystrokes settles into one sync. */
 const DEBOUNCE_MS = 10_000;

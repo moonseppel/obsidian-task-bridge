@@ -208,7 +208,7 @@ describe('TaskSync orphan lifecycle', () => {
 
     await sync.run(PROJECT);
 
-    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'Obsidian Task Sync ID: ^ots-a1');
+    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'TaskBridge ID: ^ots-a1');
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 

@@ -4,7 +4,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('ObsidianTaskSyncSettingTab project list', () => {
+describe('TaskBridgeSettingTab project list', () => {
   it('refreshes the remembered projects when the settings are opened', async () => {
     const { tab, refreshKnownProjects } = makeTab('');
 
@@ -61,7 +61,7 @@ describe('ObsidianTaskSyncSettingTab project list', () => {
   });
 });
 
-describe('ObsidianTaskSyncSettingTab choosing a default project', () => {
+describe('TaskBridgeSettingTab choosing a default project', () => {
   it('picks a project as soon as credentials arrive, without waiting for a restart', async () => {
     const { tab, ensureProjectSelected } = makeTab('');
 

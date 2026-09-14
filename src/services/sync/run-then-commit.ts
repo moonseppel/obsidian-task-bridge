@@ -1,6 +1,6 @@
 import { Logger } from '../../utils/logger';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /**
  * Like `try { work } finally { commit }`, except that a commit failing after the work already failed

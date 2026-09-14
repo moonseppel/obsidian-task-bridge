@@ -134,7 +134,7 @@ describe('TaskSync field sync', () => {
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
-      expect(updated).toEqual([[TASK_ID, 'Oat milk, not regular\n\nObsidian Task Sync ID: ^ots-a1']]);
+      expect(updated).toEqual([[TASK_ID, 'Oat milk, not regular\n\nTaskBridge ID: ^ots-a1']]);
       expect(links.get('ots-a1')?.lastSyncedDescription).toBe('Oat milk, not regular');
     });
 
@@ -147,7 +147,7 @@ describe('TaskSync field sync', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Oat milk, not regular\n\nObsidian Task Sync ID: ^ots-a1',
+          description: 'Oat milk, not regular\n\nTaskBridge ID: ^ots-a1',
         }),
       });
 
@@ -165,7 +165,7 @@ describe('TaskSync field sync', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'New notes\n\nObsidian Task Sync ID: ^ots-a1',
+          description: 'New notes\n\nTaskBridge ID: ^ots-a1',
         }),
       });
 
@@ -182,7 +182,7 @@ describe('TaskSync field sync', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Same notes\n\nObsidian Task Sync ID: ^ots-a1',
+          description: 'Same notes\n\nTaskBridge ID: ^ots-a1',
         }),
       });
 
@@ -201,7 +201,7 @@ describe('TaskSync field sync', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Remote notes\n\nObsidian Task Sync ID: ^ots-a1',
+          description: 'Remote notes\n\nTaskBridge ID: ^ots-a1',
         }),
         updateTaskDescription: (id, description) => {
           updated.push([id, description]);
@@ -210,7 +210,7 @@ describe('TaskSync field sync', () => {
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 1 });
-      expect(updated).toEqual([[TASK_ID, 'Local notes\n\nObsidian Task Sync ID: ^ots-a1']]);
+      expect(updated).toEqual([[TASK_ID, 'Local notes\n\nTaskBridge ID: ^ots-a1']]);
     });
 
     it('sends the description on creation when the line already has one', async () => {
@@ -233,7 +233,7 @@ describe('TaskSync field sync', () => {
         {
           title: 'Buy milk',
           projectId: PROJECT,
-          description: `Oat milk, not regular\n\nObsidian Task Sync ID: ^${blockId}`,
+          description: `Oat milk, not regular\n\nTaskBridge ID: ^${blockId}`,
           labels: [],
         },
       ]);

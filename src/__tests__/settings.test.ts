@@ -31,7 +31,7 @@ describe('DEFAULT_SETTINGS', () => {
   });
 });
 
-describe('ObsidianTaskSyncSettingTab source settings', () => {
+describe('TaskBridgeSettingTab source settings', () => {
   it('renders the whole-vault, note-or-folder, tag and ignore-pattern rows in order', () => {
     const names = spySettingNames();
     makeTab('').tab.display();
@@ -78,13 +78,13 @@ describe('ObsidianTaskSyncSettingTab source settings', () => {
   it('marks the setting row when the configured location is missing', () => {
     const { tab } = makeTab('missing/Note.md');
     tab.display();
-    expect(settingRow(tab).hasClass('obsidian-task-sync-source-missing')).toBe(true);
+    expect(settingRow(tab).hasClass('task-bridge-source-missing')).toBe(true);
   });
 
   it('does not mark the setting row when the configured note exists', () => {
     const { tab } = makeTab('Tasks.md', ['Tasks.md']);
     tab.display();
-    expect(settingRow(tab).hasClass('obsidian-task-sync-source-missing')).toBe(false);
+    expect(settingRow(tab).hasClass('task-bridge-source-missing')).toBe(false);
   });
 
   it('re-evaluates the warning when the field loses focus', () => {
@@ -105,7 +105,7 @@ describe('ObsidianTaskSyncSettingTab source settings', () => {
     existingPaths.push('Tasks.md');
     locationInput(tab).dispatch('blur');
 
-    expect(settingRow(tab).hasClass('obsidian-task-sync-source-missing')).toBe(false);
+    expect(settingRow(tab).hasClass('task-bridge-source-missing')).toBe(false);
   });
 
   it('updates the stored path when a new note is entered in the field', async () => {
@@ -129,7 +129,7 @@ describe('ObsidianTaskSyncSettingTab source settings', () => {
   });
 });
 
-describe('ObsidianTaskSyncSettingTab whole-vault toggle', () => {
+describe('TaskBridgeSettingTab whole-vault toggle', () => {
   it('shows the stored choice in the toggle', () => {
     const { tab, plugin } = makeTab('');
     plugin.settings.syncWholeVault = true;
@@ -171,7 +171,7 @@ describe('ObsidianTaskSyncSettingTab whole-vault toggle', () => {
   });
 });
 
-describe('ObsidianTaskSyncSettingTab tag setting', () => {
+describe('TaskBridgeSettingTab tag setting', () => {
   it('pre-fills the tag field with the configured tag', () => {
     const { tab, plugin } = makeTab('');
     plugin.settings.sourceTag = 'work';
@@ -194,7 +194,7 @@ describe('ObsidianTaskSyncSettingTab tag setting', () => {
   });
 });
 
-describe('ObsidianTaskSyncSettingTab ignore-pattern setting', () => {
+describe('TaskBridgeSettingTab ignore-pattern setting', () => {
   it('is always visible, even for a single-note location', () => {
     const names = spySettingNames();
     makeTab('Tasks.md', ['Tasks.md']).tab.display();
@@ -217,7 +217,7 @@ describe('ObsidianTaskSyncSettingTab ignore-pattern setting', () => {
     tab.display();
 
     expect(ignoreDesc(tab)).toContain('will not take effect');
-    expect(ignoreRow(tab).hasClass('obsidian-task-sync-ignore-ineffective')).toBe(true);
+    expect(ignoreRow(tab).hasClass('task-bridge-ignore-ineffective')).toBe(true);
   });
 
   it('does not warn when the pattern does not match the selected note', () => {

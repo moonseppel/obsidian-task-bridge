@@ -2,7 +2,7 @@ import { TAbstractFile, TFile } from 'obsidian';
 import { matchesIgnorePattern } from '../../utils/ignore-pattern';
 import { Logger } from '../../utils/logger';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 export interface TaskChangeListenerSettings {
   readonly relativeTaskSourcePath: string;

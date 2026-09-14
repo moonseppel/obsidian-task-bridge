@@ -8,7 +8,7 @@ import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { composeRemoteDescription, extractUserDescription } from './task-description';
 import { LinkIds, TaskLinkStore } from './task-links';
 
-const logger = new Logger('ObsidianTaskSync:Sync');
+const logger = new Logger('TaskBridge:Sync');
 
 /** How long a task stays orphaned before its description is flagged with a removal notice. */
 const FLAG_AFTER_MS = 60 * 60_000;
