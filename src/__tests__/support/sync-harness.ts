@@ -1,3 +1,4 @@
+import { appendAnchorToLine } from '../../services/sync/anchor-write';
 import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/sync/note-edits';
 import { OrphanTracker } from '../../services/sync/orphan-tracker';
 import { SourceNote } from '../../services/sync/source-note';
@@ -54,6 +55,15 @@ export class FakeNote implements SourceNote {
     this.content = applyNoteEdits(this.content, edits);
 
     return skipped;
+  }
+
+  async appendAnchorIfMissing(lineNumber: number, blockId: string): Promise<boolean> {
+    const result = appendAnchorToLine(this.content, lineNumber, blockId);
+
+    this.saves += 1;
+    this.content = result.content;
+
+    return result.appended;
   }
 }
 

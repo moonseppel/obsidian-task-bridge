@@ -1,7 +1,8 @@
 import { Logger } from '../../utils/logger';
 import { TaskProvider } from '../task-provider';
 import { createBlockId } from './block-id';
-import { LineUnderSync, LinkedLine, localParentBlockId, recordTaskEdit } from './sync-pass';
+import { SourceNote } from './source-note';
+import { LineUnderSync, LinkedLine, localParentBlockId } from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { composeRemoteDescription, readDescriptionBlock } from './task-description';
 import { TaskLinkStore, linkIds } from './task-links';
@@ -44,15 +45,29 @@ export class LineLinker {
     return { line, link };
   }
 
-  async create(line: LineUnderSync): Promise<void> {
+  /**
+   * Creates the task, then anchors the line to it immediately — not batched with the rest of the
+   * pass's edits — so the window in which something else could change this exact line first, and
+   * strand the new task with no line pointing back at it, is as small as it can be. If the anchor
+   * still can't land, the task is undone rather than left as an untraceable duplicate: the line is
+   * untouched, so the very next pass gives it a clean, ordinary attempt (architecture-rules.md
+   * rule 38).
+   */
+  async create(line: LineUnderSync, note: SourceNote): Promise<void> {
     const { pass, task } = line;
     // Reused, never replaced, so one task can never end up with two anchors on its line.
     const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, this.getDeviceTag());
     pass.blockIdByLineNumber.set(line.lineNumber, blockId);
+    pass.takenBlockIds.add(blockId);
 
     const taskId = await this.createAndLink(line, blockId);
-    pass.takenBlockIds.add(blockId);
-    recordTaskEdit(line, { blockId });
+
+    if (!(await note.appendAnchorIfMissing(line.lineNumber, blockId))) {
+      await this.abandonUnanchored(blockId, taskId);
+      pass.outcome.abandonedCreations += 1;
+      return;
+    }
+
     pass.outcome.created += 1;
     logger.info('Created a task for a new line', { blockId, taskId });
   }
@@ -67,6 +82,21 @@ export class LineLinker {
     logger.info('Recreated a task deleted in Todoist, since its line carried a newer edit', {
       blockId: link.blockId,
       deletedTaskId: link.providerTaskId,
+      taskId,
+    });
+  }
+
+  /**
+   * The line moved on before the anchor could land — most plausibly another sync pass racing on
+   * the same note — so the task just created has no way back to any line. Undoing it here, before
+   * any link is even saved, is safer than leaving an orphan behind: the line is untouched and gets
+   * a fresh, ordinary attempt next pass instead of accumulating an untraceable duplicate.
+   */
+  private async abandonUnanchored(blockId: string, taskId: string): Promise<void> {
+    this.links.delete(blockId);
+    await this.provider.removeTask(taskId);
+    logger.warn('Could not anchor a newly created task to its line; removed it to retry cleanly', {
+      blockId,
       taskId,
     });
   }

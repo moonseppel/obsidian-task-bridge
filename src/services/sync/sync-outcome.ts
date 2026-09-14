@@ -21,6 +21,8 @@ export interface SyncOutcome {
   removedOrphans: number;
   /** A note edit left unwritten because a line it depends on changed while the sync was running. */
   skippedEdits: number;
+  /** A freshly created task undone because its line changed before the anchor could land. */
+  abandonedCreations: number;
   /** How many notes the run covered; set once for the whole run rather than summed. */
   filesScanned: number;
   /** How many tasks are linked once the run is done; set once for the whole run rather than summed. */
@@ -43,6 +45,7 @@ const COUNTERS: readonly Counter[] = [
   'unflaggedOrphans',
   'removedOrphans',
   'skippedEdits',
+  'abandonedCreations',
 ];
 
 export function emptyOutcome(projectResolution: ProjectResolution): SyncOutcome {
@@ -59,6 +62,7 @@ export function emptyOutcome(projectResolution: ProjectResolution): SyncOutcome 
     unflaggedOrphans: 0,
     removedOrphans: 0,
     skippedEdits: 0,
+    abandonedCreations: 0,
     filesScanned: 0,
     linkedTasks: 0,
     projectResolution,

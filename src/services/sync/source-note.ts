@@ -6,4 +6,9 @@ export interface SourceNote {
   lastModified(): Promise<number>;
   /** Resolves to how many edits were left unwritten because a line they depend on changed meanwhile. */
   applyEdits(edits: NoteEdits): Promise<number>;
+  /**
+   * Appends a block id to the line at this position, unless it has already moved on from being a
+   * bare, anchor-less task line. Resolves to whether the anchor actually landed.
+   */
+  appendAnchorIfMissing(lineNumber: number, blockId: string): Promise<boolean>;
 }

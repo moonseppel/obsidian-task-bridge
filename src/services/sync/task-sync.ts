@@ -165,7 +165,7 @@ export class TaskSync {
     try {
       await runThenCommit(
         async () => {
-          await this.syncEveryLine(pass);
+          await this.syncEveryLine(pass, note);
           this.remoteChildSync.run(pass);
         },
         async () => {
@@ -192,13 +192,13 @@ export class TaskSync {
     }
   }
 
-  private async syncEveryLine(pass: SyncPass): Promise<void> {
+  private async syncEveryLine(pass: SyncPass, note: SourceNote): Promise<void> {
     for (let lineNumber = 0; lineNumber < pass.lines.length; lineNumber += 1) {
-      await this.syncLine(pass, lineNumber);
+      await this.syncLine(pass, lineNumber, note);
     }
   }
 
-  private async syncLine(pass: SyncPass, lineNumber: number): Promise<void> {
+  private async syncLine(pass: SyncPass, lineNumber: number, note: SourceNote): Promise<void> {
     const original = pass.lines[lineNumber];
     const task = parseTaskLine(original);
 
@@ -214,14 +214,14 @@ export class TaskSync {
     const link = task.blockId === undefined ? undefined : this.links.get(task.blockId);
 
     if (link === undefined) {
-      await this.createOrRelink(line);
+      await this.createOrRelink(line, note);
       return;
     }
 
     await this.syncAgainstLink({ line, link });
   }
 
-  private async createOrRelink(line: LineUnderSync): Promise<void> {
+  private async createOrRelink(line: LineUnderSync, note: SourceNote): Promise<void> {
     const relinked = this.lineLinker.relinkIfAlreadyAnchored(line);
 
     if (relinked !== undefined) {
@@ -234,7 +234,7 @@ export class TaskSync {
       return;
     }
 
-    await this.lineLinker.create(line);
+    await this.lineLinker.create(line, note);
   }
 
   private async syncAgainstLink(linked: LinkedLine): Promise<void> {

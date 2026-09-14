@@ -1,4 +1,5 @@
 import { TFile, Vault } from 'obsidian';
+import { appendAnchorToLine } from './anchor-write';
 import { NoteEdits, applyNoteEdits, countSkippedEdits } from './note-edits';
 import { SourceNote } from './source-note';
 
@@ -32,6 +33,19 @@ export class ObsidianSourceNote implements SourceNote {
     });
 
     return skipped;
+  }
+
+  async appendAnchorIfMissing(lineNumber: number, blockId: string): Promise<boolean> {
+    let appended = false;
+
+    // `process` rather than `modify`, for the same concurrency safety as applyEdits above.
+    await this.vault.process(this.requireFile(), (content) => {
+      const result = appendAnchorToLine(content, lineNumber, blockId);
+      appended = result.appended;
+      return result.content;
+    });
+
+    return appended;
   }
 
   private requireFile(): TFile {
