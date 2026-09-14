@@ -23,6 +23,10 @@
 - **WHEN** the tasks plugin is used in Obsidian
 - **THEN** the behavior of this plugin should still be the same as specified
 
+### Scenario: Old Functionality
+- **WHEN** there is no task plugin installed
+- **THEN** the plugin still has to work like before
+
 ### Scenario: Sync Conflicts
 - **GIVEN** user defined states are synced between the task provider and Obsidian
 - **WHEN** a sync conflit arises
@@ -30,3 +34,4 @@
 
 ## Architecture
 1. The mapping of user defined states is task porvider depedant, so it needs to be in the task provider module.
+2. The changed needed to support the Tasks plugin should be placed in a separate module, if possible. Or as separate sub-modules of existing modules, if an own module if not possible.
