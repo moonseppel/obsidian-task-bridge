@@ -8,10 +8,11 @@ import { TaskLink, TaskLinkStore } from './task-links';
 
 const logger = new Logger('ObsidianTaskSync:Sync');
 
-/** One file's pass, plus every provider task already linked or pulled in so far this pass. */
+/** One file's pass, every task already pulled in, and the link (if any) each one can reuse. */
 interface ChildPull {
   readonly pass: SyncPass;
   readonly alreadyLinked: Set<string>;
+  readonly linkByTaskId: ReadonlyMap<string, TaskLink>;
 }
 
 /** A linked task whose provider-only children are pulled in underneath it. */
@@ -38,9 +39,11 @@ export class RemoteChildSync {
   }
 
   run(pass: SyncPass): void {
+    const links = [...this.links.values()];
     const pull: ChildPull = {
       pass,
-      alreadyLinked: new Set([...this.links.values()].map((link) => link.providerTaskId)),
+      alreadyLinked: alreadyAnchoredTaskIds(pass, links),
+      linkByTaskId: new Map(links.map((link): [string, TaskLink] => [link.providerTaskId, link])),
     };
 
     for (const [lineNumber, blockId] of pass.blockIdByLineNumber) {
@@ -76,8 +79,14 @@ export class RemoteChildSync {
     return lines;
   }
 
+  /**
+   * Reuses the block id an earlier attempt already linked this same provider task to, rather than
+   * minting a second one, so a retried insert lands under the identity already on record instead
+   * of orphaning it.
+   */
   private linkChild(pull: ChildPull, task: ProviderTask, parentBlockId: string): string {
-    const blockId = createBlockId(pull.pass.takenBlockIds, this.getDeviceTag());
+    const reused = pull.linkByTaskId.get(task.id)?.blockId;
+    const blockId = reused ?? createBlockId(pull.pass.takenBlockIds, this.getDeviceTag());
 
     pull.pass.takenBlockIds.add(blockId);
     pull.alreadyLinked.add(task.id);
@@ -91,6 +100,19 @@ export class RemoteChildSync {
 
     return blockId;
   }
+}
+
+/**
+ * A link not anchored anywhere yet doesn't count as "already pulled in": its insert may have been
+ * dropped by a stale guard (an overlapping sync pass, say), and it needs retrying with the same
+ * block id rather than being silently abandoned — see architecture-rules.md rule 37.
+ */
+function alreadyAnchoredTaskIds(pass: SyncPass, links: readonly TaskLink[]): Set<string> {
+  return new Set(
+    links
+      .filter((link) => pass.lineNumberByBlockId.has(link.blockId) || link.lastKnownFilePath !== undefined)
+      .map((link) => link.providerTaskId),
+  );
 }
 
 function pullParentOf(link: TaskLink, parentLine: string): PullParent {

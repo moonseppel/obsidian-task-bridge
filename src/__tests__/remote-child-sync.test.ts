@@ -1,5 +1,12 @@
 import { TaskLinkStore } from '../services/sync/task-links';
-import { FakeNote, PROJECT, makeSync, projectExists, remoteTasks } from './support/sync-harness';
+import {
+  FakeNote,
+  PROJECT,
+  makeMultiFileSync,
+  makeSync,
+  projectExists,
+  remoteTasks,
+} from './support/sync-harness';
 
 describe('TaskSync pulling remote-only nested tasks', () => {
   it('inserts a sub-task added directly in the provider under its linked parent', async () => {
@@ -116,5 +123,63 @@ describe('TaskSync pulling remote-only nested tasks', () => {
     await sync.run(PROJECT);
 
     expect(note.content).toBe('- [ ] Parent ^ots-parent1\n- [ ] Child elsewhere ^ots-child1');
+  });
+
+  it('retries a remote child whose earlier insert never landed in the note, instead of losing it', async () => {
+    // A link already exists for the child (an earlier pull attempt), but it was never actually
+    // written into any note: no lastKnownFilePath, and the note doesn't have its block id either.
+    const note = new FakeNote('- [ ] Parent ^ots-parent1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'ots-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child' },
+    ]);
+    const removeTask = jest.fn().mockResolvedValue(undefined);
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+        { id: 'child-task', title: 'Child', parentId: 'parent-task' },
+      ),
+      listProjects: projectExists,
+      removeTask,
+    });
+
+    await sync.run(PROJECT);
+
+    expect(note.content).toBe('- [ ] Parent ^ots-parent1\n\t- [ ] Child ^ots-child1');
+    expect(links.get('ots-child1')).toMatchObject({ providerTaskId: 'child-task' });
+    expect(removeTask).not.toHaveBeenCalled();
+  });
+
+  it('does not duplicate a remote child whose link already points to a different, unscanned file', async () => {
+    const fileA = new FakeNote('- [ ] Parent ^ots-parent1');
+    const fileB = new FakeNote('- [ ] Child ^ots-child1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      {
+        blockId: 'ots-child1',
+        providerTaskId: 'child-task',
+        lastSyncedTitle: 'Child',
+        lastKnownFilePath: 'B.md',
+      },
+    ]);
+    const sync = makeMultiFileSync(
+      new Map([
+        ['A.md', fileA],
+        ['B.md', fileB],
+      ]),
+      links,
+      {
+        listTasks: remoteTasks(
+          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+          { id: 'child-task', title: 'Child', parentId: 'parent-task' },
+        ),
+        listProjects: projectExists,
+      },
+    );
+
+    await sync.run(PROJECT);
+
+    expect(fileA.content).toBe('- [ ] Parent ^ots-parent1');
+    expect(fileB.content).toBe('- [ ] Child ^ots-child1');
   });
 });
