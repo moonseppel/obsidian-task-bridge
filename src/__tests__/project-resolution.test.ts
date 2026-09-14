@@ -85,7 +85,7 @@ describe('TaskSync project resolution', () => {
     expect(listProjects).not.toHaveBeenCalled();
   });
 
-  it('keeps the work it finished when a later call fails', async () => {
+  it('keeps the work it finished when a later call fails, without failing the whole run', async () => {
     const note = new FakeNote('- [ ] First\n- [ ] Second');
     const links = new TaskLinkStore();
     let calls = 0;
@@ -100,7 +100,9 @@ describe('TaskSync project resolution', () => {
       },
     });
 
-    await expect(sync.run(PROJECT)).rejects.toMatchObject({ failure: 'rate-limited' });
+    const outcome = await sync.run(PROJECT);
+
+    expect(outcome.created).toBe(1);
     expect(note.content).toMatch(/^- \[ \] First \^ots-[a-z0-9]{8}\n- \[ \] Second$/);
     expect(links.size).toBe(1);
   });
@@ -123,7 +125,8 @@ describe('TaskSync project resolution', () => {
       },
     );
 
-    await expect(sync.run(PROJECT)).rejects.toThrow();
+    await sync.run(PROJECT);
+
     expect(saved).toBe(1);
   });
 });

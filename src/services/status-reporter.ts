@@ -2,7 +2,7 @@ import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { ConnectionStatus } from './provider-connection';
 import { SyncOutcome, changedAnything } from './sync/sync-outcome';
-import { TaskProviderError, TaskProviderFailure, isTransientFailure } from './task-provider-error';
+import { TaskProviderError, TaskProviderFailure, failureReasonOf, isTransientFailure } from './task-provider-error';
 
 const SYNC_FAILED_MESSAGE = 'Syncing tasks failed unexpectedly. Check the console for details.';
 
@@ -68,7 +68,7 @@ export class StatusReporter {
 
   reportSyncFailure(error: unknown): void {
     const { failure, message } = describeFailure(error);
-    const reason = reasonOf(error);
+    const reason = failureReasonOf(error);
 
     this.reportedCoverage = undefined;
 
@@ -95,18 +95,6 @@ function sameCoverage(current: Coverage, reported: Coverage | undefined): boolea
     current.filesScanned === reported.filesScanned &&
     current.linkedTasks === reported.linkedTasks
   );
-}
-
-/**
- * A provider failure is one reason whatever detail comes with it, so a flaky connection is not reported
- * anew on every poll; any other error is its own reason, so a second, different bug still shows.
- */
-function reasonOf(error: unknown): string {
-  if (error instanceof TaskProviderError) {
-    return error.failure;
-  }
-
-  return error instanceof Error ? error.name + ': ' + error.message : String(error);
 }
 
 function describeFailure(error: unknown): SyncFailure {

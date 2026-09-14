@@ -81,6 +81,13 @@ export class TaskLinkStore {
     return this.byBlockId.size;
   }
 
+  /** Every block id a currently stored link says lives in the given file. */
+  blockIdsIn(path: string): string[] {
+    return [...this.byBlockId.values()]
+      .filter((link) => link.lastKnownFilePath === path)
+      .map((link) => link.blockId);
+  }
+
   toStored(): TaskLink[] {
     return [...this.byBlockId.values()];
   }

@@ -6,15 +6,17 @@ import { LinkedLineSync } from './linked-line-sync';
 import { MissingLineSync } from './missing-line-sync';
 import { hasAnyEdit } from './note-edits';
 import { OrphanHousekeeping } from './orphan-housekeeping';
+import { NoteFailureReporter } from './note-failure-reporter';
 import { OrphanTracker } from './orphan-tracker';
 import { ResolvedProject, resolveProject } from './project-resolver';
 import { RemoteChildSync } from './remote-child-sync';
 import { runThenCommit } from './run-then-commit';
 import { SourceNote } from './source-note';
-import { SyncOutcome, mergeOutcomes } from './sync-outcome';
+import { SyncOutcome, emptyOutcome, mergeOutcomes } from './sync-outcome';
 import {
   LineUnderSync,
   LinkedLine,
+  NoteSnapshot,
   SyncPass,
   collectedEdits,
   createSyncPass,
@@ -65,12 +67,12 @@ export class TaskSync {
   private readonly missingLineSync: MissingLineSync;
   private readonly remoteChildSync: RemoteChildSync;
   private readonly orphanHousekeeping: OrphanHousekeeping;
+  private readonly noteFailures: NoteFailureReporter;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
 
   constructor(dependencies: TaskSyncDependencies) {
     const getDeviceTag = dependencies.getDeviceTag ?? (() => '');
     const orphans = dependencies.orphans ?? new OrphanTracker();
-
     this.filesInScope = dependencies.filesInScope;
     this.noteFor = dependencies.noteFor;
     this.provider = dependencies.provider;
@@ -88,6 +90,7 @@ export class TaskSync {
     });
     this.remoteChildSync = new RemoteChildSync(this.links, getDeviceTag);
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
+    this.noteFailures = new NoteFailureReporter(this.links);
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
@@ -102,6 +105,12 @@ export class TaskSync {
     return { ...outcome, filesScanned: scope.paths.length, linkedTasks: this.links.size };
   }
 
+  /**
+   * A note that fails to sync — a vault error, or a provider call failing partway through it — does
+   * not stop the run: `runFilePass` reports its own failure and still hands back whatever it got
+   * done, so every other note keeps being synced and the missing-line and orphan sweeps still run
+   * against everything that succeeded.
+   */
   private async syncScope(scope: RunScope): Promise<void> {
     for (const path of scope.paths) {
       scope.outcomes.push(await this.runFilePass(scope, path));
@@ -118,27 +127,58 @@ export class TaskSync {
     scope.outcomes.push(await this.orphanHousekeeping.run(scope.project, scope.scannedBlockIds));
   }
 
-  /** One file's whole pass: sync every line, pull remote-only children, then commit its own edits. */
+  /**
+   * One file's whole pass: sync every line, pull remote-only children, then commit its own edits.
+   * A failure anywhere in this — reading the note, or a provider call partway through syncing it —
+   * is reported rather than thrown, so this still hands back whatever the pass got done and the
+   * caller can move on to the next file.
+   */
   private async runFilePass(scope: RunScope, path: string): Promise<SyncOutcome> {
-    const note = this.noteFor(path);
-    const [content, modifiedAt] = await Promise.all([note.read(), note.lastModified()]);
-    const pass = createSyncPass(scope.project, { content, modifiedAt });
+    const snapshot = await this.readNote(scope, path);
 
-    await runThenCommit(
-      async () => {
-        await this.syncEveryLine(pass);
-        this.remoteChildSync.run(pass);
-      },
-      async () => {
-        // Kept even if syncing failed: a line given a block id but never written would be created again.
-        pass.takenBlockIds.forEach((blockId) => scope.scannedBlockIds.add(blockId));
-        this.recordLastKnownFile(pass, path);
-        pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
-      },
-    );
+    if (snapshot === undefined) {
+      return emptyOutcome(scope.project.resolution);
+    }
+
+    const pass = createSyncPass(scope.project, snapshot);
+    await this.syncAndCommit(scope, path, pass);
 
     logger.debug('Note synced', { path, outcome: pass.outcome });
     return pass.outcome;
+  }
+
+  private async readNote(scope: RunScope, path: string): Promise<NoteSnapshot | undefined> {
+    const note = this.noteFor(path);
+
+    try {
+      const [content, modifiedAt] = await Promise.all([note.read(), note.lastModified()]);
+      return { content, modifiedAt };
+    } catch (error) {
+      this.noteFailures.report(path, error, scope.scannedBlockIds);
+      return undefined;
+    }
+  }
+
+  private async syncAndCommit(scope: RunScope, path: string, pass: SyncPass): Promise<void> {
+    const note = this.noteFor(path);
+
+    try {
+      await runThenCommit(
+        async () => {
+          await this.syncEveryLine(pass);
+          this.remoteChildSync.run(pass);
+        },
+        async () => {
+          // Kept even if syncing failed: a line given a block id but never written would be created again.
+          pass.takenBlockIds.forEach((blockId) => scope.scannedBlockIds.add(blockId));
+          this.recordLastKnownFile(pass, path);
+          pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
+        },
+      );
+      this.noteFailures.clear(path);
+    } catch (error) {
+      this.noteFailures.report(path, error, scope.scannedBlockIds);
+    }
   }
 
   /** Lets a later run's missing-line sweep resurrect a deleted-but-conflicting line into the right file. */

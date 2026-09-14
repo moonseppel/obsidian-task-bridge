@@ -36,3 +36,16 @@ export class TaskProviderError extends Error {
     this.failure = failure;
   }
 }
+
+/**
+ * A provider failure is one reason whatever detail comes with it, so a flaky connection is not
+ * reported anew on every poll; any other error is its own reason, so a second, different bug
+ * still shows up rather than being mistaken for a repeat of the first.
+ */
+export function failureReasonOf(error: unknown): string {
+  if (error instanceof TaskProviderError) {
+    return error.failure;
+  }
+
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}

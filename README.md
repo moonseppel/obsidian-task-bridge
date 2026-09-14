@@ -116,6 +116,11 @@ A task line that moves out of scope — into a note outside the configured folde
 file — is not treated as deleted. Its Todoist task is flagged and removed on the same schedule as an
 [orphaned task](#orphaned-tasks), and picked up again if the line comes back into scope first.
 
+A note that fails to sync — because Obsidian could not read it, or because Todoist rejected one of
+its tasks — does not hold up the rest of the vault: every other note in scope is still synced,
+that note's tasks stay exactly where they are rather than being treated as deleted or out of scope,
+and it is tried again on the next sync.
+
 ### Which project tasks go to
 
 Your Inbox, until you choose otherwise. The project list is remembered in `data.json`, so the
