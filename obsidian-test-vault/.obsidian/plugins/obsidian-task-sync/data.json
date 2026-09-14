@@ -1,5 +1,8 @@
 {
-  "relativeTaskSourceNotePath": "Test Note.md",
+  "relativeTaskSourcePath": "",
+  "syncWholeVault": true,
+  "sourceTag": "",
+  "ignoreFilePatterns": "",
   "projectId": "6hRvxww6q685Jg2c",
   "projectName": "Inbox",
   "syncIntervalMinutes": 5,
@@ -9,29 +12,42 @@
       "blockId": "ots-ib7kpp4v",
       "providerTaskId": "6hV7qcF7M563hGpc",
       "lastSyncedTitle": "Buy milk",
-      "lastSyncedDescription": "another description without bullet point"
+      "lastSyncedDescription": "another description without bullet point",
+      "lastKnownFilePath": "Test Note.md"
     },
     {
       "blockId": "ots-0pc0073d",
       "providerTaskId": "6hV7qc9xc4JWpXmc",
       "lastSyncedTitle": "Call the dentist",
-      "lastSyncedDescription": "- task description"
+      "lastSyncedDescription": "- task description",
+      "lastKnownFilePath": "Test Note.md"
     },
     {
       "blockId": "ots-jg1w8hw3",
       "providerTaskId": "6hV7qcHJ99mxXg56",
-      "lastSyncedTitle": "Nested parent changed in Todoist"
+      "lastSyncedTitle": "Nested parent changed in Todoist",
+      "lastKnownFilePath": "Test Note.md"
     },
     {
       "blockId": "ots-3tgglva3",
       "providerTaskId": "6hV7qcQhxJ64PV2c",
-      "lastSyncedTitle": "Nested child"
+      "lastSyncedTitle": "Nested child",
+      "lastKnownFilePath": "Test Note.md"
     },
     {
       "blockId": "ots-hrtzbvim-5daxh6",
       "providerTaskId": "6hVRR4GQhFHm9cwc",
       "lastSyncedTitle": "neuer task",
-      "lastSyncedDescription": "^ots-hrtzbvim-5daxh6"
+      "lastSyncedDescription": "^ots-hrtzbvim-5daxh6",
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-3mz9cjue-5daxh6",
+      "providerTaskId": "6hW6wHM3QfhpfX96",
+      "lastSyncedTitle": "but this is a task that should not get synced.",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastKnownFilePath": "Another test note.md"
     }
   ],
   "orphanedTasks": [],
