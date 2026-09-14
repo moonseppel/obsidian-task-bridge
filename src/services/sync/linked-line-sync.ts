@@ -24,17 +24,15 @@ export class LinkedLineSync {
   private readonly links: TaskLinkStore;
   private readonly parentSync: ParentSync;
 
-  constructor(provider: TaskProvider, links: TaskLinkStore) {
+  constructor(provider: TaskProvider, links: TaskLinkStore, locateParentFile: (blockId: string) => string | undefined) {
     this.provider = provider;
     this.links = links;
-    this.parentSync = new ParentSync(provider, links);
+    this.parentSync = new ParentSync(provider, links, locateParentFile);
   }
 
   async syncEveryField(linked: LinkedLine, remoteTask: ProviderTask): Promise<void> {
     await this.syncTitle(linked, remoteTask);
-    // Not completed by construction: the active list this pass fetched excludes completed tasks.
-    // A completion that made the task disappear reaches syncCompletion by another route.
-    await this.syncCompletion(this.reread(linked), { isDone: false, updatedAt: remoteTask.updatedAt });
+    await this.syncCompletion(this.reread(linked), { isDone: remoteTask.isCompleted, updatedAt: remoteTask.updatedAt });
     await this.syncDescription(this.reread(linked), remoteTask);
     await this.syncTags(this.reread(linked), remoteTask);
     await this.parentSync.sync(this.reread(linked), remoteTask);

@@ -71,6 +71,14 @@ export class TaskFinder {
       .some((file) => this.hasBlockId(file, needle));
   }
 
+  /** Which in-scope file currently anchors a block id, if any — used to relocate a task whose
+   *  remote parent lives in a different note than its own line. */
+  locateBlockId(blockId: string): TFile | undefined {
+    const needle = blockId.toLowerCase();
+
+    return this.filesInScope().find((file) => this.hasBlockId(file, needle));
+  }
+
   private resolveLocation(path: string): TFile | TFolder | undefined {
     if (path.length === 0) {
       return undefined;

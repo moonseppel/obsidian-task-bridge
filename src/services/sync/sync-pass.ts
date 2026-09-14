@@ -7,8 +7,17 @@ import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from '
 import { TaskLink } from './task-links';
 import { nearestAncestorLineNumbers } from './task-tree';
 
+/** A local task line whose remote parent was found to live in a different in-scope file. */
+export interface PendingRelocation {
+  readonly blockId: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  readonly newParentBlockId: string;
+}
+
 export interface SyncPass {
   readonly lines: readonly string[];
+  readonly path: string;
   readonly projectId: string;
   readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
@@ -33,6 +42,8 @@ export interface SyncPass {
   readonly blocks: BlockEdit[];
   readonly structure: StructuralEdit[];
   readonly appended: string[];
+  /** A remote reparent onto a parent living in another in-scope file, queued for `CrossFileParentSync`. */
+  readonly pendingParentRelocations: PendingRelocation[];
   readonly outcome: SyncOutcome;
 }
 
@@ -60,11 +71,12 @@ export interface NoteSnapshot {
   readonly modifiedAt: number;
 }
 
-export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): SyncPass {
+export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, path: string): SyncPass {
   const lines = note.content.split('\n');
 
   return {
     lines,
+    path,
     projectId: project.id,
     remoteTasks: indexTasksById(project.tasks),
     remoteTasksByBlockId: indexTasksByEmbeddedBlockId(project.tasks),
@@ -78,6 +90,7 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot): Sy
     blocks: [],
     structure: [],
     appended: [],
+    pendingParentRelocations: [],
     outcome: emptyOutcome(project.resolution),
   };
 }
@@ -132,6 +145,24 @@ export function recordMoveUnder(line: LineUnderSync, newParentLineNumber: number
 
 export function recordReindent(line: LineUnderSync, indent: string): void {
   line.pass.structure.push({ kind: 'reindent', task: guardAt(line.pass, line.lineNumber), indent });
+}
+
+/** Queues a relocation for `CrossFileParentSync` instead of touching this pass's own edits directly:
+ *  the target file may not have been read yet, so nothing here is safe to apply until every file's
+ *  own pass has committed its normal edits. */
+export function recordPendingRelocation(line: LineUnderSync, newParentBlockId: string, targetPath: string): void {
+  const { pass, task } = line;
+
+  if (task.blockId === undefined) {
+    return;
+  }
+
+  pass.pendingParentRelocations.push({
+    blockId: task.blockId,
+    sourcePath: pass.path,
+    targetPath,
+    newParentBlockId,
+  });
 }
 
 /**

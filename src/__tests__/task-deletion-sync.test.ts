@@ -30,7 +30,7 @@ describe('TaskSync deletion and completion', () => {
     expect(links.get('ots-a1')).toBeUndefined();
   });
 
-  it('leaves the line and link alone when the missing task turns out to have moved to another project', async () => {
+  it('keeps syncing a task that turns out to have moved to another project', async () => {
     const note = new FakeNote('- [ ] Buy milk ^ots-a1');
     const links = new TaskLinkStore([
       { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
@@ -38,17 +38,36 @@ describe('TaskSync deletion and completion', () => {
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(),
       listProjects: projectExists,
-      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk' }),
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Get milk', projectId: 'some-other-project' }),
     });
 
-    expect(await sync.run(PROJECT)).toMatchObject({ removedLine: 0, removedTask: 0 });
-    expect(note.content).toBe('- [ ] Buy milk ^ots-a1');
-    expect(links.get('ots-a1')).toEqual({
-      blockId: 'ots-a1',
+    expect(await sync.run(PROJECT)).toMatchObject({ removedLine: 0, removedTask: 0, pulled: 1 });
+    expect(note.content).toBe('- [ ] Get milk ^ots-a1');
+    expect(links.get('ots-a1')).toMatchObject({
       providerTaskId: TASK_ID,
-      lastSyncedTitle: 'Buy milk',
-      lastKnownFilePath: 'Tasks.md',
+      lastSyncedTitle: 'Get milk',
     });
+  });
+
+  it('pushes a local edit to a task that has moved to another project, without moving it back', async () => {
+    const note = new FakeNote('- [ ] Get milk ^ots-a1');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+    ]);
+    const updatedTitles: Array<[string, string]> = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(),
+      listProjects: projectExists,
+      getTask: () => Promise.resolve({ id: TASK_ID, title: 'Buy milk', projectId: 'some-other-project' }),
+      updateTaskTitle: (taskId, title) => {
+        updatedTitles.push([taskId, title]);
+        return Promise.resolve();
+      },
+    });
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1 });
+    expect(updatedTitles).toEqual([[TASK_ID, 'Get milk']]);
+    expect(note.content).toBe('- [ ] Get milk ^ots-a1');
   });
 
   it('checks the line off when its linked task turns out to have been completed remotely', async () => {

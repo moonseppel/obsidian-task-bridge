@@ -51,4 +51,9 @@ export class TaskCollection {
   existsOutsideIgnoredFiles(blockId: string): boolean {
     return this.finder.existsOutsideIgnoredFiles(blockId);
   }
+
+  /** The path of the in-scope file currently anchoring a block id, if any. */
+  locateParentFile(blockId: string): string | undefined {
+    return this.finder.locateBlockId(blockId)?.path;
+  }
 }

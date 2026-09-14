@@ -3,7 +3,7 @@ import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/syn
 import { OrphanTracker } from '../../services/sync/orphan-tracker';
 import { SourceNote } from '../../services/sync/source-note';
 import { composeRemoteDescription } from '../../services/sync/task-description';
-import { ParsedTaskLine } from '../../services/sync/task-line';
+import { ParsedTaskLine, parseTaskLine } from '../../services/sync/task-line';
 import { TaskLinkStore } from '../../services/sync/task-links';
 import { TaskSync, TaskSyncDependencies } from '../../services/sync/task-sync';
 import { LooseProviderTask, StubProviderOptions, stubProvider } from './stub-provider';
@@ -24,6 +24,7 @@ export interface SyncHarnessOptions {
   readonly orphans?: OrphanTracker;
   readonly isTagInScope?: (task: ParsedTaskLine) => boolean;
   readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
+  readonly locateParentFile?: (blockId: string) => string | undefined;
 }
 
 /** The description a freshly created task carries: the user's text above this plugin's footer. */
@@ -91,11 +92,25 @@ export function makeMultiFileSync(
 ): TaskSync {
   return new TaskSync({
     ...optionalDependencies(options),
+    locateParentFile: options.locateParentFile ?? defaultLocateParentFile(notesByPath),
     filesInScope: () => [...notesByPath.keys()],
     noteFor: (path) => registeredNote(notesByPath, path),
     provider: stubProvider(provider),
     links,
   });
+}
+
+/** Mirrors `TaskCollection.locateParentFile`: which registered note currently anchors a block id. */
+function defaultLocateParentFile(notesByPath: ReadonlyMap<string, FakeNote>): (blockId: string) => string | undefined {
+  return (blockId) => {
+    for (const [path, note] of notesByPath) {
+      if (note.content.split('\n').some((line) => parseTaskLine(line)?.blockId === blockId)) {
+        return path;
+      }
+    }
+
+    return undefined;
+  };
 }
 
 export function remoteTasks(...tasks: LooseProviderTask[]): () => Promise<LooseProviderTask[]> {
@@ -113,6 +128,7 @@ function optionalDependencies(
     orphans: options.orphans,
     isTagInScope: options.isTagInScope,
     existsOutsideIgnoredFiles: options.existsOutsideIgnoredFiles,
+    locateParentFile: options.locateParentFile,
   };
 }
 

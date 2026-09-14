@@ -1,5 +1,6 @@
 import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
+import { CrossFileParentSync } from './cross-file-parent-sync';
 import { GracePeriod } from './grace-period';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
@@ -17,6 +18,7 @@ import {
   LineUnderSync,
   LinkedLine,
   NoteSnapshot,
+  PendingRelocation,
   SyncPass,
   collectedEdits,
   createSyncPass,
@@ -45,6 +47,9 @@ export interface TaskSyncDependencies {
   /** Whether a block id anchors a task line in some non-ignored vault file outside this run's
    *  scanned scope — the signal that tells a task merely moved out of scope from one truly gone. */
   readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
+  /** The path of the in-scope file currently anchoring a block id, if any — used to relocate a
+   *  task whose remote parent lives in a different note than its own line. */
+  readonly locateParentFile?: (blockId: string) => string | undefined;
 }
 
 /** One run's project and scope, and what the run has found and done so far. */
@@ -52,6 +57,7 @@ interface RunScope {
   readonly project: ResolvedProject;
   readonly paths: readonly string[];
   readonly scannedBlockIds: Set<string>;
+  readonly pendingRelocations: PendingRelocation[];
   readonly outcomes: SyncOutcome[];
 }
 
@@ -66,6 +72,7 @@ export class TaskSync {
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
   private readonly remoteChildSync: RemoteChildSync;
+  private readonly crossFileParentSync: CrossFileParentSync;
   private readonly orphanHousekeeping: OrphanHousekeeping;
   private readonly noteFailures: NoteFailureReporter;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
@@ -79,7 +86,7 @@ export class TaskSync {
     this.links = dependencies.links;
     this.saveLinks = dependencies.saveLinks;
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
-    this.lineSync = new LinkedLineSync(this.provider, this.links);
+    this.lineSync = new LinkedLineSync(this.provider, this.links, dependencies.locateParentFile ?? (() => undefined));
     this.lineLinker = new LineLinker(this.provider, this.links, getDeviceTag);
     this.missingLineSync = new MissingLineSync({
       provider: this.provider,
@@ -89,13 +96,20 @@ export class TaskSync {
       existsOutsideIgnoredFiles: dependencies.existsOutsideIgnoredFiles ?? (() => false),
     });
     this.remoteChildSync = new RemoteChildSync(this.links, getDeviceTag);
+    this.crossFileParentSync = new CrossFileParentSync({ links: this.links, noteFor: this.noteFor });
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
     this.noteFailures = new NoteFailureReporter(this.links);
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await resolveProject(this.provider, configuredProjectId);
-    const scope: RunScope = { project, paths: this.filesInScope(), scannedBlockIds: new Set(), outcomes: [] };
+    const scope: RunScope = {
+      project,
+      paths: this.filesInScope(),
+      scannedBlockIds: new Set(),
+      pendingRelocations: [],
+      outcomes: [],
+    };
 
     logRunStart(scope);
     await runThenCommit(() => this.syncScope(scope), () => this.commitRun(scope));
@@ -115,6 +129,9 @@ export class TaskSync {
     for (const path of scope.paths) {
       scope.outcomes.push(await this.runFilePass(scope, path));
     }
+
+    const relocated = await this.crossFileParentSync.run(scope.pendingRelocations);
+    scope.outcomes.push({ ...emptyOutcome(scope.project.resolution), pulled: relocated });
 
     const context = { project: scope.project, takenBlockIds: scope.scannedBlockIds, scannedPaths: scope.paths };
     scope.outcomes.push(await this.missingLineSync.run(context));
@@ -140,7 +157,7 @@ export class TaskSync {
       return emptyOutcome(scope.project.resolution);
     }
 
-    const pass = createSyncPass(scope.project, snapshot);
+    const pass = createSyncPass(scope.project, snapshot, path);
     await this.syncAndCommit(scope, path, pass);
 
     logger.debug('Note synced', { path, outcome: pass.outcome });
@@ -171,6 +188,7 @@ export class TaskSync {
         async () => {
           // Kept even if syncing failed: a line given a block id but never written would be created again.
           pass.takenBlockIds.forEach((blockId) => scope.scannedBlockIds.add(blockId));
+          scope.pendingRelocations.push(...pass.pendingParentRelocations);
           this.recordLastKnownFile(pass, path);
           pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
         },
@@ -272,14 +290,13 @@ export class TaskSync {
     line.pass.outcome.removedLine += 1;
   }
 
-  /** Completed in this project is pulled into the checkbox; anything else is left exactly as it is. */
+  /**
+   * A task the active-list fetch didn't return but a direct lookup still finds — completed, moved
+   * to another project, or both — still carries this plugin's block id, so it keeps syncing exactly
+   * like a task found in the configured project.
+   */
   private async syncAgainstTaskFoundElsewhere(linked: LinkedLine, found: ProviderTask): Promise<void> {
-    if (found.projectId === linked.line.pass.projectId && found.isCompleted) {
-      await this.lineSync.syncCompletion(linked, { isDone: true, updatedAt: found.updatedAt });
-      return;
-    }
-
-    logger.debug('Linked task is still active elsewhere; leaving line and link alone', linkIds(linked.link));
+    await this.lineSync.syncEveryField(linked, found);
   }
 }
 

@@ -150,7 +150,7 @@ describe('TaskSync pulling remote-only nested tasks', () => {
     expect(removeTask).not.toHaveBeenCalled();
   });
 
-  it('does not duplicate a remote child whose link already points to a different, unscanned file', async () => {
+  it('does not duplicate a remote child whose line already exists in a different file — relocates it there instead', async () => {
     const fileA = new FakeNote('- [ ] Parent ^ots-parent1');
     const fileB = new FakeNote('- [ ] Child ^ots-child1');
     const links = new TaskLinkStore([
@@ -179,7 +179,11 @@ describe('TaskSync pulling remote-only nested tasks', () => {
 
     await sync.run(PROJECT);
 
-    expect(fileA.content).toBe('- [ ] Parent ^ots-parent1');
-    expect(fileB.content).toBe('- [ ] Child ^ots-child1');
+    // RemoteChildSync's own duplicate-avoidance guard (`alreadyAnchoredTaskIds`) keeps it from
+    // inserting a second, freshly-created line for child-task while scanning A.md; the single
+    // existing line instead relocates there through the ordinary cross-file reparent path, since
+    // its remote parent already lives in A.md.
+    expect(fileA.content).toBe('- [ ] Parent ^ots-parent1\n\t- [ ] Child ^ots-child1');
+    expect(fileB.content).toBe('');
   });
 });

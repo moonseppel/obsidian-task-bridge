@@ -67,6 +67,7 @@ export default class TaskBridgePlugin extends Plugin {
     noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
     isTagInScope: (task) => this.taskCollection.isTagInScope(task),
     existsOutsideIgnoredFiles: (blockId) => this.taskCollection.existsOutsideIgnoredFiles(blockId),
+    locateParentFile: (blockId) => this.taskCollection.locateParentFile(blockId),
     provider: this.provider,
     links: this.taskLinks,
     saveLinks: () => this.saveSettings(),

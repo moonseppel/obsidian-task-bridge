@@ -48,7 +48,7 @@ describe('TaskSync parent field sync', () => {
       listTasks: remoteTasks(
         { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
         { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-a' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-a', projectId: PROJECT },
       ),
       listProjects: projectExists,
       reparentTask: (taskId, parentId, projectId) => {

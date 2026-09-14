@@ -159,4 +159,63 @@ describe('TaskSync across multiple files', () => {
     expect(fileB.content).toMatch(/^- \[ \] Parent \^ots-parent1\n\t- \[ \] Child \^ots-[a-z0-9]{8}$/);
     expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
   });
+
+  it('relocates a remote reparent to a note the new parent lives in, carrying its description and nested child along', async () => {
+    const fileB = new FakeNote(['- [ ] B ^ots-b', "\tB's own description", '\t- [ ] Grandchild ^ots-g'].join('\n'));
+    const fileC = new FakeNote('- [ ] C ^ots-c');
+    const links = new TaskLinkStore([
+      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedDescription: "B's own description" },
+      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'ots-g', providerTaskId: 'task-g', lastSyncedTitle: 'Grandchild', lastSyncedParentBlockId: 'ots-b' },
+    ]);
+    const sync = makeMultiFileSync(
+      new Map([
+        ['B.md', fileB],
+        ['C.md', fileC],
+      ]),
+      links,
+      {
+        listTasks: remoteTasks(
+          {
+            id: 'task-b',
+            title: 'B',
+            embeddedBlockId: 'ots-b',
+            parentId: 'task-c',
+            description: "B's own description\n\nTaskBridge ID: ^ots-b",
+          },
+          { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
+          { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'ots-g', parentId: 'task-b' },
+        ),
+        listProjects: projectExists,
+      },
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
+    expect(fileB.content).toBe('');
+    expect(fileC.content).toBe(
+      ['- [ ] C ^ots-c', '\t- [ ] B ^ots-b', "\t\tB's own description", '\t\t- [ ] Grandchild ^ots-g'].join('\n'),
+    );
+    expect(links.get('ots-b')).toMatchObject({ lastSyncedParentBlockId: 'ots-c', lastKnownFilePath: 'C.md' });
+  });
+
+  it('leaves a remote reparent alone when the new parent has no line anywhere in scope yet', async () => {
+    const fileB = new FakeNote('- [ ] B ^ots-b');
+    const links = new TaskLinkStore([{ blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B' }]);
+    const sync = makeMultiFileSync(
+      new Map([['B.md', fileB]]),
+      links,
+      {
+        listTasks: remoteTasks(
+          { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'ghost-task' },
+          // Tracked in the fetched project, so its block id resolves, but no note anchors it.
+          { id: 'ghost-task', title: 'Ghost', embeddedBlockId: 'ots-ghost' },
+        ),
+        listProjects: projectExists,
+      },
+    );
+
+    expect(await sync.run(PROJECT)).toMatchObject({ pulled: 0, conflicted: 0 });
+    expect(fileB.content).toBe('- [ ] B ^ots-b');
+    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBeUndefined();
+  });
 });
