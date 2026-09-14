@@ -87,7 +87,7 @@ export class RemoteChildSync {
       lastSyncedTitle: task.title,
       lastSyncedParentBlockId: parentBlockId,
     });
-    logger.debug('Pulled a remote-only sub-task under a linked task', { blockId, taskId: task.id, parentBlockId });
+    logger.info('Adding a line for a sub-task created in Todoist', { blockId, taskId: task.id, parentBlockId });
 
     return blockId;
   }

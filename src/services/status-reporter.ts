@@ -20,14 +20,14 @@ interface Coverage {
 }
 
 /**
- * Turns what the sync did into logs and notices. It remembers what it last spoke about — a failure,
- * or what a quiet sync covered — so a condition that persists across every poll is reported when it
+ * Turns what the sync did into logs and notices. It remembers what it last spoke about — a failure's
+ * reason, or what a quiet sync covered — so a condition that persists across every poll is reported when it
  * changes rather than every time, while the log still shows that syncing is working at all.
  */
 export class StatusReporter {
   private readonly logger: Logger;
   private readonly notify: NotifyUser;
-  private spokenAbout: TaskProviderFailure | undefined = undefined;
+  private reportedFailure: string | undefined = undefined;
   private reportedCoverage: Coverage | undefined = undefined;
 
   constructor(logger: Logger, notify: NotifyUser) {
@@ -46,7 +46,7 @@ export class StatusReporter {
       return;
     }
 
-    this.logger.error('Task provider connection failed', status.message);
+    this.logger.error('Task provider connection failed', status.error);
     this.notify(status.message);
   }
 
@@ -54,7 +54,7 @@ export class StatusReporter {
     const coverage = { filesScanned: outcome.filesScanned, linkedTasks: outcome.linkedTasks };
     const coverageChanged = !sameCoverage(coverage, this.reportedCoverage);
 
-    this.spokenAbout = undefined;
+    this.reportedFailure = undefined;
     this.reportedCoverage = coverage;
 
     if (changedAnything(outcome)) {
@@ -68,14 +68,16 @@ export class StatusReporter {
 
   reportSyncFailure(error: unknown): void {
     const { failure, message } = describeFailure(error);
+    const reason = reasonOf(error);
 
     this.reportedCoverage = undefined;
 
-    if (failure === this.spokenAbout) {
+    if (reason === this.reportedFailure) {
+      this.logger.debug('Task sync failed again for the same reason', message);
       return;
     }
 
-    this.spokenAbout = failure;
+    this.reportedFailure = reason;
 
     if (isTransientFailure(failure)) {
       this.logger.warn('Task sync failed; it retries on its own', message);
@@ -93,6 +95,18 @@ function sameCoverage(current: Coverage, reported: Coverage | undefined): boolea
     current.filesScanned === reported.filesScanned &&
     current.linkedTasks === reported.linkedTasks
   );
+}
+
+/**
+ * A provider failure is one reason whatever detail comes with it, so a flaky connection is not reported
+ * anew on every poll; any other error is its own reason, so a second, different bug still shows.
+ */
+function reasonOf(error: unknown): string {
+  if (error instanceof TaskProviderError) {
+    return error.failure;
+  }
+
+  return error instanceof Error ? error.name + ': ' + error.message : String(error);
 }
 
 function describeFailure(error: unknown): SyncFailure {

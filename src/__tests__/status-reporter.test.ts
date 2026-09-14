@@ -93,3 +93,44 @@ describe('StatusReporter.reportSyncOutcome for a sync that changed something', (
     expect(debug).not.toHaveBeenCalled();
   });
 });
+
+describe('StatusReporter.reportSyncFailure', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('logs a repeat of the same failure at debug rather than not at all', () => {
+    const { debug } = spyOnLevels();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncFailure(new TaskProviderError('unreachable'));
+    statusReporter.reportSyncFailure(new TaskProviderError('unreachable'));
+
+    expect(debug).toHaveBeenCalledWith('Task sync failed again for the same reason', expect.any(String));
+  });
+
+  it('reports a second, different unexpected error at error level too', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncFailure(new TypeError('first bug'));
+    statusReporter.reportSyncFailure(new RangeError('second bug'));
+
+    expect(error).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('StatusReporter.reportConnectionStatus', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('logs the error behind a failed connection check, not only its message', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const cause = new TypeError('a bug while connecting');
+
+    reporter().reportConnectionStatus({ state: 'failed', failure: 'unexpected', message: 'Failed.', error: cause });
+
+    expect(error).toHaveBeenCalledWith('Task provider connection failed', cause);
+  });
+});

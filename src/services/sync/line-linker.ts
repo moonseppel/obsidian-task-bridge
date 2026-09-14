@@ -50,28 +50,33 @@ export class LineLinker {
     const blockId = task.blockId ?? createBlockId(pass.takenBlockIds, this.getDeviceTag());
     pass.blockIdByLineNumber.set(line.lineNumber, blockId);
 
-    await this.createAndLink(line, blockId);
+    const taskId = await this.createAndLink(line, blockId);
     pass.takenBlockIds.add(blockId);
     recordTaskEdit(line, { blockId });
     pass.outcome.created += 1;
+    logger.info('Created a task for a new line', { blockId, taskId });
   }
 
   /** A deleted task leaves no timestamp to compare, so the missing-timestamp rule hands it to local. */
   async recreate(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
+    const taskId = await this.createAndLink(line, link.blockId);
 
-    logger.debug('Recreating a task deleted remotely while its line carried a newer edit', linkIds(link));
-    await this.createAndLink(line, link.blockId);
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
+    logger.info('Recreated a task deleted in Todoist, since its line carried a newer edit', {
+      blockId: link.blockId,
+      deletedTaskId: link.providerTaskId,
+      taskId,
+    });
   }
 
   /**
    * Written together: a task whose link went unsaved is created again on the next pass. A parent
    * still waiting out its own creation grace period is not linked yet, so its child is created as
-   * top-level for now and corrected the next pass.
+   * top-level for now and corrected the next pass. Resolves to the new task's id.
    */
-  private async createAndLink(line: LineUnderSync, blockId: string): Promise<void> {
+  private async createAndLink(line: LineUnderSync, blockId: string): Promise<string> {
     const { pass, task } = line;
     const description = readDescriptionBlock(pass.lines, line.lineNumber).text;
     const parent = this.links.linkedParent(localParentBlockId(pass, line.lineNumber));
@@ -91,6 +96,6 @@ export class LineLinker {
       lastSyncedTags: canonicalTags(task.tags),
       lastSyncedParentBlockId: parent.blockId,
     });
-    logger.debug('Created and linked a task', { blockId, taskId: created.id, parentTaskId: parent.providerTaskId });
+    return created.id;
   }
 }

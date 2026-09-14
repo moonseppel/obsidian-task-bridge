@@ -9,6 +9,7 @@ import { OrphanHousekeeping } from './orphan-housekeeping';
 import { OrphanTracker } from './orphan-tracker';
 import { ResolvedProject, resolveProject } from './project-resolver';
 import { RemoteChildSync } from './remote-child-sync';
+import { runThenCommit } from './run-then-commit';
 import { SourceNote } from './source-note';
 import { SyncOutcome, mergeOutcomes } from './sync-outcome';
 import {
@@ -42,6 +43,14 @@ export interface TaskSyncDependencies {
   /** Whether a block id anchors a task line in some non-ignored vault file outside this run's
    *  scanned scope — the signal that tells a task merely moved out of scope from one truly gone. */
   readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
+}
+
+/** One run's project and scope, and what the run has found and done so far. */
+interface RunScope {
+  readonly project: ResolvedProject;
+  readonly paths: readonly string[];
+  readonly scannedBlockIds: Set<string>;
+  readonly outcomes: SyncOutcome[];
 }
 
 export class TaskSync {
@@ -83,47 +92,50 @@ export class TaskSync {
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await resolveProject(this.provider, configuredProjectId);
-    const paths = this.filesInScope();
-    const scannedBlockIds = new Set<string>();
-    const outcomes: SyncOutcome[] = [];
-    logRunStart(project, paths);
+    const scope: RunScope = { project, paths: this.filesInScope(), scannedBlockIds: new Set(), outcomes: [] };
 
-    try {
-      for (const path of paths) {
-        outcomes.push(await this.runFilePass(project, path, scannedBlockIds));
-      }
+    logRunStart(scope);
+    await runThenCommit(() => this.syncScope(scope), () => this.commitRun(scope));
 
-      outcomes.push(await this.missingLineSync.run({ project, takenBlockIds: scannedBlockIds, scannedPaths: paths }));
-    } finally {
-      this.creationGrace.sweep();
-      // Saved before housekeeping, even if the work above threw: an unsaved link would get its task created twice.
-      await this.saveLinks();
-      outcomes.push(await this.orphanHousekeeping.run(project, scannedBlockIds));
+    const outcome = mergeOutcomes(scope.outcomes, project.resolution);
+
+    return { ...outcome, filesScanned: scope.paths.length, linkedTasks: this.links.size };
+  }
+
+  private async syncScope(scope: RunScope): Promise<void> {
+    for (const path of scope.paths) {
+      scope.outcomes.push(await this.runFilePass(scope, path));
     }
 
-    return { ...mergeOutcomes(outcomes, project.resolution), filesScanned: paths.length, linkedTasks: this.links.size };
+    const context = { project: scope.project, takenBlockIds: scope.scannedBlockIds, scannedPaths: scope.paths };
+    scope.outcomes.push(await this.missingLineSync.run(context));
+  }
+
+  /** Links are saved before housekeeping, since an unsaved link would get its task created a second time. */
+  private async commitRun(scope: RunScope): Promise<void> {
+    this.creationGrace.sweep();
+    await this.saveLinks();
+    scope.outcomes.push(await this.orphanHousekeeping.run(scope.project, scope.scannedBlockIds));
   }
 
   /** One file's whole pass: sync every line, pull remote-only children, then commit its own edits. */
-  private async runFilePass(
-    project: ResolvedProject,
-    path: string,
-    scannedBlockIds: Set<string>,
-  ): Promise<SyncOutcome> {
+  private async runFilePass(scope: RunScope, path: string): Promise<SyncOutcome> {
     const note = this.noteFor(path);
     const [content, modifiedAt] = await Promise.all([note.read(), note.lastModified()]);
-    const pass = createSyncPass(project, { content, modifiedAt });
+    const pass = createSyncPass(scope.project, { content, modifiedAt });
 
-    try {
-      await this.syncEveryLine(pass);
-      this.remoteChildSync.run(pass);
-    } finally {
-      // Committed even when the work above threw: a line already given a block id would otherwise
-      // never be written, and the next pass would try to create it again.
-      pass.takenBlockIds.forEach((blockId) => scannedBlockIds.add(blockId));
-      this.recordLastKnownFile(pass, path);
-      pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
-    }
+    await runThenCommit(
+      async () => {
+        await this.syncEveryLine(pass);
+        this.remoteChildSync.run(pass);
+      },
+      async () => {
+        // Kept even if syncing failed: a line given a block id but never written would be created again.
+        pass.takenBlockIds.forEach((blockId) => scope.scannedBlockIds.add(blockId));
+        this.recordLastKnownFile(pass, path);
+        pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
+      },
+    );
 
     logger.debug('Note synced', { path, outcome: pass.outcome });
     return pass.outcome;
@@ -214,7 +226,7 @@ export class TaskSync {
       return;
     }
 
-    logger.debug('Linked task was deleted remotely; removing its line', linkIds(link));
+    logger.info('Removing the line of a task deleted in Todoist', linkIds(link));
     recordRemoval(line);
     this.links.delete(link.blockId);
     line.pass.outcome.removedLine += 1;
@@ -238,11 +250,11 @@ async function writeCollectedEdits(note: SourceNote, pass: SyncPass): Promise<nu
   return hasAnyEdit(edits) ? note.applyEdits(edits) : 0;
 }
 
-function logRunStart(project: ResolvedProject, paths: readonly string[]): void {
+function logRunStart(scope: RunScope): void {
   logger.debug('Sync run started', {
-    projectId: project.id,
-    projectResolution: project.resolution.kind,
-    remoteTasks: project.tasks.length,
-    notesInScope: paths.length,
+    projectId: scope.project.id,
+    projectResolution: scope.project.resolution.kind,
+    remoteTasks: scope.project.tasks.length,
+    notesInScope: scope.paths.length,
   });
 }

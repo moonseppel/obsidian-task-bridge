@@ -179,15 +179,15 @@ export class MissingLineSync {
 
     await this.noteFor(path).applyEdits(appendingOnly([resurrected]));
     this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
-    logger.debug('Remote edit is newer than the line deletion; resurrected the line', { ...linkIds(link), path });
+    logger.info('Re-added a deleted line, since its task was edited in Todoist afterwards', { ...linkIds(link), path });
   }
 
   private async removeTask(sweep: MissingLineSweep, link: TaskLink): Promise<void> {
-    logger.debug('Removing the task of a line deleted from its note', linkIds(link));
     await promoteChildrenToTopLevel(this.provider, sweep.project, link.providerTaskId);
     await this.provider.removeTask(link.providerTaskId);
     this.links.delete(link.blockId);
     sweep.outcome.removedTask += 1;
+    logger.info('Deleted the task of a line that is gone from every note', linkIds(link));
   }
 }
 

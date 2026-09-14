@@ -124,7 +124,7 @@ export class OrphanHousekeeping {
     await promoteChildrenToTopLevel(this.provider, sweep.project, anchored.id);
     await this.provider.removeTask(anchored.id);
     sweep.outcome.removedOrphans += 1;
-    logger.debug('Removed an orphaned task whose removal date passed', idsOf(anchored));
+    logger.info('Deleted an orphaned task once its removal date passed', idsOf(anchored));
 
     return true;
   }
