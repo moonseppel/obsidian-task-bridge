@@ -5,7 +5,7 @@ An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and 
 ## Features
 
 - **Partial two-way sync**: All Obsidian tasks are pushed to the task manager; tasks that originated in Obsidian sync back two-way
-- **Non-commercial open-source**: Licensed under AGPL-3.0-or-later
+- **Open-source**: Licensed under MPL-2.0
 - **Error handling**: Explicit failure reporting with user-friendly notifications
 - **Mobile access**: Manage tasks from anywhere via your task manager
 
@@ -363,7 +363,7 @@ Future versions will add:
 
 ## License
 
-AGPL-3.0-or-later — Free for non-commercial use. Commercial licensing available upon request.
+MPL-2.0 — free for any use, including commercial. If you modify a file this project ships, you must share your changes to that file back under MPL-2.0; you may still combine it with proprietary code in a larger work.
 
 ## Testing
 
