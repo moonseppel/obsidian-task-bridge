@@ -27,6 +27,10 @@ export function toSettings(stored: unknown): ObsidianTaskSyncSettings {
     projectName: readText(record.projectName ?? record.todoistProjectName, DEFAULT_SETTINGS.projectName),
     syncIntervalMinutes: toSyncIntervalMinutes(record.syncIntervalMinutes, DEFAULT_SETTINGS.syncIntervalMinutes),
     debugMode: record.debugMode === true,
+    lastCredentialReminderAt: readNumber(
+      record.lastCredentialReminderAt,
+      DEFAULT_SETTINGS.lastCredentialReminderAt,
+    ),
   };
 }
 
@@ -67,4 +71,8 @@ function isProviderProject(value: unknown): value is ProviderProject {
 
 function readText(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function readNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' ? value : fallback;
 }

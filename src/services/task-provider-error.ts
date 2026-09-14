@@ -1,5 +1,6 @@
 export type TaskProviderFailure =
   | 'not-configured'
+  | 'token-missing-on-device'
   | 'project-missing'
   | 'invalid-credentials'
   | 'rate-limited'
@@ -8,6 +9,9 @@ export type TaskProviderFailure =
 
 const FAILURE_MESSAGES: Record<TaskProviderFailure, string> = {
   'not-configured': 'No API token is configured, please provide one to make this plugin work.',
+  'token-missing-on-device':
+    'A Todoist token is set up on another device, but not this one — every device needs its own copy. ' +
+    'Add it in the plugin settings.',
   'project-missing':
     'No project could be found in the task manager to sync tasks into.',
   'invalid-credentials':
@@ -25,6 +29,17 @@ const TRANSIENT_FAILURES: readonly TaskProviderFailure[] = ['unreachable', 'rate
 
 export function isTransientFailure(failure: TaskProviderFailure): boolean {
   return TRANSIENT_FAILURES.includes(failure);
+}
+
+const DAILY_REMINDER_FAILURES: readonly TaskProviderFailure[] = ['token-missing-on-device'];
+
+/**
+ * A failure the user can only fix on this specific device (unlike a revoked token, which is fixed
+ * once for everyone) stays true until they notice, so it is reminded on a throttle instead of once
+ * per session — but still not on every poll, which would stack up undismissed notices forever.
+ */
+export function needsDailyReminder(failure: TaskProviderFailure): boolean {
+  return DAILY_REMINDER_FAILURES.includes(failure);
 }
 
 export class TaskProviderError extends Error {

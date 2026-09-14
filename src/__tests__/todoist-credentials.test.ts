@@ -33,11 +33,13 @@ describe('TodoistCredentials', () => {
   it.each<[string | null, string]>([
     [null, 'the secret holds no token'],
     ['', 'the secret is empty'],
-  ])('reports a missing configuration when %s', (secret) => {
+  ])('reports the token as missing on this device when %s, distinct from never being configured', (secret) => {
     const credentials = credentialsOver(secret);
     credentials.restore({ apiTokenSecretName: 'todoist-token' });
 
-    expect(() => credentials.readToken()).toThrow(expect.objectContaining({ failure: 'not-configured' }));
+    expect(() => credentials.readToken()).toThrow(
+      expect.objectContaining({ failure: 'token-missing-on-device' }),
+    );
   });
 
   it('reports a missing configuration when no secret is selected at all', () => {

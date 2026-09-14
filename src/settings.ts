@@ -14,6 +14,8 @@ export interface ObsidianTaskSyncSettings {
   projectName: string;
   syncIntervalMinutes: number;
   debugMode: boolean;
+  /** Epoch ms of the last "fix this on this device" reminder Notice; 0 means never reminded. */
+  lastCredentialReminderAt: number;
 }
 
 export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: ObsidianTaskSyncSettings = {
   projectName: '',
   syncIntervalMinutes: 5,
   debugMode: false,
+  lastCredentialReminderAt: 0,
 };
 
 export class ObsidianTaskSyncSettingTab extends PluginSettingTab {

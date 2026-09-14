@@ -49,10 +49,16 @@ export class TodoistCredentials implements ProviderCredentials {
 
   /** Read at request time rather than held, so a secret revoked in Obsidian takes effect at once. */
   readToken(): string {
-    const token = this.secretName.length === 0 ? '' : (this.app.secretStorage.getSecret(this.secretName) ?? '');
+    if (this.secretName.length === 0) {
+      throw new TaskProviderError('not-configured');
+    }
+
+    // A secret name with nothing behind it here means it was set up on another device: `data.json`
+    // (and its secret name) is what a vault-sync tool propagates, secretStorage's actual value never is.
+    const token = this.app.secretStorage.getSecret(this.secretName) ?? '';
 
     if (token.length === 0) {
-      throw new TaskProviderError('not-configured');
+      throw new TaskProviderError('token-missing-on-device');
     }
 
     return token;

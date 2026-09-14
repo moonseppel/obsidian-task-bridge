@@ -37,7 +37,13 @@ export default class ObsidianTaskSyncPlugin extends Plugin {
   readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
-  private readonly reporter = new StatusReporter(logger, announce);
+  private readonly reporter = new StatusReporter(logger, announce, {
+    get: () => this.settings.lastCredentialReminderAt,
+    set: (at) => {
+      this.settings.lastCredentialReminderAt = at;
+      void this.saveSettings();
+    },
+  });
   private readonly projects = new ProjectSelection({
     listProjects: () => this.provider.listProjects(),
     settings: () => this.settings,

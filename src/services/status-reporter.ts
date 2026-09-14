@@ -2,11 +2,24 @@ import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { ConnectionStatus } from './provider-connection';
 import { SyncOutcome, changedAnything } from './sync/sync-outcome';
-import { TaskProviderError, TaskProviderFailure, failureReasonOf, isTransientFailure } from './task-provider-error';
+import {
+  TaskProviderError,
+  TaskProviderFailure,
+  failureReasonOf,
+  isTransientFailure,
+  needsDailyReminder,
+} from './task-provider-error';
 
 const SYNC_FAILED_MESSAGE = 'Syncing tasks failed unexpectedly. Check the console for details.';
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export type NotifyUser = (message: string) => void;
+
+/** Where the "last reminded at" timestamp for a device-only failure is kept, so it survives a restart. */
+export interface CredentialReminderStore {
+  get(): number;
+  set(at: number): void;
+}
 
 interface SyncFailure {
   failure: TaskProviderFailure;
@@ -27,17 +40,24 @@ interface Coverage {
 export class StatusReporter {
   private readonly logger: Logger;
   private readonly notify: NotifyUser;
+  private readonly reminders: CredentialReminderStore;
   private reportedFailure: string | undefined = undefined;
   private reportedCoverage: Coverage | undefined = undefined;
 
-  constructor(logger: Logger, notify: NotifyUser) {
+  constructor(logger: Logger, notify: NotifyUser, reminders: CredentialReminderStore) {
     this.logger = logger;
     this.notify = notify;
+    this.reminders = reminders;
   }
 
-  reportConnectionStatus(status: ConnectionStatus): void {
+  reportConnectionStatus(status: ConnectionStatus, now: number = Date.now()): void {
     if (status.state !== 'failed') {
       this.logger.info('Task provider connection status', status.state);
+      return;
+    }
+
+    if (needsDailyReminder(status.failure)) {
+      this.reportDailyReminder(status.message, status.error, now);
       return;
     }
 
@@ -66,11 +86,16 @@ export class StatusReporter {
     }
   }
 
-  reportSyncFailure(error: unknown): void {
+  reportSyncFailure(error: unknown, now: number = Date.now()): void {
     const { failure, message } = describeFailure(error);
     const reason = failureReasonOf(error);
 
     this.reportedCoverage = undefined;
+
+    if (needsDailyReminder(failure)) {
+      this.reportDailyReminder(message, error, now);
+      return;
+    }
 
     if (reason === this.reportedFailure) {
       this.logger.debug('Task sync failed again for the same reason', message);
@@ -85,6 +110,20 @@ export class StatusReporter {
     }
 
     this.logger.error('Task sync failed', error);
+    this.notify(message);
+  }
+
+  /** Reminded once, then at most once a day, so a device-only failure nags without piling up notices. */
+  private reportDailyReminder(message: string, error: unknown, now: number): void {
+    const last = this.reminders.get();
+
+    if (last !== 0 && now - last < ONE_DAY_MS) {
+      this.logger.debug('Task provider still needs attention on this device; reminder throttled', message);
+      return;
+    }
+
+    this.reminders.set(now);
+    this.logger.error('Task provider needs attention on this device', error);
     this.notify(message);
   }
 }

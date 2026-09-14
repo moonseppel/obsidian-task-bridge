@@ -13,7 +13,7 @@ function runnerWhile(hasFilesInScope: () => boolean): SyncRunner {
     hasFilesInScope,
     sync: () => Promise.resolve({ ...emptyOutcome({ kind: 'configured' }), filesScanned: 1 }),
     adoptProject: () => Promise.resolve(),
-    reporter: new StatusReporter(logger, () => undefined),
+    reporter: new StatusReporter(logger, () => undefined, { get: () => 0, set: () => undefined }),
     syncWhenTypingStops: () => undefined,
     logger,
   });

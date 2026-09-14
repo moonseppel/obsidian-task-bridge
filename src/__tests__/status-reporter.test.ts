@@ -1,4 +1,4 @@
-import { StatusReporter } from '../services/status-reporter';
+import { CredentialReminderStore, StatusReporter } from '../services/status-reporter';
 import { SyncOutcome, emptyOutcome } from '../services/sync/sync-outcome';
 import { TaskProviderError } from '../services/task-provider-error';
 import { Logger } from '../utils/logger';
@@ -16,8 +16,13 @@ function spyOnLevels(): { debug: jest.SpyInstance; info: jest.SpyInstance } {
   };
 }
 
-function reporter(): StatusReporter {
-  return new StatusReporter(new Logger('test'), () => undefined);
+function reminderStoreAt(initialAt = 0): CredentialReminderStore {
+  let lastAt = initialAt;
+  return { get: () => lastAt, set: (at) => (lastAt = at) };
+}
+
+function reporter(notify: (message: string) => void = () => undefined, reminders = reminderStoreAt()): StatusReporter {
+  return new StatusReporter(new Logger('test'), notify, reminders);
 }
 
 describe('StatusReporter.reportSyncOutcome for a quiet sync', () => {
@@ -132,5 +137,79 @@ describe('StatusReporter.reportConnectionStatus', () => {
     reporter().reportConnectionStatus({ state: 'failed', failure: 'unexpected', message: 'Failed.', error: cause });
 
     expect(error).toHaveBeenCalledWith('Task provider connection failed', cause);
+  });
+});
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const A_MOMENT_AGO_MS = 1000;
+
+describe('StatusReporter reminding about a token missing on this device', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('notifies and records the time the first time it is seen, from a failed connection check', () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const notify = jest.fn();
+    const reminders = reminderStoreAt(0);
+    const now = 10_000;
+
+    reporter(notify, reminders).reportConnectionStatus(
+      { state: 'failed', failure: 'token-missing-on-device', message: 'Missing here.', error: undefined },
+      now,
+    );
+
+    expect(notify).toHaveBeenCalledWith('Missing here.');
+    expect(reminders.get()).toBe(now);
+  });
+
+  it('notifies and records the time the first time it is seen, from a sync failure', () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const notify = jest.fn();
+    const reminders = reminderStoreAt(0);
+    const now = 10_000;
+
+    reporter(notify, reminders).reportSyncFailure(new TaskProviderError('token-missing-on-device'), now);
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(reminders.get()).toBe(now);
+  });
+
+  it('stays quiet on a repeat within the same day', () => {
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+    const notify = jest.fn();
+    const firstNotifiedAt = 10_000;
+    const reminders = reminderStoreAt(firstNotifiedAt);
+
+    reporter(notify, reminders).reportSyncFailure(
+      new TaskProviderError('token-missing-on-device'),
+      firstNotifiedAt + A_MOMENT_AGO_MS,
+    );
+
+    expect(notify).not.toHaveBeenCalled();
+    expect(reminders.get()).toBe(firstNotifiedAt);
+  });
+
+  it('reminds again once a day has passed', () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const notify = jest.fn();
+    const firstNotifiedAt = 10_000;
+    const reminders = reminderStoreAt(firstNotifiedAt);
+    const aDayLater = firstNotifiedAt + ONE_DAY_MS;
+
+    reporter(notify, reminders).reportSyncFailure(new TaskProviderError('token-missing-on-device'), aDayLater);
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(reminders.get()).toBe(aDayLater);
+  });
+
+  it('does not disturb the ordinary once-per-session dedupe used for every other failure', () => {
+    const { debug } = spyOnLevels();
+    const statusReporter = reporter();
+
+    statusReporter.reportSyncFailure(new TaskProviderError('invalid-credentials'));
+    statusReporter.reportSyncFailure(new TaskProviderError('invalid-credentials'));
+
+    expect(debug).toHaveBeenCalledWith('Task sync failed again for the same reason', expect.any(String));
   });
 });

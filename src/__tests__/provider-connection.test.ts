@@ -46,6 +46,13 @@ describe('ProviderConnection', () => {
     });
   });
 
+  it('treats a token missing on this device as a failure, unlike no token being configured at all', async () => {
+    await expect(failingWith('token-missing-on-device').connect()).resolves.toMatchObject({
+      state: 'failed',
+      failure: 'token-missing-on-device',
+    });
+  });
+
   it('carries the explanation of a failure', async () => {
     const status = await failingWith('rate-limited').connect();
     expect(status).toMatchObject({ message: expect.stringContaining('too many requests') });

@@ -1,4 +1,9 @@
-import { TaskProviderError, TaskProviderFailure, isTransientFailure } from '../services/task-provider-error';
+import {
+  TaskProviderError,
+  TaskProviderFailure,
+  isTransientFailure,
+  needsDailyReminder,
+} from '../services/task-provider-error';
 
 describe('TaskProviderError', () => {
   it('carries the failure it stands for', () => {
@@ -21,5 +26,22 @@ describe('isTransientFailure', () => {
 
   it.each<TaskProviderFailure>(['invalid-credentials', 'unexpected'])('treats %s as needing attention', (failure) => {
     expect(isTransientFailure(failure)).toBe(false);
+  });
+});
+
+describe('needsDailyReminder', () => {
+  it('is true only for a token missing on this device', () => {
+    expect(needsDailyReminder('token-missing-on-device')).toBe(true);
+  });
+
+  it.each<TaskProviderFailure>([
+    'not-configured',
+    'project-missing',
+    'invalid-credentials',
+    'rate-limited',
+    'unreachable',
+    'unexpected',
+  ])('is false for %s', (failure) => {
+    expect(needsDailyReminder(failure)).toBe(false);
   });
 });
