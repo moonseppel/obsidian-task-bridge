@@ -62,3 +62,11 @@ obsidian-test-vault/.obsidian/plugins/obsidian-task-sync/styles.css
 
 # Syncthing
 .stfolder/
+
+# AI agent instruction files (kept locally, removed from git history)
+/claude.md
+/gemini.md
+/docs/coding-guides/cleancode_claude.md
+/docs/coding-guides/cleancode_gemini.md
+/docs/coding-guides/development-rules.md
+/docs/coding-guides/style_guide.md
