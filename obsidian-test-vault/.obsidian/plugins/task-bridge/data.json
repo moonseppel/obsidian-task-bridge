@@ -6,19 +6,21 @@
   "projectId": "6hRvxww6q685Jg2c",
   "projectName": "Inbox",
   "syncIntervalMinutes": 5,
-  "debugMode": false,
+  "debugMode": true,
+  "lastCredentialReminderAt": 0,
   "taskLinks": [
     {
       "blockId": "ots-ib7kpp4v",
       "providerTaskId": "6hV7qcF7M563hGpc",
       "lastSyncedTitle": "Buy milk",
       "lastSyncedDescription": "another description without bullet point",
-      "lastKnownFilePath": "Test Note.md"
+      "lastKnownFilePath": "Test Note.md",
+      "lastSyncedDone": true
     },
     {
       "blockId": "ots-0pc0073d",
       "providerTaskId": "6hV7qc9xc4JWpXmc",
-      "lastSyncedTitle": "Call the dentist",
+      "lastSyncedTitle": "Call the #taginthemiddle dentist",
       "lastSyncedDescription": "- task description",
       "lastKnownFilePath": "Test Note.md"
     },
@@ -44,10 +46,101 @@
     {
       "blockId": "ots-3mz9cjue-5daxh6",
       "providerTaskId": "6hW6wHM3QfhpfX96",
-      "lastSyncedTitle": "but this is a task that should not get synced.",
-      "lastSyncedDescription": "",
+      "lastSyncedTitle": "but this is a task that should now get synced.",
+      "lastSyncedDescription": "Obsidian Task Sync ID: ^ots-3mz9cjue-5daxh6\nTestitesti",
       "lastSyncedTags": [],
       "lastKnownFilePath": "Another test note.md"
+    },
+    {
+      "blockId": "ots-v2sf6qce-mkkiji",
+      "providerTaskId": "6hWGhrJGChqP8H8c",
+      "lastSyncedTitle": "this is a nested task that now gets synced.",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastSyncedParentBlockId": "ots-hrtzbvim-5daxh6",
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-10h3de3j-mkkiji",
+      "providerTaskId": "6hWGj889WGq4Hc7c",
+      "lastSyncedTitle": "Parent task",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastKnownFilePath": "Test Note.md",
+      "lastSyncedDone": true
+    },
+    {
+      "blockId": "ots-8504r40s-mkkiji",
+      "providerTaskId": "6hWGj88XwPh2mm76",
+      "lastSyncedTitle": "nested child",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastSyncedParentBlockId": "ots-10h3de3j-mkkiji",
+      "lastKnownFilePath": "Test Note.md",
+      "lastSyncedDone": true
+    },
+    {
+      "blockId": "ots-aep3ie9a-mkkiji",
+      "providerTaskId": "6hWGj8GQfHpJCgc6",
+      "lastSyncedTitle": "nested grandchild 1",
+      "lastSyncedDescription": "- grandchildren are great, though they are not great grandchildren.\nHow confusing is that?!",
+      "lastSyncedTags": [],
+      "lastSyncedParentBlockId": "ots-8504r40s-mkkiji",
+      "lastKnownFilePath": "Test Note.md",
+      "lastSyncedDone": true
+    },
+    {
+      "blockId": "ots-0nzcqc8p-mkkiji",
+      "providerTaskId": "6hWGj8HvQhQg7jR6",
+      "lastSyncedTitle": "not nested grandchild 2",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-si70wufv-mkkiji",
+      "providerTaskId": "6hWGj8Jmfwwq5c4c",
+      "lastSyncedTitle": "nest great-grandchild",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastSyncedParentBlockId": "ots-0nzcqc8p-mkkiji",
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-ppv33gli-mkkiji",
+      "providerTaskId": "6hWGj8JCrwJqJWX6",
+      "lastSyncedTitle": "some description",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastSyncedParentBlockId": "ots-si70wufv-mkkiji",
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-r7g92lps-mkkiji",
+      "providerTaskId": "6hWGjJjx7W3GrJjc",
+      "lastSyncedTitle": "another nesting test",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [],
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-n7v6x7uo-mkkiji",
+      "providerTaskId": "6hWGjJmxJ8rWp6gc",
+      "lastSyncedTitle": "direct grandchild, now take a look at that",
+      "lastSyncedDescription": "",
+      "lastSyncedTags": [
+        "tag"
+      ],
+      "lastSyncedParentBlockId": "ots-r7g92lps-mkkiji",
+      "lastKnownFilePath": "Test Note.md"
+    },
+    {
+      "blockId": "ots-16l4emh5-mkkiji",
+      "providerTaskId": "6hWH3W5fF49rQ7Pc",
+      "lastSyncedTitle": "Test for complex description",
+      "lastSyncedDescription": "- this is a bullet point in the description.\n  This should still be part of the bullet point. I pressed shift + enter for new line here.\nThis should not be part of the bullet point, but part of the description. It is still indented as the bullet point, but a new paragraph or something in Obsidian. I pressed enter and then backspace twice to remove the bullet point.",
+      "lastSyncedTags": [],
+      "lastKnownFilePath": "Test Note.md"
     }
   ],
   "orphanedTasks": [],
@@ -56,11 +149,6 @@
       "id": "6hRvxww6q685Jg2c",
       "name": "Inbox",
       "isDefault": true
-    },
-    {
-      "id": "6hVMWXwgxXjHwfpQ",
-      "name": "obsidian-task-sync test 1789121828861",
-      "isDefault": false
     }
   ],
   "providerCredentials": {
