@@ -140,6 +140,23 @@ describe('TodoistApiClient reads', () => {
       expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
     });
 
+    it('takes the footer\'s block id over one carried by the description text above it', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(
+          page([
+            {
+              id: 't1',
+              content: 'One',
+              description: '- [ ] direct grandchild ^ots-e5f6g7h8\n\nTaskBridge ID: ^ots-a1b2c3d4',
+            },
+          ]),
+        ),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+    });
+
     it('leaves embeddedBlockId undefined when the description carries no block id', async () => {
       const context = clientReplying(() =>
         Promise.resolve(page([{ id: 't1', content: 'One', description: 'Just some notes' }])),

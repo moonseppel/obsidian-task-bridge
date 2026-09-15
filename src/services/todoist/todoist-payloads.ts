@@ -4,10 +4,11 @@ import { HttpResponse } from '../http/http-client';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
 
 /**
- * The block id may be anywhere in the description, never assumed to be at a fixed position,
- * since the user is free to edit the description after the plugin wrote it.
+ * Searched for rather than assumed at a fixed position, since the user is free to edit the
+ * description after the plugin wrote it; the last match is the footer, because description text
+ * can carry a block id of its own.
  */
-const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/;
+const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/g;
 
 export interface TodoistUser {
   id: string;
@@ -198,9 +199,9 @@ function findEmbeddedBlockId(value: unknown): string | undefined {
     return undefined;
   }
 
-  const match = EMBEDDED_BLOCK_ID.exec(value);
+  const matches = [...value.matchAll(EMBEDDED_BLOCK_ID)];
 
-  return match === null ? undefined : match[1];
+  return matches[matches.length - 1]?.[1];
 }
 
 function readIdentifier(value: unknown, complaint: string): string {
