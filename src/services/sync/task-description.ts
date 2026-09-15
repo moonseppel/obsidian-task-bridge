@@ -23,11 +23,11 @@ export function levelsBelowTask(line: string, taskLine: string): number {
   return indentLevel(line) - indentLevel(taskLine);
 }
 
-/** Strips only the shared extra indent, so relative indentation inside the block survives. */
-function dedent(rawLines: readonly string[], taskIndent: string): string {
-  const minExtra = Math.min(...rawLines.map((line) => leadingWhitespace(line).length - taskIndent.length));
+/** Exactly one level past the task's own, so deeper indentation inside the block survives. */
+function dedent(rawLines: readonly string[], taskLine: string): string {
+  const removedTabs = indentLevel(taskLine) + 1;
 
-  return rawLines.map((line) => line.slice(taskIndent.length + minExtra)).join('\n');
+  return rawLines.map((line) => line.slice(removedTabs)).join('\n');
 }
 
 /**
@@ -36,7 +36,6 @@ function dedent(rawLines: readonly string[], taskIndent: string): string {
  */
 export function readDescriptionBlock(lines: readonly string[], taskLineNumber: number): DescriptionBlock {
   const taskLine = lines[taskLineNumber] ?? '';
-  const taskIndent = leadingWhitespace(taskLine);
   const startLine = taskLineNumber + 1;
   const captured: string[] = [];
   let lineNumber = startLine;
@@ -54,7 +53,7 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
     return { startLine, lineCount: 0, text: '' };
   }
 
-  return { startLine, lineCount: captured.length, text: dedent(captured, taskIndent) };
+  return { startLine, lineCount: captured.length, text: dedent(captured, taskLine) };
 }
 
 /** One literal tab past the task's own indentation, so the depth is unambiguous at any tab width. */

@@ -87,6 +87,18 @@ describe('readDescriptionBlock', () => {
     expect(readDescriptionBlock(lines, 0).text).toBe('First line\n\tMore indented line');
   });
 
+  it('removes exactly one indent level, keeping indentation the lines share beyond it', () => {
+    const lines = ['- [ ] Buy milk', '\t\tsome text'];
+
+    expect(readDescriptionBlock(lines, 0).text).toBe('\tsome text');
+  });
+
+  it('turns a tab-only line into an empty line of the text', () => {
+    const lines = ['- [ ] Buy milk', '\tOat milk', '\t', '\tCheck the wishlist too'];
+
+    expect(readDescriptionBlock(lines, 0).text).toBe('Oat milk\n\nCheck the wishlist too');
+  });
+
   it('respects the indentation of a nested task line', () => {
     const lines = ['\t- [ ] Nested task', '\t\tIts description'];
 
@@ -114,6 +126,27 @@ describe('renderDescriptionBlock', () => {
     const lines = ['- [ ] Buy milk', ...renderDescriptionBlock('', 'Oat milk\nCheck the wishlist too')];
 
     expect(readDescriptionBlock(lines, 0).text).toBe('Oat milk\nCheck the wishlist too');
+  });
+
+  it('renders an empty line of the text as a tab-only line', () => {
+    expect(renderDescriptionBlock('', 'Oat milk\n\nCheck the wishlist too')).toEqual([
+      '\tOat milk',
+      '\t',
+      '\tCheck the wishlist too',
+    ]);
+  });
+
+  it('round-trips the test vault\'s complex description to identical lines', () => {
+    const description = [
+      '\t- this is a bullet point in the description.',
+      '\t  This should still be part of the bullet point.',
+      '\tThis should not be part of the bullet point, but part of the description.',
+      '\t',
+      '\tThis should also be part of the description.',
+    ];
+    const { text } = readDescriptionBlock(['- [ ] Test for complex description', ...description, ''], 0);
+
+    expect(renderDescriptionBlock('', text)).toEqual(description);
   });
 });
 
