@@ -49,10 +49,16 @@ describe('nearestAncestorLineNumbers', () => {
     expect(parents.has(3)).toBe(false);
   });
 
-  it('accepts any deeper whitespace, not only a literal tab', () => {
+  it('leaves a task indented with spaces only top-level', () => {
     const lines = ['- [ ] A', '    - [ ] B'];
 
-    expect(nearestAncestorLineNumbers(lines).get(1)).toBe(0);
+    expect(nearestAncestorLineNumbers(lines).has(1)).toBe(false);
+  });
+
+  it('parents a nested task past a tab-only line', () => {
+    const lines = ['- [ ] A', '\t', '\t- [ ] B'];
+
+    expect(nearestAncestorLineNumbers(lines).get(2)).toBe(0);
   });
 
   it('returns a sibling to its parent once a deeper child block ends', () => {
@@ -92,9 +98,21 @@ describe('subtreeSpan', () => {
     expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 2 });
   });
 
+  it('spans past a tab-only line', () => {
+    const lines = ['- [ ] A', '\tDescription', '\t', '\t- [ ] B', '- [ ] C'];
+
+    expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 4 });
+  });
+
   it('stops at a line indented no deeper than the task itself', () => {
     const lines = ['- [ ] A', '\t- [ ] B', '- [ ] C'];
 
     expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 2 });
+  });
+
+  it('stops at a line indented with spaces only', () => {
+    const lines = ['- [ ] A', '    Some text'];
+
+    expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 1 });
   });
 });

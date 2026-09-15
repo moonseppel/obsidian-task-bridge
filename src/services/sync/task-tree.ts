@@ -1,4 +1,4 @@
-import { isDeeperThan, leadingWhitespace } from './task-description';
+import { leadingWhitespace, levelsBelowTask } from './task-description';
 import { parseTaskLine } from './task-line';
 
 export interface SubtreeSpan {
@@ -9,13 +9,13 @@ export interface SubtreeSpan {
 
 interface OpenAncestor {
   readonly lineNumber: number;
-  readonly indent: string;
+  readonly taskLine: string;
 }
 
 /**
  * Every task line's nearest ancestor task line, found in one indentation-based walk of the
- * whole note. A blank line closes every currently open ancestor, the same boundary
- * `readDescriptionBlock` already uses, so the note has exactly one nesting rule rather than two.
+ * whole note. A line no deeper than an open ancestor closes it, the same level boundary
+ * `readDescriptionBlock` uses, so the note has exactly one nesting rule rather than two.
  */
 export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMap<number, number> {
   const parents = new Map<number, number>();
@@ -34,7 +34,7 @@ export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMa
       parents.set(lineNumber, parent.lineNumber);
     }
 
-    open.push({ lineNumber, indent: leadingWhitespace(line) });
+    open.push({ lineNumber, taskLine: line });
   }
 
   return parents;
@@ -46,15 +46,11 @@ export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMa
  * task line, since a subtree includes its children rather than treating them as a boundary.
  */
 export function subtreeSpan(lines: readonly string[], taskLineNumber: number): SubtreeSpan {
-  const taskIndent = leadingWhitespace(lines[taskLineNumber] ?? '');
+  const taskLine = lines[taskLineNumber] ?? '';
   const startLine = taskLineNumber + 1;
   let lineNumber = startLine;
 
-  while (
-    lineNumber < lines.length &&
-    lines[lineNumber].trim().length > 0 &&
-    isDeeperThan(lines[lineNumber], taskIndent)
-  ) {
+  while (lineNumber < lines.length && levelsBelowTask(lines[lineNumber], taskLine) >= 1) {
     lineNumber += 1;
   }
 
@@ -76,12 +72,7 @@ export function reindentBlock(lines: readonly string[], oldBaseIndent: string, n
 }
 
 function closeAncestorsEndedBy(open: OpenAncestor[], line: string): void {
-  if (line.trim().length === 0) {
-    open.length = 0;
-    return;
-  }
-
-  while (open.length > 0 && !isDeeperThan(line, open[open.length - 1].indent)) {
+  while (open.length > 0 && levelsBelowTask(line, open[open.length - 1].taskLine) <= 0) {
     open.pop();
   }
 }

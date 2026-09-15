@@ -14,11 +14,13 @@ export function leadingWhitespace(line: string): string {
   return /^[ \t]*/.exec(line)?.[0] ?? '';
 }
 
-/** Any deeper whitespace counts, not just a tab, so indentation style never changes what is read. */
-export function isDeeperThan(line: string, taskIndent: string): boolean {
-  const indent = leadingWhitespace(line);
+/** Only leading tabs count, so a line indented with spaces alone is level 0. */
+export function indentLevel(line: string): number {
+  return /^\t*/.exec(line)?.[0].length ?? 0;
+}
 
-  return indent.startsWith(taskIndent) && indent.length > taskIndent.length;
+export function levelsBelowTask(line: string, taskLine: string): number {
+  return indentLevel(line) - indentLevel(taskLine);
 }
 
 /** Strips only the shared extra indent, so relative indentation inside the block survives. */
@@ -28,17 +30,20 @@ function dedent(rawLines: readonly string[], taskIndent: string): string {
   return rawLines.map((line) => line.slice(taskIndent.length + minExtra)).join('\n');
 }
 
-/** A nested checkbox stops the block: it syncs as its own task rather than as the parent's text. */
+/**
+ * Ends for good at the first line no deeper than the task. A nested checkbox stops the block too:
+ * it syncs as its own task rather than as the parent's text.
+ */
 export function readDescriptionBlock(lines: readonly string[], taskLineNumber: number): DescriptionBlock {
-  const taskIndent = leadingWhitespace(lines[taskLineNumber] ?? '');
+  const taskLine = lines[taskLineNumber] ?? '';
+  const taskIndent = leadingWhitespace(taskLine);
   const startLine = taskLineNumber + 1;
   const captured: string[] = [];
   let lineNumber = startLine;
 
   while (
     lineNumber < lines.length &&
-    lines[lineNumber].trim().length > 0 &&
-    isDeeperThan(lines[lineNumber], taskIndent) &&
+    levelsBelowTask(lines[lineNumber], taskLine) >= 1 &&
     parseTaskLine(lines[lineNumber]) === undefined
   ) {
     captured.push(lines[lineNumber]);

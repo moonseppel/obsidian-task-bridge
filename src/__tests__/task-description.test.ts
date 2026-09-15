@@ -40,10 +40,33 @@ describe('readDescriptionBlock', () => {
     expect(readDescriptionBlock(lines, 0).text).toBe('Oat milk');
   });
 
+  it('keeps the description open across a tab-only line', () => {
+    const lines = ['- [ ] Buy milk', '\tOat milk', '\t', '\tCheck the wishlist too'];
+
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(3);
+  });
+
+  it('captures a bullet, its continuation and a paragraph after it', () => {
+    const lines = [
+      '- [ ] Test for complex description',
+      '\t- this is a bullet point in the description.',
+      '\t  This should still be part of the bullet point.',
+      '\tThis should not be part of the bullet point, but part of the description.',
+    ];
+
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(3);
+  });
+
   it('stops at a line indented no deeper than the task itself', () => {
     const lines = ['- [ ] Buy milk', '\tOat milk', '- [ ] Second task'];
 
     expect(readDescriptionBlock(lines, 0)).toEqual({ startLine: 1, lineCount: 1, text: 'Oat milk' });
+  });
+
+  it('stops at a line shallower than a nested task', () => {
+    const lines = ['\t\t- [x] nested grandchild 1', '\t\t\tHow confusing is that?!', '- [ ] not nested grandchild 2'];
+
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(1);
   });
 
   it('stops at a nested task line even though it is still indented deeper', () => {
@@ -52,10 +75,10 @@ describe('readDescriptionBlock', () => {
     expect(readDescriptionBlock(lines, 0)).toEqual({ startLine: 1, lineCount: 1, text: 'Oat milk' });
   });
 
-  it('accepts any deeper whitespace, not only a literal tab', () => {
+  it('treats a line indented with spaces only as level 0, so it starts no description', () => {
     const lines = ['- [ ] Buy milk', '    Oat milk (four spaces)'];
 
-    expect(readDescriptionBlock(lines, 0).text).toBe('Oat milk (four spaces)');
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(0);
   });
 
   it('keeps a nested task line\'s own extra indentation relative to the block, once dedented', () => {
@@ -65,7 +88,7 @@ describe('readDescriptionBlock', () => {
   });
 
   it('respects the indentation of a nested task line', () => {
-    const lines = ['  - [ ] Nested task', '  \tIts description'];
+    const lines = ['\t- [ ] Nested task', '\t\tIts description'];
 
     expect(readDescriptionBlock(lines, 0)).toEqual({ startLine: 1, lineCount: 1, text: 'Its description' });
   });
