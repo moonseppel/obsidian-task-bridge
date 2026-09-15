@@ -1,5 +1,5 @@
 /** Only this plugin's own anchors are hidden; block ids the user wrote stay visible. */
-const TRAILING_ANCHOR = /[ \t]*\^ots-[a-z0-9]+[ \t]*$/;
+const TRAILING_ANCHOR = /[ \t]*\^ots-[a-z0-9-]+[ \t]*$/;
 const TEXT_NODE = 3;
 
 export function stripTrailingAnchor(text: string): string {

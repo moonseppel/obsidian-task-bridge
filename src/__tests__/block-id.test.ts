@@ -32,8 +32,8 @@ describe('createBlockId', () => {
     expect(createBlockId(new Set(), NO_DEVICE_TAG, () => 0.999999)).toMatch(/^ots-[a-z0-9]{8}$/);
   });
 
-  it('bakes the device tag onto the end of the id', () => {
-    expect(createBlockId(new Set(), 'dev1a', () => 0)).toBe('ots-aaaaaaaa-dev1a');
+  it('places the device tag directly after the prefix, before the random part', () => {
+    expect(createBlockId(new Set(), 'dev1a', () => 0)).toBe('ots-dev1a-aaaaaaaa');
   });
 
   it('mints the untagged format when the device tag is empty', () => {

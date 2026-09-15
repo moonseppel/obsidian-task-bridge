@@ -51,7 +51,7 @@ describe('TaskSync creation and title sync', () => {
 
     await sync.run(PROJECT);
 
-    expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}-dev1a$/);
+    expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-dev1a-[a-z0-9]{8}$/);
   });
 
   it('records the new task against the block id it wrote into the note', async () => {

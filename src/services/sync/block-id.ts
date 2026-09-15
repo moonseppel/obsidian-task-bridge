@@ -15,7 +15,7 @@ export function createBlockId(
   random: RandomSource = Math.random,
 ): string {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const candidate = `${PREFIX}${randomToken(LENGTH, random)}${tagSuffix(deviceTag)}`;
+    const candidate = `${PREFIX}${tagSegment(deviceTag)}${randomToken(LENGTH, random)}`;
 
     if (!taken.has(candidate)) {
       return candidate;
@@ -25,6 +25,6 @@ export function createBlockId(
   throw new Error('Could not mint a block id that is free in this note.');
 }
 
-function tagSuffix(deviceTag: string): string {
-  return deviceTag.length === 0 ? '' : `-${deviceTag}`;
+function tagSegment(deviceTag: string): string {
+  return deviceTag.length === 0 ? '' : `${deviceTag}-`;
 }

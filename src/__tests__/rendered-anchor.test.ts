@@ -16,6 +16,14 @@ describe('stripTrailingAnchor', () => {
     expect(stripTrailingAnchor('Buy milk ^ots-a1b2c3d4')).toBe('Buy milk');
   });
 
+  it('removes an anchor carrying the device tag after the prefix', () => {
+    expect(stripTrailingAnchor('Buy milk ^ots-dev1a-a1b2c3d4')).toBe('Buy milk');
+  });
+
+  it('removes an anchor carrying the device tag after the random part, as older notes still do', () => {
+    expect(stripTrailingAnchor('Buy milk ^ots-a1b2c3d4-dev1a')).toBe('Buy milk');
+  });
+
   it('leaves a block id the user wrote themselves alone', () => {
     expect(stripTrailingAnchor('Buy milk ^my-own-anchor')).toBe('Buy milk ^my-own-anchor');
   });
