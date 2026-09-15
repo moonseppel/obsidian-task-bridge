@@ -22,7 +22,7 @@ export interface ParsedTaskLine {
 
 /**
  * Any checkbox character other than a plain space reads as done. A richer, user-defined state
- * (e.g. the Tasks plugin's `[/]` or `[-]`) is not given separate meaning here — see Feature 10.
+ * (e.g. the Tasks plugin's `[/]` or `[-]`) is not given separate meaning here — see Feature 11.
  */
 export function isDone(task: ParsedTaskLine): boolean {
   return task.checkbox !== ' ';

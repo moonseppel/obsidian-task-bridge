@@ -37,4 +37,4 @@
 
 1. An already-linked task's line is never left un-anchored during a relocation: the anchor moves with the task, its description and nested children intact.
 2. A task's own indentation depth is not itself synced as a number; only its immediate parent identity is, so an intermediate level with no Obsidian-linked task anywhere in it is not reconstructed.
-3. Priority is Feature 11's concern, alongside the rest of the Tasks-plugin-sourced fields.
+3. Priority is Feature 12's concern, alongside the rest of the Tasks-plugin-sourced fields.

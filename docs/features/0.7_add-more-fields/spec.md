@@ -34,7 +34,7 @@
 
 ## Architecture
 
-1. State is binary (done/not done) from a single non-space checkbox character; richer states are Feature 10's concern.
+1. State is binary (done/not done) from a single non-space checkbox character; richer states are Feature 11's concern.
 2. A linked task missing from Todoist's active list is checked directly, as Feature 6 already does, adding a third outcome to deleted/moved: still present but completed, which pulls into the checkbox.
 3. A description is text indented one level deeper than its task, excluding nested task lines, dedented for Todoist and re-indented by one tab on return.
 4. A task's Todoist description holds the user's text, a blank line, then this plugin's footer, found by search per architecture-rules.md #8, never by position.
@@ -44,8 +44,8 @@
 
 ## Non-Features
 
-1. A checkbox state other than space or a completion marker is treated as done — a placeholder pending Feature 10.
+1. A checkbox state other than space or a completion marker is treated as done — a placeholder pending Feature 11.
 2. A tag written anywhere but trailing the task line is left as plain text, not synced.
 3. A Todoist label that cannot be written as an Obsidian tag is left unsynced, not re-encoded.
 4. An orphaned task Todoist marks completed drops out of orphan tracking while completed, since tracking walks the same active list as everything else; reopening it resumes tracking from a fresh clock. Reaching orphan tracking into completed tasks is out of scope.
-5. Priority moved to Feature 11.
+5. Priority moved to Feature 12.
