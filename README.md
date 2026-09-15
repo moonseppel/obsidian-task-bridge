@@ -59,11 +59,14 @@ it syncs a line, and it is what ties that line to its Todoist task, so the title
 either side without the link breaking. `[[Tasks#^ots-a1b2c3]]` links to that task from anywhere in
 the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
 
-Checking the box completes the Todoist task, and completing it in Todoist checks the box. Text
-indented one level under a task line is its Todoist description; a trailing `#tag`, right before the
-anchor, is a Todoist label. A task indented one level under another is its Todoist sub-task. All
-five fields — title, state, description, tags, parent — sync both ways and independently of each
-other. See [Nested tasks](#nested-tasks) for how nesting itself works.
+Checking the box completes the Todoist task, and completing it in Todoist checks the box. The lines
+indented at least one tab deeper than a task line are its Todoist description — bullets, their
+continuation lines, paragraphs, and lines holding nothing but tabs, which count as blank lines inside
+it — until the first line indented no deeper than the task itself, an empty line included. It reaches
+Todoist with one tab of indentation removed, so any deeper indentation inside it is kept. A trailing
+`#tag`, right before the anchor, is a Todoist label. A task indented one level under another is its
+Todoist sub-task. All five fields — title, state, description, tags, parent — sync both ways and
+independently of each other. See [Nested tasks](#nested-tasks) for how nesting itself works.
 
 The anchor is hidden in reading view unless **Debug mode** is on; Live Preview always shows it. See
 [Debug mode](#debug-mode) for why.
@@ -138,9 +141,9 @@ since Todoist itself would otherwise delete every descendant of a removed task a
 
 ### Nested tasks
 
-A task indented at least one level under another syncs as that task's sub-task in Todoist, and a
-sub-task in Todoist syncs into the note as a line indented one level under its parent — recursively,
-so a whole tree of tasks nests the same way on both sides.
+A task indented one tab under another syncs as that task's sub-task in Todoist, and a sub-task in
+Todoist syncs into the note as a line indented one tab under its parent — recursively, so a whole
+tree of tasks nests the same way on both sides.
 
 ```markdown
 - [ ] Plan the trip ^ots-a1b2c3
@@ -155,6 +158,14 @@ line is unindented, or its Todoist parent is cleared — becomes a standalone ta
 as well, while whatever is nested under it stays exactly where it is. A sub-task added directly in
 Todoist, under a task already synced from Obsidian, is pulled into the note too; a task created
 directly in Todoist with no synced task anywhere above it in its chain still isn't.
+
+Nesting ends where a description does: at the first line indented no deeper than the parent, an
+empty line included, while a line holding nothing but tabs keeps it going. Within a task's
+description, a checkbox line indented two or more tabs under the task, or with spaces after its
+tabs, is part of the description rather than a sub-task — Obsidian doesn't display it as a task
+either. A task already synced from a line that became description text this way is flagged and
+removed in Todoist on the same schedule as a task moved out of scope, while its text lives on in the
+parent's description.
 
 ## Debug mode
 
@@ -190,6 +201,7 @@ of it.
 - Conflicts are resolved by comparing the device's clock with Todoist's, so a device whose clock is badly off can pick the wrong winner
 - Todoist offers no trash for tasks, so a task this plugin removes is deleted permanently
 - The notes and `data.json` are separate files. If they get out of step, through a partial restore or a third-party vault sync running slightly behind, task identity and the 60-second grace period usually re-link the line to its existing task rather than duplicating it — but a link that never catches up still ends up creating a second task eventually
+- Only tabs count as indentation: a line indented with spaces only neither forms a description nor nests under a task
 
 ## Installation using BRAT
 
