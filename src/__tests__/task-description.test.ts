@@ -75,6 +75,18 @@ describe('readDescriptionBlock', () => {
     expect(readDescriptionBlock(lines, 0)).toEqual({ startLine: 1, lineCount: 1, text: 'Oat milk' });
   });
 
+  it('keeps a checkbox line with spaces after its tabs as description text', () => {
+    const lines = ['- [ ] Buy milk', '\t  - [ ] Not a task', '\tMore text after it'];
+
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(2);
+  });
+
+  it('reads a checkbox line two levels deeper as description text', () => {
+    const lines = ['- [ ] another nesting test', '\t\t- [ ] direct grandchild ^ots-n7v6x7uo'];
+
+    expect(readDescriptionBlock(lines, 0).text).toBe('\t- [ ] direct grandchild ^ots-n7v6x7uo');
+  });
+
   it('treats a line indented with spaces only as level 0, so it starts no description', () => {
     const lines = ['- [ ] Buy milk', '    Oat milk (four spaces)'];
 

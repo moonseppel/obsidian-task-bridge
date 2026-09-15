@@ -37,6 +37,14 @@ describe('appendAnchorToLine', () => {
     expect(result).toEqual({ content: original, appended: false });
   });
 
+  it('refuses when the line is a checkbox line inside a description rather than a task', () => {
+    const original = '- [ ] Parent\n\t\t- [ ] Description text';
+
+    const result = appendAnchorToLine(original, 1, 'ots-a1');
+
+    expect(result).toEqual({ content: original, appended: false });
+  });
+
   it('refuses when the line number no longer exists', () => {
     const original = '- [ ] Only line';
 

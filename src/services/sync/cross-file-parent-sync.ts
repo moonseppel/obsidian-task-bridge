@@ -5,7 +5,7 @@ import { SourceNote } from './source-note';
 import { leadingWhitespace } from './task-description';
 import { parseTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore, linkIds } from './task-links';
-import { reindentBlock, subtreeSpan } from './task-tree';
+import { reindentBlock, subtreeSpan, taskLineNumbers } from './task-tree';
 
 const logger = new Logger('TaskBridge:Sync');
 
@@ -133,13 +133,7 @@ export class CrossFileParentSync {
 }
 
 function findLineNumber(lines: readonly string[], blockId: string): number | undefined {
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    if (parseTaskLine(lines[lineNumber])?.blockId === blockId) {
-      return lineNumber;
-    }
-  }
-
-  return undefined;
+  return [...taskLineNumbers(lines)].find((lineNumber) => parseTaskLine(lines[lineNumber])?.blockId === blockId);
 }
 
 function insertUnderEdit(anchorLineNumber: number, expectedAnchorLine: string, lines: readonly string[]): NoteEdits {

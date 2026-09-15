@@ -23,6 +23,15 @@ export function levelsBelowTask(line: string, taskLine: string): number {
   return indentLevel(line) - indentLevel(taskLine);
 }
 
+/** The one checkbox line below a task that is its nested task rather than its description text. */
+export function isNestedTaskLine(line: string, taskLine: string): boolean {
+  return parseTaskLine(line) !== undefined && levelsBelowTask(line, taskLine) === 1 && spacesAfterTabs(line) === 0;
+}
+
+function spacesAfterTabs(line: string): number {
+  return /^\t*( *)/.exec(line)?.[1].length ?? 0;
+}
+
 /** Exactly one level past the task's own, so deeper indentation inside the block survives. */
 function dedent(rawLines: readonly string[], taskLine: string): string {
   const removedTabs = indentLevel(taskLine) + 1;
@@ -31,8 +40,8 @@ function dedent(rawLines: readonly string[], taskLine: string): string {
 }
 
 /**
- * Ends for good at the first line no deeper than the task. A nested checkbox stops the block too:
- * it syncs as its own task rather than as the parent's text.
+ * Ends for good at the first line no deeper than the task, or at its nested task; any other
+ * checkbox line before that is text, never a task of its own (architecture-rules.md #39).
  */
 export function readDescriptionBlock(lines: readonly string[], taskLineNumber: number): DescriptionBlock {
   const taskLine = lines[taskLineNumber] ?? '';
@@ -43,7 +52,7 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
   while (
     lineNumber < lines.length &&
     levelsBelowTask(lines[lineNumber], taskLine) >= 1 &&
-    parseTaskLine(lines[lineNumber]) === undefined
+    !isNestedTaskLine(lines[lineNumber], taskLine)
   ) {
     captured.push(lines[lineNumber]);
     lineNumber += 1;

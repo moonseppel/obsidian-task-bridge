@@ -3,7 +3,7 @@ import { ProviderTask } from '../task-provider';
 import { createBlockId } from './block-id';
 import { SyncPass, recordInsertUnder } from './sync-pass';
 import { leadingWhitespace } from './task-description';
-import { formatTaskLine } from './task-line';
+import { collectBlockIds, formatTaskLine } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
 
 const logger = new Logger('TaskBridge:Sync');
@@ -103,14 +103,17 @@ export class RemoteChildSync {
 }
 
 /**
- * A link not anchored anywhere yet doesn't count as "already pulled in": its insert may have been
- * dropped by a stale guard (an overlapping sync pass, say), and it needs retrying with the same
- * block id rather than being silently abandoned — see architecture-rules.md rule 37.
+ * A child whose block id appears anywhere in the note, description text included, is already
+ * pulled in. A link not anchored anywhere yet doesn't count: its insert may have been dropped by a
+ * stale guard (an overlapping sync pass, say), and it needs retrying with the same block id rather
+ * than being silently abandoned — see architecture-rules.md rule 37.
  */
 function alreadyAnchoredTaskIds(pass: SyncPass, links: readonly TaskLink[]): Set<string> {
+  const blockIdsInNote = collectBlockIds(pass.lines);
+
   return new Set(
     links
-      .filter((link) => pass.lineNumberByBlockId.has(link.blockId) || link.lastKnownFilePath !== undefined)
+      .filter((link) => blockIdsInNote.has(link.blockId) || link.lastKnownFilePath !== undefined)
       .map((link) => link.providerTaskId),
   );
 }

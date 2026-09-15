@@ -1,4 +1,4 @@
-import { leadingWhitespace, levelsBelowTask } from './task-description';
+import { isNestedTaskLine, leadingWhitespace, levelsBelowTask } from './task-description';
 import { parseTaskLine } from './task-line';
 
 export interface SubtreeSpan {
@@ -10,32 +10,35 @@ export interface SubtreeSpan {
 interface OpenAncestor {
   readonly lineNumber: number;
   readonly taskLine: string;
+  /** Until a nested task ends it, any other checkbox line below the ancestor is its description text. */
+  descriptionOpen: boolean;
 }
 
 /**
- * Every task line's nearest ancestor task line, found in one indentation-based walk of the
- * whole note. A line no deeper than an open ancestor closes it, the same level boundary
- * `readDescriptionBlock` uses, so the note has exactly one nesting rule rather than two.
+ * Which lines are tasks, found in one top-down walk: a checkbox line is a task unless it lies inside
+ * a still-open description, which only a nested task ends (architecture-rules.md #39).
+ */
+export function taskLineNumbers(lines: readonly string[]): ReadonlySet<number> {
+  const found = new Set<number>();
+
+  walkTaskLines(lines, (lineNumber) => found.add(lineNumber));
+
+  return found;
+}
+
+/**
+ * Every task line's nearest ancestor task line, found in the same walk as `taskLineNumbers`. A line
+ * no deeper than an open ancestor closes it, the same level boundary `readDescriptionBlock` uses,
+ * so the note has exactly one nesting rule rather than two.
  */
 export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMap<number, number> {
   const parents = new Map<number, number>();
-  const open: OpenAncestor[] = [];
 
-  for (const [lineNumber, line] of lines.entries()) {
-    closeAncestorsEndedBy(open, line);
-
-    if (parseTaskLine(line) === undefined) {
-      continue;
+  walkTaskLines(lines, (lineNumber, parentLineNumber) => {
+    if (parentLineNumber !== undefined) {
+      parents.set(lineNumber, parentLineNumber);
     }
-
-    const parent = open[open.length - 1];
-
-    if (parent !== undefined) {
-      parents.set(lineNumber, parent.lineNumber);
-    }
-
-    open.push({ lineNumber, taskLine: line });
-  }
+  });
 
   return parents;
 }
@@ -69,6 +72,34 @@ export function reindentBlock(lines: readonly string[], oldBaseIndent: string, n
 
     return `${newBaseIndent}${extra}${line.slice(ownIndent.length)}`;
   });
+}
+
+function walkTaskLines(
+  lines: readonly string[],
+  visit: (lineNumber: number, parentLineNumber: number | undefined) => void,
+): void {
+  const open: OpenAncestor[] = [];
+
+  for (const [lineNumber, line] of lines.entries()) {
+    closeAncestorsEndedBy(open, line);
+
+    const parent = open[open.length - 1];
+
+    if (parseTaskLine(line) === undefined || isDescriptionText(line, parent)) {
+      continue;
+    }
+
+    if (parent !== undefined) {
+      parent.descriptionOpen = false;
+    }
+
+    visit(lineNumber, parent?.lineNumber);
+    open.push({ lineNumber, taskLine: line, descriptionOpen: true });
+  }
+}
+
+function isDescriptionText(checkboxLine: string, parent: OpenAncestor | undefined): boolean {
+  return parent !== undefined && parent.descriptionOpen && !isNestedTaskLine(checkboxLine, parent.taskLine);
 }
 
 function closeAncestorsEndedBy(open: OpenAncestor[], line: string): void {

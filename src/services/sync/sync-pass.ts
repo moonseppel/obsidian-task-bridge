@@ -5,7 +5,7 @@ import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { indexTasksByEmbeddedBlockId, indexTasksById } from './task-index';
 import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from './task-line';
 import { TaskLink } from './task-links';
-import { nearestAncestorLineNumbers } from './task-tree';
+import { nearestAncestorLineNumbers, taskLineNumbers } from './task-tree';
 
 /** A local task line whose remote parent was found to live in a different in-scope file. */
 export interface PendingRelocation {
@@ -25,13 +25,15 @@ export interface SyncPass {
   readonly localModifiedAt: number;
   /** Each task line's nearest ancestor task line, fixed for the pass since it reads original content. */
   readonly parentLineNumbers: ReadonlyMap<number, number>;
+  /** Which lines are tasks rather than description text, fixed for the pass like parentLineNumbers. */
+  readonly taskLineNumbers: ReadonlySet<number>;
   /**
    * The block id each task line is using this pass, recorded as it becomes known so a child
    * processed later in the same top-down pass can resolve its parent's identity even when that
    * parent's block id was only just minted and hasn't been written into the note yet.
    */
   readonly blockIdByLineNumber: Map<number, string>;
-  /** Every block id currently anchoring a line in the note, fixed for the pass like parentLineNumbers. */
+  /** Every block id currently anchoring a task line in the note, fixed for the pass like parentLineNumbers. */
   readonly lineNumberByBlockId: ReadonlyMap<string, number>;
   /**
    * Each edited task line's latest form, so a field pulled after another builds on it rather than on
@@ -73,6 +75,7 @@ export interface NoteSnapshot {
 
 export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, path: string): SyncPass {
   const lines = note.content.split('\n');
+  const taskLines = taskLineNumbers(lines);
 
   return {
     lines,
@@ -83,8 +86,9 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, pat
     takenBlockIds: collectBlockIds(lines),
     localModifiedAt: note.modifiedAt,
     parentLineNumbers: nearestAncestorLineNumbers(lines),
+    taskLineNumbers: taskLines,
     blockIdByLineNumber: new Map(),
-    lineNumberByBlockId: lineNumberByBlockId(lines),
+    lineNumberByBlockId: lineNumberByBlockId(lines, taskLines),
     editedTasks: new Map(),
     removals: [],
     blocks: [],
@@ -93,6 +97,16 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, pat
     pendingParentRelocations: [],
     outcome: emptyOutcome(project.resolution),
   };
+}
+
+/**
+ * Every block id anchoring a task line, plus every one minted this pass, whose line may not be
+ * written yet. One carried only by description text is left out: its task has no line.
+ */
+export function anchoredBlockIds(pass: SyncPass): string[] {
+  const inNote = collectBlockIds(pass.lines);
+
+  return [...pass.takenBlockIds].filter((blockId) => pass.lineNumberByBlockId.has(blockId) || !inNote.has(blockId));
 }
 
 export function collectedEdits(pass: SyncPass): NoteEdits {
@@ -185,10 +199,10 @@ function guardAt(pass: SyncPass, lineNumber: number): LineGuard {
   return { lineNumber, expected: pass.lines[lineNumber] };
 }
 
-function lineNumberByBlockId(lines: readonly string[]): ReadonlyMap<string, number> {
+function lineNumberByBlockId(lines: readonly string[], taskLines: ReadonlySet<number>): ReadonlyMap<string, number> {
   const found = new Map<string, number>();
 
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+  for (const lineNumber of taskLines) {
     const blockId = parseTaskLine(lines[lineNumber])?.blockId;
 
     if (blockId !== undefined) {

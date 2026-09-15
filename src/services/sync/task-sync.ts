@@ -20,6 +20,7 @@ import {
   NoteSnapshot,
   PendingRelocation,
   SyncPass,
+  anchoredBlockIds,
   collectedEdits,
   createSyncPass,
   recordRemoval,
@@ -187,7 +188,7 @@ export class TaskSync {
         },
         async () => {
           // Kept even if syncing failed: a line given a block id but never written would be created again.
-          pass.takenBlockIds.forEach((blockId) => scope.scannedBlockIds.add(blockId));
+          anchoredBlockIds(pass).forEach((blockId) => scope.scannedBlockIds.add(blockId));
           scope.pendingRelocations.push(...pass.pendingParentRelocations);
           this.recordLastKnownFile(pass, path);
           pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
@@ -218,7 +219,7 @@ export class TaskSync {
 
   private async syncLine(pass: SyncPass, lineNumber: number, note: SourceNote): Promise<void> {
     const original = pass.lines[lineNumber];
-    const task = parseTaskLine(original);
+    const task = pass.taskLineNumbers.has(lineNumber) ? parseTaskLine(original) : undefined;
 
     if (task === undefined || task.title.length === 0 || !this.isTagInScope(task)) {
       return;

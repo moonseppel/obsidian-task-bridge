@@ -1,4 +1,5 @@
 import { formatTaskLine, parseTaskLine } from './task-line';
+import { taskLineNumbers } from './task-tree';
 
 /** What appending a block id to one line of a note either did or found already true. */
 export interface AnchorWrite {
@@ -9,7 +10,7 @@ export interface AnchorWrite {
 
 /**
  * Appends a block id to the line at this position, but only while doing so still makes sense: the
- * line must still parse as a task line carrying no block id, or already carrying this exact one
+ * line must still be a task line, not description text, carrying no block id, or already carrying this exact one
  * (a block id reused from the note rather than freshly minted counts as already anchored, not as
  * having moved on). This way a task line whose creation raced a concurrent edit still gets its
  * anchor as long as the line is still recognizably the same, anchor-less task, whatever else about
@@ -17,8 +18,7 @@ export interface AnchorWrite {
  */
 export function appendAnchorToLine(content: string, lineNumber: number, blockId: string): AnchorWrite {
   const lines = content.split('\n');
-  const current: string | undefined = lines[lineNumber];
-  const task = current === undefined ? undefined : parseTaskLine(current);
+  const task = taskLineNumbers(lines).has(lineNumber) ? parseTaskLine(lines[lineNumber]) : undefined;
 
   if (task === undefined || (task.blockId !== undefined && task.blockId !== blockId)) {
     return { content, appended: false };
