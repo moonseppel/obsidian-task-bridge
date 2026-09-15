@@ -5,7 +5,13 @@ are using tasks in Obsidian and want also to have the full feature set of a task
 create a few tasks in Obsidian and mainly are suing a task manager, this plugin might be the right
 choice for you.
 
-Created and maintaned by Jan Pralle, www.jpcloudsolutions.de.
+This plugin currently is in public beta. I thoroughly tested it, but since that was just in
+configurations, data loss might happen. So please use with care for now and please
+[report any bugs you may find](https://github.com/moonseppel/obsidian-task-bridge/issues).
+Thank you :) Installation should happen via BRAT, see
+[Installation using BRAT](#installation-using-brat).
+
+Created and maintaned by Jan Pralle, [www.jpcloudsolutions.de](www.jpcloudsolutions.de).
 
 ## Features
 
@@ -184,6 +190,16 @@ of it.
 - Conflicts are resolved by comparing the device's clock with Todoist's, so a device whose clock is badly off can pick the wrong winner
 - Todoist offers no trash for tasks, so a task this plugin removes is deleted permanently
 - The notes and `data.json` are separate files. If they get out of step, through a partial restore or a third-party vault sync running slightly behind, task identity and the 60-second grace period usually re-link the line to its existing task rather than duplicating it — but a link that never catches up still ends up creating a second task eventually
+
+## Installation using BRAT
+
+1. Install the BRAT community plugin from Settings → Community plugins and enable it.
+2. Open BRAT's settings, or run BRAT: Add a beta plugin for testing from the command palette.
+3. Enter `moonseppel/obsidian-task-bridge` as the repository and confirm.
+4. Enable TaskBridge under Settings → Community plugins.
+
+BRAT installs the latest release and checks for updates automatically, so this is the recommended
+way to install while the plugin is in public beta.
 
 ## Manual Local Installation
 
