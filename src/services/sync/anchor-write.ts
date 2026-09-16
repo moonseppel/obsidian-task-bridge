@@ -1,3 +1,4 @@
+import { DEFAULT_INDENTATION } from './indentation';
 import { formatTaskLine, parseTaskLine } from './task-line';
 import { taskLineNumbers } from './task-tree';
 
@@ -16,9 +17,14 @@ export interface AnchorWrite {
  * anchor as long as the line is still recognizably the same, anchor-less task, whatever else about
  * it (its title, say) changed in the meantime. See architecture-rules.md rule 38.
  */
-export function appendAnchorToLine(content: string, lineNumber: number, blockId: string): AnchorWrite {
+export function appendAnchorToLine(
+  content: string,
+  lineNumber: number,
+  blockId: string,
+  indentation = DEFAULT_INDENTATION,
+): AnchorWrite {
   const lines = content.split('\n');
-  const task = taskLineNumbers(lines).has(lineNumber) ? parseTaskLine(lines[lineNumber]) : undefined;
+  const task = taskLineNumbers(lines, indentation).has(lineNumber) ? parseTaskLine(lines[lineNumber]) : undefined;
 
   if (task === undefined || (task.blockId !== undefined && task.blockId !== blockId)) {
     return { content, appended: false };

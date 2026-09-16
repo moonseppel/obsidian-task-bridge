@@ -75,8 +75,14 @@ describe('nearestAncestorLineNumbers', () => {
     expect(parents.has(3)).toBe(false);
   });
 
-  it('leaves a task indented with spaces only top-level', () => {
+  it('nests a task indented with a full run of spaces, which counts as one level', () => {
     const lines = ['- [ ] A', '    - [ ] B'];
+
+    expect(nearestAncestorLineNumbers(lines).get(1)).toBe(0);
+  });
+
+  it('leaves a task indented with fewer spaces than the tab size top-level', () => {
+    const lines = ['- [ ] A', '   - [ ] B'];
 
     expect(nearestAncestorLineNumbers(lines).has(1)).toBe(false);
   });
@@ -136,8 +142,14 @@ describe('subtreeSpan', () => {
     expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 2 });
   });
 
-  it('stops at a line indented with spaces only', () => {
+  it('spans a line indented with a full run of spaces, which counts as one level', () => {
     const lines = ['- [ ] A', '    Some text'];
+
+    expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 2 });
+  });
+
+  it('stops at a line indented with fewer spaces than the tab size', () => {
+    const lines = ['- [ ] A', '   Some text'];
 
     expect(subtreeSpan(lines, 0)).toEqual({ startLine: 1, endLineExclusive: 1 });
   });

@@ -1,4 +1,5 @@
 import { appendAnchorToLine } from '../../services/sync/anchor-write';
+import { Indentation } from '../../services/sync/indentation';
 import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/sync/note-edits';
 import { OrphanTracker } from '../../services/sync/orphan-tracker';
 import { SourceNote } from '../../services/sync/source-note';
@@ -49,17 +50,17 @@ export class FakeNote implements SourceNote {
     return this.modifiedAt;
   }
 
-  async applyEdits(edits: NoteEdits): Promise<number> {
+  async applyEdits(edits: NoteEdits, indentation: Indentation): Promise<number> {
     const skipped = countSkippedEdits(this.content, edits);
 
     this.saves += 1;
-    this.content = applyNoteEdits(this.content, edits);
+    this.content = applyNoteEdits(this.content, edits, indentation);
 
     return skipped;
   }
 
-  async appendAnchorIfMissing(lineNumber: number, blockId: string): Promise<boolean> {
-    const result = appendAnchorToLine(this.content, lineNumber, blockId);
+  async appendAnchorIfMissing(lineNumber: number, blockId: string, indentation: Indentation): Promise<boolean> {
+    const result = appendAnchorToLine(this.content, lineNumber, blockId, indentation);
 
     this.saves += 1;
     this.content = result.content;

@@ -87,8 +87,14 @@ describe('readDescriptionBlock', () => {
     expect(readDescriptionBlock(lines, 0).text).toBe('\t- [ ] direct grandchild ^tb-n7v6x7uo');
   });
 
-  it('treats a line indented with spaces only as level 0, so it starts no description', () => {
+  it('reads a line indented with a full run of spaces as one level deeper, so it starts a description', () => {
     const lines = ['- [ ] Buy milk', '    Oat milk (four spaces)'];
+
+    expect(readDescriptionBlock(lines, 0).lineCount).toBe(1);
+  });
+
+  it('treats a line indented with fewer spaces than the tab size as level 0, so it starts no description', () => {
+    const lines = ['- [ ] Buy milk', '   Oat milk (three spaces)'];
 
     expect(readDescriptionBlock(lines, 0).lineCount).toBe(0);
   });

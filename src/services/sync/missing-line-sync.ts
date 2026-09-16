@@ -1,6 +1,7 @@
 import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { GracePeriod } from './grace-period';
+import { Indentation } from './indentation';
 import { appendingOnly } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
@@ -32,6 +33,8 @@ export interface MissingLineRunContext {
   /** This run's scanned file paths, so a link that has never been seen still has an unambiguous
    *  resurrection target when there is only ever one file it could have come from. */
   readonly scannedPaths: readonly string[];
+  /** This run's one indentation rule, carried into the note a resurrected line is appended to. */
+  readonly indentation: Indentation;
 }
 
 interface MissingLineSweep extends MissingLineRunContext {
@@ -150,7 +153,7 @@ export class MissingLineSync {
       return;
     }
 
-    await this.resurrectLine(missing, path);
+    await this.resurrectLine(sweep, missing, path);
     sweep.outcome.resurrectedLine += 1;
   }
 
@@ -167,7 +170,7 @@ export class MissingLineSync {
     }
   }
 
-  private async resurrectLine(missing: MissingLine, path: string): Promise<void> {
+  private async resurrectLine(sweep: MissingLineSweep, missing: MissingLine, path: string): Promise<void> {
     const { link, remoteTask } = missing;
     const resurrected = formatTaskLine(
       taskLineFrom({
@@ -178,7 +181,7 @@ export class MissingLineSync {
       }),
     );
 
-    await this.noteFor(path).applyEdits(appendingOnly([resurrected]));
+    await this.noteFor(path).applyEdits(appendingOnly([resurrected]), sweep.indentation);
     this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });
     logger.info('Re-added a deleted line, since its task was edited in Todoist afterwards', { ...linkIds(link), path });
   }

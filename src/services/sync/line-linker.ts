@@ -62,7 +62,7 @@ export class LineLinker {
 
     const taskId = await this.createAndLink(line, blockId);
 
-    if (!(await note.appendAnchorIfMissing(line.lineNumber, blockId))) {
+    if (!(await note.appendAnchorIfMissing(line.lineNumber, blockId, pass.indentation))) {
       await this.abandonUnanchored(blockId, taskId);
       pass.outcome.abandonedCreations += 1;
       return;
@@ -108,7 +108,7 @@ export class LineLinker {
    */
   private async createAndLink(line: LineUnderSync, blockId: string): Promise<string> {
     const { pass, task } = line;
-    const description = readDescriptionBlock(pass.lines, line.lineNumber).text;
+    const description = readDescriptionBlock(pass.lines, line.lineNumber, pass.indentation).text;
     const parent = this.links.linkedParent(localParentBlockId(pass, line.lineNumber));
     const created = await this.provider.createTask({
       title: task.title,

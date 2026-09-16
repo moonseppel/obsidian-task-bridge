@@ -1,3 +1,4 @@
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { leadingWhitespace } from './task-description';
 import { reindentBlock, subtreeSpan } from './task-tree';
 
@@ -14,9 +15,11 @@ interface Line {
  */
 export class EditableLines {
   private lines: Line[];
+  private readonly indentation: Indentation;
 
-  constructor(original: readonly string[]) {
+  constructor(original: readonly string[], indentation = DEFAULT_INDENTATION) {
     this.lines = original.map((text, origin) => ({ origin, text }));
+    this.indentation = indentation;
   }
 
   replace(origin: number, text: string): void {
@@ -92,7 +95,7 @@ export class EditableLines {
   }
 
   private subtreeEnd(position: number): number {
-    return subtreeSpan(this.texts(), position).endLineExclusive;
+    return subtreeSpan(this.texts(), position, this.indentation).endLineExclusive;
   }
 }
 

@@ -1,4 +1,5 @@
 import { ProviderTask } from '../task-provider';
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { BlockEdit, LineEdit, LineGuard, LineRemoval, NoteEdits, StructuralEdit } from './note-edits';
 import { ResolvedProject } from './project-resolver';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
@@ -18,6 +19,8 @@ export interface PendingRelocation {
 export interface SyncPass {
   readonly lines: readonly string[];
   readonly path: string;
+  /** This run's one indentation rule, so no two readers of the note can count its levels differently. */
+  readonly indentation: Indentation;
   readonly projectId: string;
   readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
@@ -73,19 +76,25 @@ export interface NoteSnapshot {
   readonly modifiedAt: number;
 }
 
-export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, path: string): SyncPass {
+export function createSyncPass(
+  project: ResolvedProject,
+  note: NoteSnapshot,
+  path: string,
+  indentation = DEFAULT_INDENTATION,
+): SyncPass {
   const lines = note.content.split('\n');
-  const taskLines = taskLineNumbers(lines);
+  const taskLines = taskLineNumbers(lines, indentation);
 
   return {
     lines,
     path,
+    indentation,
     projectId: project.id,
     remoteTasks: indexTasksById(project.tasks),
     remoteTasksByBlockId: indexTasksByEmbeddedBlockId(project.tasks),
     takenBlockIds: collectBlockIds(lines),
     localModifiedAt: note.modifiedAt,
-    parentLineNumbers: nearestAncestorLineNumbers(lines),
+    parentLineNumbers: nearestAncestorLineNumbers(lines, indentation),
     taskLineNumbers: taskLines,
     blockIdByLineNumber: new Map(),
     lineNumberByBlockId: lineNumberByBlockId(lines, taskLines),

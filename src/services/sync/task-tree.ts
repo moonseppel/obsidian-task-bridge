@@ -1,4 +1,5 @@
-import { isNestedTaskLine, leadingWhitespace, levelsBelowTask } from './task-description';
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
+import { isNestedTaskLine, leadingWhitespace } from './task-description';
 import { parseTaskLine } from './task-line';
 
 export interface SubtreeSpan {
@@ -18,10 +19,10 @@ interface OpenAncestor {
  * Which lines are tasks, found in one top-down walk: a checkbox line is a task unless it lies inside
  * a still-open description, which only a nested task ends (architecture-rules.md #39).
  */
-export function taskLineNumbers(lines: readonly string[]): ReadonlySet<number> {
+export function taskLineNumbers(lines: readonly string[], indentation = DEFAULT_INDENTATION): ReadonlySet<number> {
   const found = new Set<number>();
 
-  walkTaskLines(lines, (lineNumber) => found.add(lineNumber));
+  walkTaskLines(lines, indentation, (lineNumber) => found.add(lineNumber));
 
   return found;
 }
@@ -31,10 +32,13 @@ export function taskLineNumbers(lines: readonly string[]): ReadonlySet<number> {
  * no deeper than an open ancestor closes it, the same level boundary `readDescriptionBlock` uses,
  * so the note has exactly one nesting rule rather than two.
  */
-export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMap<number, number> {
+export function nearestAncestorLineNumbers(
+  lines: readonly string[],
+  indentation = DEFAULT_INDENTATION,
+): ReadonlyMap<number, number> {
   const parents = new Map<number, number>();
 
-  walkTaskLines(lines, (lineNumber, parentLineNumber) => {
+  walkTaskLines(lines, indentation, (lineNumber, parentLineNumber) => {
     if (parentLineNumber !== undefined) {
       parents.set(lineNumber, parentLineNumber);
     }
@@ -48,12 +52,16 @@ export function nearestAncestorLineNumbers(lines: readonly string[]): ReadonlyMa
  * depth. Generalizes `readDescriptionBlock`'s capture rule by not stopping at the first nested
  * task line, since a subtree includes its children rather than treating them as a boundary.
  */
-export function subtreeSpan(lines: readonly string[], taskLineNumber: number): SubtreeSpan {
+export function subtreeSpan(
+  lines: readonly string[],
+  taskLineNumber: number,
+  indentation = DEFAULT_INDENTATION,
+): SubtreeSpan {
   const taskLine = lines[taskLineNumber] ?? '';
   const startLine = taskLineNumber + 1;
   let lineNumber = startLine;
 
-  while (lineNumber < lines.length && levelsBelowTask(lines[lineNumber], taskLine) >= 1) {
+  while (lineNumber < lines.length && indentation.levelsBelow(lines[lineNumber], taskLine) >= 1) {
     lineNumber += 1;
   }
 
@@ -76,16 +84,17 @@ export function reindentBlock(lines: readonly string[], oldBaseIndent: string, n
 
 function walkTaskLines(
   lines: readonly string[],
+  indentation: Indentation,
   visit: (lineNumber: number, parentLineNumber: number | undefined) => void,
 ): void {
   const open: OpenAncestor[] = [];
 
   for (const [lineNumber, line] of lines.entries()) {
-    closeAncestorsEndedBy(open, line);
+    closeAncestorsEndedBy(open, line, indentation);
 
     const parent = open[open.length - 1];
 
-    if (parseTaskLine(line) === undefined || isDescriptionText(line, parent)) {
+    if (parseTaskLine(line) === undefined || isDescriptionText(line, parent, indentation)) {
       continue;
     }
 
@@ -98,12 +107,18 @@ function walkTaskLines(
   }
 }
 
-function isDescriptionText(checkboxLine: string, parent: OpenAncestor | undefined): boolean {
-  return parent !== undefined && parent.descriptionOpen && !isNestedTaskLine(checkboxLine, parent.taskLine);
+function isDescriptionText(
+  checkboxLine: string,
+  parent: OpenAncestor | undefined,
+  indentation: Indentation,
+): boolean {
+  return (
+    parent !== undefined && parent.descriptionOpen && !isNestedTaskLine(checkboxLine, parent.taskLine, indentation)
+  );
 }
 
-function closeAncestorsEndedBy(open: OpenAncestor[], line: string): void {
-  while (open.length > 0 && levelsBelowTask(line, open[open.length - 1].taskLine) <= 0) {
+function closeAncestorsEndedBy(open: OpenAncestor[], line: string, indentation: Indentation): void {
+  while (open.length > 0 && indentation.levelsBelow(line, open[open.length - 1].taskLine) <= 0) {
     open.pop();
   }
 }

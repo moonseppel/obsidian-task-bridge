@@ -2,6 +2,7 @@ import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { CrossFileParentSync } from './cross-file-parent-sync';
 import { GracePeriod } from './grace-period';
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
 import { MissingLineSync } from './missing-line-sync';
@@ -57,6 +58,8 @@ export interface TaskSyncDependencies {
 interface RunScope {
   readonly project: ResolvedProject;
   readonly paths: readonly string[];
+  /** Resolved once, so one run cannot count two lines of the same note by two different rules. */
+  readonly indentation: Indentation;
   readonly scannedBlockIds: Set<string>;
   readonly pendingRelocations: PendingRelocation[];
   readonly outcomes: SyncOutcome[];
@@ -107,6 +110,7 @@ export class TaskSync {
     const scope: RunScope = {
       project,
       paths: this.filesInScope(),
+      indentation: DEFAULT_INDENTATION,
       scannedBlockIds: new Set(),
       pendingRelocations: [],
       outcomes: [],
@@ -131,10 +135,15 @@ export class TaskSync {
       scope.outcomes.push(await this.runFilePass(scope, path));
     }
 
-    const relocated = await this.crossFileParentSync.run(scope.pendingRelocations);
+    const relocated = await this.crossFileParentSync.run(scope.pendingRelocations, scope.indentation);
     scope.outcomes.push({ ...emptyOutcome(scope.project.resolution), pulled: relocated });
 
-    const context = { project: scope.project, takenBlockIds: scope.scannedBlockIds, scannedPaths: scope.paths };
+    const context = {
+      project: scope.project,
+      takenBlockIds: scope.scannedBlockIds,
+      scannedPaths: scope.paths,
+      indentation: scope.indentation,
+    };
     scope.outcomes.push(await this.missingLineSync.run(context));
   }
 
@@ -158,7 +167,7 @@ export class TaskSync {
       return emptyOutcome(scope.project.resolution);
     }
 
-    const pass = createSyncPass(scope.project, snapshot, path);
+    const pass = createSyncPass(scope.project, snapshot, path, scope.indentation);
     await this.syncAndCommit(scope, path, pass);
 
     logger.debug('Note synced', { path, outcome: pass.outcome });
@@ -305,7 +314,7 @@ export class TaskSync {
 async function writeCollectedEdits(note: SourceNote, pass: SyncPass): Promise<number> {
   const edits = collectedEdits(pass);
 
-  return hasAnyEdit(edits) ? note.applyEdits(edits) : 0;
+  return hasAnyEdit(edits) ? note.applyEdits(edits, pass.indentation) : 0;
 }
 
 function logRunStart(scope: RunScope): void {

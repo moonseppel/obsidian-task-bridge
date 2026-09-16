@@ -1,4 +1,5 @@
 import { Logger } from '../../utils/logger';
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { NoteEdits } from './note-edits';
 import { PendingRelocation } from './sync-pass';
 import { SourceNote } from './source-note';
@@ -44,13 +45,13 @@ export class CrossFileParentSync {
   }
 
   /** Resolves to how many relocations actually landed, for the run's `pulled` count. */
-  async run(pending: readonly PendingRelocation[]): Promise<number> {
+  async run(pending: readonly PendingRelocation[], indentation = DEFAULT_INDENTATION): Promise<number> {
     let relocated = 0;
 
     for (const relocation of pending) {
-      const located = await this.locate(relocation);
+      const located = await this.locate(relocation, indentation);
 
-      if (located !== undefined && (await this.relocate(located))) {
+      if (located !== undefined && (await this.relocate(located, indentation))) {
         relocated += 1;
       }
     }
@@ -59,7 +60,10 @@ export class CrossFileParentSync {
   }
 
   /** Re-resolves everything fresh: the pass that queued this may be long committed by now. */
-  private async locate(relocation: PendingRelocation): Promise<LocatedRelocation | undefined> {
+  private async locate(
+    relocation: PendingRelocation,
+    indentation: Indentation,
+  ): Promise<LocatedRelocation | undefined> {
     const { blockId, sourcePath, targetPath, newParentBlockId } = relocation;
     const link = this.links.get(blockId);
 
@@ -69,7 +73,7 @@ export class CrossFileParentSync {
     }
 
     const target = await this.readLines(targetPath);
-    const newParentLineNumber = findLineNumber(target, newParentBlockId);
+    const newParentLineNumber = findLineNumber(target, newParentBlockId, indentation);
 
     if (newParentLineNumber === undefined) {
       logger.debug('New parent no longer has a line in its file; relocation retried next run', {
@@ -81,7 +85,7 @@ export class CrossFileParentSync {
     }
 
     const source = await this.readLines(sourcePath);
-    const taskLineNumber = findLineNumber(source, blockId);
+    const taskLineNumber = findLineNumber(source, blockId, indentation);
 
     if (taskLineNumber === undefined) {
       logger.debug('Line moved or vanished from its file before the relocation could run', {
@@ -95,14 +99,15 @@ export class CrossFileParentSync {
   }
 
   /** Insert first, remove second: a failure between the two leaves a duplicate, never a loss. */
-  private async relocate(located: LocatedRelocation): Promise<boolean> {
+  private async relocate(located: LocatedRelocation, indentation: Indentation): Promise<boolean> {
     const { link, source, taskLineNumber, target, newParentLineNumber, sourcePath, targetPath, newParentBlockId } = located;
-    const span = subtreeSpan(source, taskLineNumber);
+    const span = subtreeSpan(source, taskLineNumber, indentation);
     const captured = source.slice(taskLineNumber, span.endLineExclusive);
     const rebased = reindentBlock(captured, leadingWhitespace(captured[0]), `${leadingWhitespace(target[newParentLineNumber])}\t`);
 
     const insertSkipped = await this.noteFor(targetPath).applyEdits(
       insertUnderEdit(newParentLineNumber, target[newParentLineNumber], rebased),
+      indentation,
     );
 
     if (insertSkipped > 0) {
@@ -110,7 +115,10 @@ export class CrossFileParentSync {
       return false;
     }
 
-    const removeSkipped = await this.noteFor(sourcePath).applyEdits(removalEdit(source, taskLineNumber, captured.length));
+    const removeSkipped = await this.noteFor(sourcePath).applyEdits(
+      removalEdit(source, taskLineNumber, captured.length),
+      indentation,
+    );
 
     this.links.set({ ...link, lastSyncedParentBlockId: newParentBlockId, lastKnownFilePath: targetPath });
 
@@ -132,8 +140,10 @@ export class CrossFileParentSync {
   }
 }
 
-function findLineNumber(lines: readonly string[], blockId: string): number | undefined {
-  return [...taskLineNumbers(lines)].find((lineNumber) => parseTaskLine(lines[lineNumber])?.blockId === blockId);
+function findLineNumber(lines: readonly string[], blockId: string, indentation: Indentation): number | undefined {
+  return [...taskLineNumbers(lines, indentation)].find(
+    (lineNumber) => parseTaskLine(lines[lineNumber])?.blockId === blockId,
+  );
 }
 
 function insertUnderEdit(anchorLineNumber: number, expectedAnchorLine: string, lines: readonly string[]): NoteEdits {

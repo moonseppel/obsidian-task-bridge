@@ -7,13 +7,13 @@ function raceOnFirstAppend(note: FakeNote, editTo: string): void {
   const original = note.appendAnchorIfMissing.bind(note);
   let raced = false;
 
-  note.appendAnchorIfMissing = async (lineNumber, blockId) => {
+  note.appendAnchorIfMissing = async (lineNumber, blockId, indentation) => {
     if (!raced) {
       raced = true;
       note.content = editTo;
     }
 
-    return original(lineNumber, blockId);
+    return original(lineNumber, blockId, indentation);
   };
 }
 

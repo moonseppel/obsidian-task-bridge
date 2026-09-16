@@ -1,4 +1,5 @@
 import { EditableLines } from './editable-lines';
+import { DEFAULT_INDENTATION } from './indentation';
 
 /** A line as the pass read it; an edit guarded by it only acts while the note still reads that way. */
 export interface LineGuard {
@@ -59,10 +60,10 @@ export function appendingOnly(lines: readonly string[]): NoteEdits {
  * text is settled first and lines are moved after, so a moved line carries every change made to it
  * and edits touching the same lines compose instead of the last one silently undoing the others.
  */
-export function applyNoteEdits(content: string, edits: NoteEdits): string {
+export function applyNoteEdits(content: string, edits: NoteEdits, indentation = DEFAULT_INDENTATION): string {
   const original = content.split('\n');
   const stillReads = readsAsExpected(original);
-  const lines = new EditableLines(original);
+  const lines = new EditableLines(original, indentation);
 
   edits.replacements.filter(stillReads).forEach((edit) => lines.replace(edit.lineNumber, edit.replacement));
   lines.removeAll(edits.removals.filter(stillReads).map((removal) => removal.lineNumber));

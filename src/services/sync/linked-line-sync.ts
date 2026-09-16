@@ -78,7 +78,7 @@ export class LinkedLineSync {
 
   private async syncDescription(linked: LinkedLine, remoteTask: ProviderTask): Promise<void> {
     const { line, link } = linked;
-    const localBlock = readDescriptionBlock(line.pass.lines, line.lineNumber);
+    const localBlock = readDescriptionBlock(line.pass.lines, line.lineNumber, line.pass.indentation);
     const remote = extractUserDescription(remoteTask.description);
 
     await syncField(line, {

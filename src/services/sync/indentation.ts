@@ -66,3 +66,6 @@ export class Indentation {
     return { levelEnds, whitespaceLength: index };
   }
 }
+
+/** For a reader with no vault setting to hand — every note fixture in the offline suite, notably. */
+export const DEFAULT_INDENTATION = new Indentation(DEFAULT_TAB_SIZE);

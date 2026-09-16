@@ -1,3 +1,4 @@
+import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { parseTaskLine } from './task-line';
 
 /** Labelled so the caret-prefixed id means something to a user reading the task in the provider. */
@@ -14,36 +15,31 @@ export function leadingWhitespace(line: string): string {
   return /^[ \t]*/.exec(line)?.[0] ?? '';
 }
 
-/** Only leading tabs count, so a line indented with spaces alone is level 0. */
-export function indentLevel(line: string): number {
-  return /^\t*/.exec(line)?.[0].length ?? 0;
-}
-
-export function levelsBelowTask(line: string, taskLine: string): number {
-  return indentLevel(line) - indentLevel(taskLine);
-}
-
 /** The one checkbox line below a task that is its nested task rather than its description text. */
-export function isNestedTaskLine(line: string, taskLine: string): boolean {
-  return parseTaskLine(line) !== undefined && levelsBelowTask(line, taskLine) === 1 && spacesAfterTabs(line) === 0;
-}
-
-function spacesAfterTabs(line: string): number {
-  return /^\t*( *)/.exec(line)?.[1].length ?? 0;
+export function isNestedTaskLine(line: string, taskLine: string, indentation = DEFAULT_INDENTATION): boolean {
+  return (
+    parseTaskLine(line) !== undefined &&
+    indentation.levelsBelow(line, taskLine) === 1 &&
+    indentation.leftoverSpaces(line) === 0
+  );
 }
 
 /** Exactly one level past the task's own, so deeper indentation inside the block survives. */
-function dedent(rawLines: readonly string[], taskLine: string): string {
-  const removedTabs = indentLevel(taskLine) + 1;
+function dedent(rawLines: readonly string[], taskLine: string, indentation: Indentation): string {
+  const removedLevels = indentation.levelOf(taskLine) + 1;
 
-  return rawLines.map((line) => line.slice(removedTabs)).join('\n');
+  return rawLines.map((line) => line.slice(removedLevels)).join('\n');
 }
 
 /**
  * Ends for good at the first line no deeper than the task, or at its nested task; any other
  * checkbox line before that is text, never a task of its own (architecture-rules.md #39).
  */
-export function readDescriptionBlock(lines: readonly string[], taskLineNumber: number): DescriptionBlock {
+export function readDescriptionBlock(
+  lines: readonly string[],
+  taskLineNumber: number,
+  indentation = DEFAULT_INDENTATION,
+): DescriptionBlock {
   const taskLine = lines[taskLineNumber] ?? '';
   const startLine = taskLineNumber + 1;
   const captured: string[] = [];
@@ -51,8 +47,8 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
 
   while (
     lineNumber < lines.length &&
-    levelsBelowTask(lines[lineNumber], taskLine) >= 1 &&
-    !isNestedTaskLine(lines[lineNumber], taskLine)
+    indentation.levelsBelow(lines[lineNumber], taskLine) >= 1 &&
+    !isNestedTaskLine(lines[lineNumber], taskLine, indentation)
   ) {
     captured.push(lines[lineNumber]);
     lineNumber += 1;
@@ -62,7 +58,7 @@ export function readDescriptionBlock(lines: readonly string[], taskLineNumber: n
     return { startLine, lineCount: 0, text: '' };
   }
 
-  return { startLine, lineCount: captured.length, text: dedent(captured, taskLine) };
+  return { startLine, lineCount: captured.length, text: dedent(captured, taskLine, indentation) };
 }
 
 /** One literal tab past the task's own indentation, so the depth is unambiguous at any tab width. */
