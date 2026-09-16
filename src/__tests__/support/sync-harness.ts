@@ -26,6 +26,7 @@ export interface SyncHarnessOptions {
   readonly isTagInScope?: (task: ParsedTaskLine) => boolean;
   readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
   readonly locateParentFile?: (blockId: string) => string | undefined;
+  readonly readTabSize?: () => unknown;
 }
 
 /** The description a freshly created task carries: the user's text above this plugin's footer. */
@@ -130,6 +131,7 @@ function optionalDependencies(
     isTagInScope: options.isTagInScope,
     existsOutsideIgnoredFiles: options.existsOutsideIgnoredFiles,
     locateParentFile: options.locateParentFile,
+    readTabSize: options.readTabSize,
   };
 }
 

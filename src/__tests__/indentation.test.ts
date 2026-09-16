@@ -1,4 +1,4 @@
-import { DEFAULT_TAB_SIZE, Indentation } from '../services/sync/indentation';
+import { DEFAULT_TAB_SIZE, Indentation, indentationOf } from '../services/sync/indentation';
 
 const indentation = new Indentation(4);
 
@@ -107,5 +107,27 @@ describe('removeLevels', () => {
 
   it('removes an incomplete run of spaces together with the tab it was discarded with', () => {
     expect(indentation.removeLevels('  \ttext', 1)).toBe('text');
+  });
+});
+
+describe('indentationOf', () => {
+  it('counts by the configured tab size', () => {
+    expect(indentationOf(2).levelOf('    text')).toBe(2);
+  });
+
+  it('falls back to the default when the setting is absent', () => {
+    expect(indentationOf(undefined).levelOf(' '.repeat(DEFAULT_TAB_SIZE))).toBe(1);
+  });
+
+  it('falls back to the default when the setting is not a number', () => {
+    expect(indentationOf('4').levelOf(' '.repeat(DEFAULT_TAB_SIZE))).toBe(1);
+  });
+
+  it('falls back to the default when the setting is not larger than zero', () => {
+    expect(indentationOf(0).levelOf(' '.repeat(DEFAULT_TAB_SIZE))).toBe(1);
+  });
+
+  it('falls back to the default when the setting is not a whole number', () => {
+    expect(indentationOf(2.5).levelOf(' '.repeat(DEFAULT_TAB_SIZE))).toBe(1);
   });
 });

@@ -2,7 +2,7 @@ import { Logger } from '../../utils/logger';
 import { ProviderTask, TaskProvider } from '../task-provider';
 import { CrossFileParentSync } from './cross-file-parent-sync';
 import { GracePeriod } from './grace-period';
-import { DEFAULT_INDENTATION, Indentation } from './indentation';
+import { Indentation, indentationOf } from './indentation';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
 import { MissingLineSync } from './missing-line-sync';
@@ -52,6 +52,8 @@ export interface TaskSyncDependencies {
   /** The path of the in-scope file currently anchoring a block id, if any — used to relocate a
    *  task whose remote parent lives in a different note than its own line. */
   readonly locateParentFile?: (blockId: string) => string | undefined;
+  /** The editor's configured tab size, read raw: a changed setting takes effect on the next run. */
+  readonly readTabSize?: () => unknown;
 }
 
 /** One run's project and scope, and what the run has found and done so far. */
@@ -72,6 +74,7 @@ export class TaskSync {
   private readonly links: TaskLinkStore;
   private readonly saveLinks: () => Promise<void>;
   private readonly isTagInScope: (task: ParsedTaskLine) => boolean;
+  private readonly readTabSize: () => unknown;
   private readonly lineSync: LinkedLineSync;
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
@@ -90,6 +93,7 @@ export class TaskSync {
     this.links = dependencies.links;
     this.saveLinks = dependencies.saveLinks;
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
+    this.readTabSize = dependencies.readTabSize ?? (() => undefined);
     this.lineSync = new LinkedLineSync(this.provider, this.links, dependencies.locateParentFile ?? (() => undefined));
     this.lineLinker = new LineLinker(this.provider, this.links, getDeviceTag);
     this.missingLineSync = new MissingLineSync({
@@ -110,7 +114,7 @@ export class TaskSync {
     const scope: RunScope = {
       project,
       paths: this.filesInScope(),
-      indentation: DEFAULT_INDENTATION,
+      indentation: indentationOf(this.readTabSize()),
       scannedBlockIds: new Set(),
       pendingRelocations: [],
       outcomes: [],

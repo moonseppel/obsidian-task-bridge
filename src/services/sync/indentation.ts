@@ -69,3 +69,16 @@ export class Indentation {
 
 /** For a reader with no vault setting to hand — every note fixture in the offline suite, notably. */
 export const DEFAULT_INDENTATION = new Indentation(DEFAULT_TAB_SIZE);
+
+/**
+ * Anything but a whole number above 0 counts as no tab size at all and falls back to the default:
+ * an absent `getConfig`, a setting that was never written, or a value of a shape this plugin does
+ * not recognize. The fallback leaves behaviour exactly as it was before tab size was read at all.
+ */
+export function indentationOf(tabSize: unknown): Indentation {
+  return isUsableTabSize(tabSize) ? new Indentation(tabSize) : DEFAULT_INDENTATION;
+}
+
+function isUsableTabSize(tabSize: unknown): tabSize is number {
+  return typeof tabSize === 'number' && Number.isInteger(tabSize) && tabSize > 0;
+}

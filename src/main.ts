@@ -1,5 +1,6 @@
 import { Platform, Plugin, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, TaskBridgeSettings, TaskBridgeSettingTab } from './settings';
+import { readEditorTabSize } from './services/editor-tab-size';
 import { ProjectSelection } from './services/project-selection';
 import { ProviderConnection } from './services/provider-connection';
 import { StatusReporter } from './services/status-reporter';
@@ -72,6 +73,7 @@ export default class TaskBridgePlugin extends Plugin {
     links: this.taskLinks,
     saveLinks: () => this.saveSettings(),
     getDeviceTag: () => getDeviceTag(window.localStorage),
+    readTabSize: () => readEditorTabSize(this.app.vault),
     orphans: this.orphanedTasks,
   });
   private readonly scheduler = new SyncScheduler(
