@@ -90,7 +90,37 @@ describe('readDescriptionBlock', () => {
   it('reads a line indented with a full run of spaces as one level deeper, so it starts a description', () => {
     const lines = ['- [ ] Buy milk', '    Oat milk (four spaces)'];
 
-    expect(readDescriptionBlock(lines, 0).lineCount).toBe(1);
+    expect(readDescriptionBlock(lines, 0)).toEqual({ startLine: 1, lineCount: 1, text: 'Oat milk (four spaces)' });
+  });
+
+  it('dedents by whole levels, leaving the spaces left over after the removed one in place', () => {
+    const lines = ['- [ ] Buy milk', '      Six spaces, one level and two over'];
+
+    expect(readDescriptionBlock(lines, 0).text).toBe('  Six spaces, one level and two over');
+  });
+
+  it('reads the test vault\'s soft-break continuation, written with spaces, as part of the description', () => {
+    const lines = [
+      '- [ ] Test for complex description',
+      '\t- this is a bullet point in the description.',
+      '      This should still be part of the bullet point.',
+      '\tThis should not be part of the bullet point, but part of the description.',
+      '\t',
+      '\tThis should also be part of the description.',
+      '',
+    ];
+
+    expect(readDescriptionBlock(lines, 0)).toEqual({
+      startLine: 1,
+      lineCount: 5,
+      text: [
+        '- this is a bullet point in the description.',
+        '  This should still be part of the bullet point.',
+        'This should not be part of the bullet point, but part of the description.',
+        '',
+        'This should also be part of the description.',
+      ].join('\n'),
+    });
   });
 
   it('treats a line indented with fewer spaces than the tab size as level 0, so it starts no description', () => {
@@ -152,6 +182,13 @@ describe('renderDescriptionBlock', () => {
       '\t',
       '\tCheck the wishlist too',
     ]);
+  });
+
+  it('settles a space-indented continuation after one pass, rendering it back as it now reads', () => {
+    const pushed = readDescriptionBlock(['- [ ] A', '\t- bullet', '      continuation', ''], 0).text;
+    const pulled = ['- [ ] A', ...renderDescriptionBlock('', pushed)];
+
+    expect(readDescriptionBlock(pulled, 0).text).toBe(pushed);
   });
 
   it('round-trips the test vault\'s complex description to identical lines', () => {

@@ -24,11 +24,15 @@ export function isNestedTaskLine(line: string, taskLine: string, indentation = D
   );
 }
 
-/** Exactly one level past the task's own, so deeper indentation inside the block survives. */
+/**
+ * Exactly one level past the task's own, so deeper indentation inside the block survives. Levels
+ * are removed, never characters: a level may be a tab or a whole run of spaces, and the spaces
+ * left over after it belong to the line's own text.
+ */
 function dedent(rawLines: readonly string[], taskLine: string, indentation: Indentation): string {
   const removedLevels = indentation.levelOf(taskLine) + 1;
 
-  return rawLines.map((line) => line.slice(removedLevels)).join('\n');
+  return rawLines.map((line) => indentation.removeLevels(line, removedLevels)).join('\n');
 }
 
 /**
