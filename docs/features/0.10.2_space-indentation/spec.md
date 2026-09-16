@@ -45,3 +45,4 @@ These two rows replace their counterparts in `docs/features/0.10_complex-descrip
 
 1. There is no migration: a description whose pushed bytes change under the new count is pushed once on the next pass.
 2. A changed tab size takes effect on the next sync run; nothing is re-scanned or re-pushed eagerly because of it.
+3. A soft-break continuation directly under a top-level task line is only half a level at tab size 4 — Obsidian writes two spaces — so it stays `indentLevel` 0 and outside the description; the same keystroke one level deeper, six spaces under a `\t` bullet, is one level and is inside it.

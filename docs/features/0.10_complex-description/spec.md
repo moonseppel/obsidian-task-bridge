@@ -25,18 +25,18 @@
 
 ### Scenario: Text line (R3)
 - **GIVEN** a task line in Obsidian
-- **WHEN** a text line, a bullet included, follows with a `levelsBelowTask` of 1 or more, such as `\t- this is a bullet…`, `\t  This should still…` or `\tThis should not be part of the bullet…`
+- **WHEN** a text line, a bullet included, follows with a `levelsBelowTask` of 1 or more, such as `\t- this is a bullet…`, `      This should still…` (six spaces, as Obsidian writes a soft break) or `\tThis should not be part of the bullet…`
 - **THEN** the description starts or continues with it
 
 ### Scenario: Checkbox line one level deeper (R4)
 - **GIVEN** a task line in Obsidian
-- **WHEN** a checkbox line follows with a `levelsBelowTask` of exactly 1 and no spaces directly after its tabs, such as `\t- [ ] nested child` directly after `- [x] Parent task`, or `\t- [ ] this is a nested task…` after the description of `- [ ] neuer task`
+- **WHEN** a checkbox line follows with a `levelsBelowTask` of exactly 1 and a `spacesAfterTabs` of 0, such as `\t- [ ] nested child` directly after `- [x] Parent task`, or `\t- [ ] this is a nested task…` after the description of `- [ ] neuer task`
 - **THEN** that line is a nested task of the task line, not part of its description
 - **AND** a description open before it ends there
 
-### Scenario: Checkbox line with spaces after its tabs (R5)
+### Scenario: Checkbox line with spaces left over past its last level (R5)
 - **GIVEN** a task line in Obsidian
-- **WHEN** a checkbox line follows with a `levelsBelowTask` of 1 or more and spaces directly after its tabs
+- **WHEN** a checkbox line follows with a `levelsBelowTask` of 1 or more and a `spacesAfterTabs` above 0
 - **THEN** the description starts or continues with it, as text
 - **AND** that line is not a task
 
@@ -49,7 +49,7 @@
 ### Scenario: Indentation on push
 - **GIVEN** a task in Obsidian has a description
 - **WHEN** the description is pushed to the task provider
-- **THEN** exactly one indent level is removed from every description line, the task line's own indentation plus one tab, not all indentation the lines share
+- **THEN** exactly one indent level is removed from every description line, the task line's own levels plus one, not all indentation the lines share
 - **AND** `\t\t- [ ] direct grandchild` under a top-level task reaches the task provider as `\t- [ ] direct grandchild`
 
 ### Scenario: Indentation on pull
@@ -75,9 +75,9 @@
 |---|---|
 | `taskLine` | The task line whose description is being decided, at any indent level |
 | `currentLine` | The line being decided |
-| `indentLevel` | Number of leading tabs; an empty line has `indentLevel` 0 |
+| `indentLevel` | Number of indent levels in the leading whitespace, read left to right: one per tab, one per complete run of `tabSize` spaces; an empty line has `indentLevel` 0 (redefined by `docs/features/0.10.2_space-indentation/spec.md`) |
 | `levelsBelowTask` | `currentLine.indentLevel - taskLine.indentLevel` |
-| `spacesAfterTabs` | Number of spaces directly after the leading tabs |
+| `spacesAfterTabs` | Number of spaces left over after the last complete indent level (redefined by `docs/features/0.10.2_space-indentation/spec.md`) |
 | `lineKind` | `whitespaceOnly` (only tabs or spaces), `checkbox` (list marker followed by `[x]`), `text` (everything else, bullets included) |
 
 ### Decision table
@@ -86,7 +86,7 @@
 |---|---|---|---|---|---|---|
 | R1 | ≤ 0 | any | – | no description | END | `""` after `\tThis should also be part…`; `- [ ] not nested grandchild 2` after `\t\t\tHow confusing is that?!` |
 | R2 | ≥ 1 | `whitespaceOnly` | – | description starts | continue; blank line inside | `\t` in the complex description |
-| R3 | ≥ 1 | `text` | – | description starts | continue | `\t- this is a bullet…`, `\t  This should still…`, `\tThis should not be part of the bullet…` |
+| R3 | ≥ 1 | `text` | – | description starts | continue | `\t- this is a bullet…`, `      This should still…`, `\tThis should not be part of the bullet…` |
 | R4 | 1 | `checkbox` | `spacesAfterTabs` = 0 | no description; nested task | END; nested task | `\t- [ ] nested child` after `Parent task`; `\t- [ ] this is a nested task…` in Another test note |
 | R5 | ≥ 1 | `checkbox` | `spacesAfterTabs` > 0 | description starts; line is text | continue; line is text | – |
 | R6 | ≥ 2 | `checkbox` | – | description starts; line is text | continue; line is text | `\t\t- [ ] direct grandchild` after `another nesting test` |
@@ -106,5 +106,5 @@
 
 ## Non-Features
 
-1. A line indented with spaces only has `indentLevel` 0, and therefore neither starts a description nor nests.
+1. Superseded by `docs/features/0.10.2_space-indentation/spec.md`: a complete run of the editor's tab size in spaces is one indent level, so a line indented with spaces alone does start a description and does nest; a run shorter than that is still `indentLevel` 0.
 2. An existing link whose description text changes by the one-level push indentation is pushed once on the next pass; there is no migration.

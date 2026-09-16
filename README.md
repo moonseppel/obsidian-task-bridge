@@ -60,10 +60,12 @@ either side without the link breaking. `[[Tasks#^tb-a1b2c3]]` links to that task
 the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
 
 Checking the box completes the Todoist task, and completing it in Todoist checks the box. The lines
-indented at least one tab deeper than a task line are its Todoist description — bullets, their
-continuation lines, paragraphs, and lines holding nothing but tabs, which count as blank lines inside
+indented at least one level deeper than a task line are its Todoist description — bullets, their
+continuation lines, paragraphs, and lines holding nothing but whitespace, which count as blank lines inside
 it — until the first line indented no deeper than the task itself, an empty line included. It reaches
-Todoist with one tab of indentation removed, so any deeper indentation inside it is kept. A
+Todoist with one indent level removed, so any deeper indentation inside it is kept. An indent level is
+a tab or a full run of as many spaces as your editor's tab size, so the soft-break continuation Obsidian
+writes with spaces stays part of the description it belongs to. A
 `#tag`, wherever it stands in the task's own text, is a Todoist label. A task indented one level under another is its
 Todoist sub-task. All five fields — title, state, description, tags, parent — sync both ways and
 independently of each other. See [Nested tasks](#nested-tasks) for how nesting itself works.
@@ -141,9 +143,11 @@ since Todoist itself would otherwise delete every descendant of a removed task a
 
 ### Nested tasks
 
-A task indented one tab under another syncs as that task's sub-task in Todoist, and a sub-task in
+A task indented one level under another syncs as that task's sub-task in Todoist, and a sub-task in
 Todoist syncs into the note as a line indented one tab under its parent — recursively, so a whole
-tree of tasks nests the same way on both sides.
+tree of tasks nests the same way on both sides. An indent level is a tab or a full run of as many
+spaces as your editor's tab size, read fresh at the start of every sync, so both ways of indenting a
+line count the same.
 
 ```markdown
 - [ ] Plan the trip ^tb-a1b2c3
@@ -160,10 +164,10 @@ Todoist, under a task already synced from Obsidian, is pulled into the note too;
 directly in Todoist with no synced task anywhere above it in its chain still isn't.
 
 Nesting ends where a description does: at the first line indented no deeper than the parent, an
-empty line included, while a line holding nothing but tabs keeps it going. Within a task's
-description, a checkbox line indented two or more tabs under the task, or with spaces after its
-tabs, is part of the description rather than a sub-task — Obsidian doesn't display it as a task
-either. A task already synced from a line that became description text this way is flagged and
+empty line included, while a line holding nothing but whitespace keeps it going. Within a task's
+description, a checkbox line indented two or more levels under the task, or with spaces left over
+past its last level, is part of the description rather than a sub-task — Obsidian doesn't display it
+as a task either. A task already synced from a line that became description text this way is flagged and
 removed in Todoist on the same schedule as a task moved out of scope, while its text lives on in the
 parent's description.
 
@@ -201,7 +205,8 @@ of it.
 - Conflicts are resolved by comparing the device's clock with Todoist's, so a device whose clock is badly off can pick the wrong winner
 - Todoist offers no trash for tasks, so a task this plugin removes is deleted permanently
 - The notes and `data.json` are separate files. If they get out of step, through a partial restore or a third-party vault sync running slightly behind, task identity and the 60-second grace period usually re-link the line to its existing task rather than duplicating it — but a link that never catches up still ends up creating a second task eventually
-- Only tabs count as indentation: a line indented with spaces only neither forms a description nor nests under a task
+- An indent level is a tab or a complete run of the editor's tab size in spaces; spaces left over past the last complete run are part of the line's text, so a line indented with fewer spaces than the tab size neither forms a description nor nests under a task
+- The editor's tab size is read once per sync run, so changing it takes effect on the next sync rather than immediately
 - A tag's place inside a task's text is not preserved when the title is changed in Todoist and pulled: the tag moves to the end of the line, since the text it stood in no longer exists
 
 ## Installation using BRAT
@@ -253,6 +258,7 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Orphan lifecycle** — a task that loses its link, or whose line moves out of scope, is flagged, then removed, on a schedule tracked entirely in the plugin's own data; the description notice it gets is a courtesy only
 - **Deletion sync** — a linked line missing from every scanned note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
 - **Nested tasks** — a line's parent is derived from indentation every pass rather than stored as a setting, so it stays correct through renames and reordering; relocating a task moves its whole subtree, description and nested children included
+- **One indentation rule** — what counts as an indent level lives in a single value object, built once per sync run from the editor's own tab size, so every reader of a note counts tabs and runs of spaces the same way
 
 ## License
 
@@ -275,7 +281,7 @@ Tests cover:
 - The settings tab: source scope, tag and ignore patterns, credentials, connection status, project picker, sync interval and debug mode
 - Following a renamed or moved source location, and clearing a deleted one
 - The Todoist client's request shape, pagination, and its mapping of API failures
-- Task line parsing, description blocks, tags, indentation-derived nesting, and block id minting (including the per-device tag)
+- Task line parsing, description blocks, tags, indentation counted in tabs or runs of spaces, indentation-derived nesting, and block id minting (including the per-device tag)
 - The sync run in both directions for every field, across one or many files, with conflict resolution by recency
 - Re-linking and the creation grace period, deletion sync, and the orphaned-task lifecycle — including what is kept when a call fails midway
 
