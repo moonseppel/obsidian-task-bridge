@@ -4,16 +4,16 @@ import { TaskProviderError } from '../services/task-provider-error';
 import { Logger } from '../utils/logger';
 import { FakeNote, PROJECT, makeMultiFileSync, projectExists, remoteTasks } from './support/sync-harness';
 
-const BAD_NOTE_TASK = { id: 'bad-task', title: 'Bad title', embeddedBlockId: 'ots-bad', projectId: PROJECT };
-const GOOD_NOTE_TASK = { id: 'good-task', title: 'Already in sync', embeddedBlockId: 'ots-good', projectId: PROJECT };
+const BAD_NOTE_TASK = { id: 'bad-task', title: 'Bad title', embeddedBlockId: 'tb-bad', projectId: PROJECT };
+const GOOD_NOTE_TASK = { id: 'good-task', title: 'Already in sync', embeddedBlockId: 'tb-good', projectId: PROJECT };
 
 /** A file whose title update always fails with a non-transient error, alongside one that never does. */
 function twoNoteScope(): { notes: Map<string, FakeNote>; links: TaskLinkStore } {
   const notes = new Map([
-    ['Bad.md', new FakeNote('- [ ] Renamed locally ^ots-bad')],
+    ['Bad.md', new FakeNote('- [ ] Renamed locally ^tb-bad')],
     ['Good.md', new FakeNote('- [ ] A brand new task')],
   ]);
-  const links = new TaskLinkStore([{ blockId: 'ots-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' }]);
+  const links = new TaskLinkStore([{ blockId: 'tb-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' }]);
 
   return { notes, links };
 }
@@ -24,12 +24,12 @@ function twoNoteScope(): { notes: Map<string, FakeNote>; links: TaskLinkStore } 
  */
 function twoNoteScopeAcrossManyRuns(): { notes: Map<string, FakeNote>; links: TaskLinkStore } {
   const notes = new Map([
-    ['Bad.md', new FakeNote('- [ ] Renamed locally ^ots-bad')],
-    ['Good.md', new FakeNote('- [ ] Already in sync ^ots-good')],
+    ['Bad.md', new FakeNote('- [ ] Renamed locally ^tb-bad')],
+    ['Good.md', new FakeNote('- [ ] Already in sync ^tb-good')],
   ]);
   const links = new TaskLinkStore([
-    { blockId: 'ots-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' },
-    { blockId: 'ots-good', providerTaskId: 'good-task', lastSyncedTitle: 'Already in sync' },
+    { blockId: 'tb-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' },
+    { blockId: 'tb-good', providerTaskId: 'good-task', lastSyncedTitle: 'Already in sync' },
   ]);
 
   return { notes, links };
@@ -73,12 +73,12 @@ describe("TaskSync isolating one note's failure from the rest of the run", () =>
 
   it('keeps a task already linked in a note that fails before it can even be read from being orphaned', async () => {
     const notes = new Map([
-      ['Bad.md', new FakeNote('- [ ] Renamed locally ^ots-bad')],
+      ['Bad.md', new FakeNote('- [ ] Renamed locally ^tb-bad')],
       ['Good.md', new FakeNote('- [ ] A brand new task')],
     ]);
     notes.get('Bad.md')!.read = () => Promise.reject(new Error('vault read failed'));
     const links = new TaskLinkStore([
-      { blockId: 'ots-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title', lastKnownFilePath: 'Bad.md' },
+      { blockId: 'tb-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title', lastKnownFilePath: 'Bad.md' },
     ]);
     const orphans = new OrphanTracker();
     const sync = makeMultiFileSync(
@@ -99,11 +99,11 @@ describe("TaskSync isolating one note's failure from the rest of the run", () =>
 
   it('still syncs the good note when a different note fails before it can even be read', async () => {
     const notes = new Map([
-      ['Bad.md', new FakeNote('- [ ] Renamed locally ^ots-bad')],
+      ['Bad.md', new FakeNote('- [ ] Renamed locally ^tb-bad')],
       ['Good.md', new FakeNote('- [ ] A brand new task')],
     ]);
     notes.get('Bad.md')!.read = () => Promise.reject(new Error('vault read failed'));
-    const links = new TaskLinkStore([{ blockId: 'ots-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' }]);
+    const links = new TaskLinkStore([{ blockId: 'tb-bad', providerTaskId: 'bad-task', lastSyncedTitle: 'Bad title' }]);
     const created: string[] = [];
     const sync = makeMultiFileSync(notes, links, {
       listTasks: remoteTasks(BAD_NOTE_TASK),
@@ -203,7 +203,7 @@ describe("TaskSync isolating one note's failure from the rest of the run", () =>
     await sync.run(PROJECT);
     shouldFail = true;
     // A push only happens when something actually changed since the two sides last agreed.
-    notes.get('Bad.md')!.content = '- [ ] Renamed again ^ots-bad';
+    notes.get('Bad.md')!.content = '- [ ] Renamed again ^tb-bad';
     await sync.run(PROJECT);
 
     expect(error).toHaveBeenCalledTimes(2);

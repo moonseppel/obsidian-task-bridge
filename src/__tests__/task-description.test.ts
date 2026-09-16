@@ -82,9 +82,9 @@ describe('readDescriptionBlock', () => {
   });
 
   it('reads a checkbox line two levels deeper as description text', () => {
-    const lines = ['- [ ] another nesting test', '\t\t- [ ] direct grandchild ^ots-n7v6x7uo'];
+    const lines = ['- [ ] another nesting test', '\t\t- [ ] direct grandchild ^tb-n7v6x7uo'];
 
-    expect(readDescriptionBlock(lines, 0).text).toBe('\t- [ ] direct grandchild ^ots-n7v6x7uo');
+    expect(readDescriptionBlock(lines, 0).text).toBe('\t- [ ] direct grandchild ^tb-n7v6x7uo');
   });
 
   it('treats a line indented with spaces only as level 0, so it starts no description', () => {
@@ -164,35 +164,35 @@ describe('renderDescriptionBlock', () => {
 
 describe('composeRemoteDescription', () => {
   it('is exactly the bare footer when there is no user text, unchanged from a freshly created task', () => {
-    expect(composeRemoteDescription('', 'ots-a1b2c3d4')).toBe('TaskBridge ID: ^ots-a1b2c3d4');
+    expect(composeRemoteDescription('', 'tb-a1b2c3d4')).toBe('TaskBridge ID: ^tb-a1b2c3d4');
   });
 
   it('puts the user text above a blank line and then the footer', () => {
-    expect(composeRemoteDescription('Oat milk, not regular', 'ots-a1b2c3d4')).toBe(
-      'Oat milk, not regular\n\nTaskBridge ID: ^ots-a1b2c3d4',
+    expect(composeRemoteDescription('Oat milk, not regular', 'tb-a1b2c3d4')).toBe(
+      'Oat milk, not regular\n\nTaskBridge ID: ^tb-a1b2c3d4',
     );
   });
 });
 
 describe('extractUserDescription', () => {
   it('returns nothing for the bare footer alone', () => {
-    expect(extractUserDescription('TaskBridge ID: ^ots-a1b2c3d4')).toBe('');
+    expect(extractUserDescription('TaskBridge ID: ^tb-a1b2c3d4')).toBe('');
   });
 
   it('recovers the user text, dropping the blank line composeRemoteDescription inserted', () => {
-    expect(extractUserDescription('Oat milk, not regular\n\nTaskBridge ID: ^ots-a1b2c3d4')).toBe(
+    expect(extractUserDescription('Oat milk, not regular\n\nTaskBridge ID: ^tb-a1b2c3d4')).toBe(
       'Oat milk, not regular',
     );
   });
 
   it('finds the footer by searching rather than assuming it is the last line', () => {
-    const description = 'Oat milk\n\nTaskBridge ID: ^ots-a1b2c3d4\nA note added after the fact';
+    const description = 'Oat milk\n\nTaskBridge ID: ^tb-a1b2c3d4\nA note added after the fact';
 
     expect(extractUserDescription(description)).toBe('Oat milk');
   });
 
   it('keeps text before the footer even without a preceding blank line', () => {
-    expect(extractUserDescription('Oat milk\nTaskBridge ID: ^ots-a1b2c3d4')).toBe('Oat milk');
+    expect(extractUserDescription('Oat milk\nTaskBridge ID: ^tb-a1b2c3d4')).toBe('Oat milk');
   });
 
   it('returns the whole description untouched when it carries no footer at all', () => {
@@ -200,7 +200,7 @@ describe('extractUserDescription', () => {
   });
 
   it('round-trips through composeRemoteDescription', () => {
-    expect(extractUserDescription(composeRemoteDescription('Oat milk, not regular', 'ots-a1'))).toBe(
+    expect(extractUserDescription(composeRemoteDescription('Oat milk, not regular', 'tb-a1'))).toBe(
       'Oat milk, not regular',
     );
   });

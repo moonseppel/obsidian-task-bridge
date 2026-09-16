@@ -32,24 +32,24 @@ describe('parseTaskLine', () => {
   });
 
   it('splits a trailing block id off the title', () => {
-    expect(parseTaskLine('- [ ] Buy milk ^ots-a1b2c3')).toEqual({
+    expect(parseTaskLine('- [ ] Buy milk ^tb-a1b2c3')).toEqual({
       prefix: '- ',
       checkbox: ' ',
       text: 'Buy milk',
       title: 'Buy milk',
       tags: [],
-      blockId: 'ots-a1b2c3',
+      blockId: 'tb-a1b2c3',
     });
   });
 
   it('takes the last caret as the block id and leaves earlier ones in the title', () => {
-    expect(parseTaskLine('- [ ] Read ^chapter ^ots-a1')).toEqual({
+    expect(parseTaskLine('- [ ] Read ^chapter ^tb-a1')).toEqual({
       prefix: '- ',
       checkbox: ' ',
       text: 'Read ^chapter',
       title: 'Read ^chapter',
       tags: [],
-      blockId: 'ots-a1',
+      blockId: 'tb-a1',
     });
   });
 
@@ -88,18 +88,18 @@ describe('parseTaskLine', () => {
     });
 
     it('finds trailing tags before the block id', () => {
-      expect(parseTaskLine('- [ ] Renew passport #errands #urgent ^ots-a1')).toEqual({
+      expect(parseTaskLine('- [ ] Renew passport #errands #urgent ^tb-a1')).toEqual({
         prefix: '- ',
         checkbox: ' ',
         text: 'Renew passport #errands #urgent',
         title: 'Renew passport',
         tags: ['errands', 'urgent'],
-        blockId: 'ots-a1',
+        blockId: 'tb-a1',
       });
     });
 
     it('reads a tag in the middle of the text, taking it out of the title with one space', () => {
-      const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1');
+      const task = parseTaskLine('- [ ] Call the #home dentist ^tb-a1');
 
       expect(task?.title).toBe('Call the dentist');
       expect(task?.tags).toEqual(['home']);
@@ -114,7 +114,7 @@ describe('parseTaskLine', () => {
     });
 
     it('reads several tags across one line, in the order they stand there', () => {
-      const task = parseTaskLine('- [ ] #home Call the #urgent dentist #errands ^ots-a1');
+      const task = parseTaskLine('- [ ] #home Call the #urgent dentist #errands ^tb-a1');
 
       expect(task?.title).toBe('Call the dentist');
       expect(task?.tags).toEqual(['home', 'urgent', 'errands']);
@@ -125,7 +125,7 @@ describe('parseTaskLine', () => {
     });
 
     it('reads a tag standing directly before the block id anchor', () => {
-      const task = parseTaskLine('- [ ] Call the dentist #home ^ots-a1');
+      const task = parseTaskLine('- [ ] Call the dentist #home ^tb-a1');
 
       expect(task?.title).toBe('Call the dentist');
       expect(task?.tags).toEqual(['home']);
@@ -187,8 +187,8 @@ describe('isDone', () => {
 describe('formatTaskLine', () => {
   it('appends the block id when there is one', () => {
     expect(
-      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Buy milk', blockId: 'ots-a1' })),
-    ).toBe('- [ ] Buy milk ^ots-a1');
+      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Buy milk', blockId: 'tb-a1' })),
+    ).toBe('- [ ] Buy milk ^tb-a1');
   });
 
   it('leaves the line bare when there is no block id', () => {
@@ -204,21 +204,21 @@ describe('formatTaskLine', () => {
           prefix: '- ',
           checkbox: ' ',
           text: 'Renew passport #errands #urgent',
-          blockId: 'ots-a1',
+          blockId: 'tb-a1',
         }),
       ),
-    ).toBe('- [ ] Renew passport #errands #urgent ^ots-a1');
+    ).toBe('- [ ] Renew passport #errands #urgent ^tb-a1');
   });
 
   it.each([
-    '- [ ] Buy milk ^ots-a1',
-    '    - [x] Nested and done ^ots-b2',
+    '- [ ] Buy milk ^tb-a1',
+    '    - [x] Nested and done ^tb-b2',
     '3. [ ] Numbered',
-    '- [/] Tasks-plugin-style state ^ots-c3',
-    '- [ ] Renew passport #errands #urgent ^ots-a1',
-    '- [ ] Call the #home dentist ^ots-a1',
+    '- [/] Tasks-plugin-style state ^tb-c3',
+    '- [ ] Renew passport #errands #urgent ^tb-a1',
+    '- [ ] Call the #home dentist ^tb-a1',
     '- [ ] Ask about `#hashtags` in general',
-    '- [ ] Renew passport #büro ^ots-a1',
+    '- [ ] Renew passport #büro ^tb-a1',
     '- [ ] Renew passport #tag/sub',
     '- [ ] Pay invoice #123',
   ])('round trips %s unchanged', (line) => {
@@ -244,55 +244,55 @@ describe('taskLineFrom', () => {
 
 describe('withTitle', () => {
   it('rewrites the text as the new title followed by the tags it had', () => {
-    const task = parseTaskLine('- [ ] Renew passport #errands #urgent ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Renew passport #errands #urgent ^tb-a1')!;
 
     expect(formatTaskLine(withTitle(task, 'Renew the passport'))).toBe(
-      '- [ ] Renew the passport #errands #urgent ^ots-a1',
+      '- [ ] Renew the passport #errands #urgent ^tb-a1',
     );
   });
 
   it('leaves a line without tags as the bare title', () => {
-    const task = parseTaskLine('- [ ] Renew passport ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Renew passport ^tb-a1')!;
 
-    expect(formatTaskLine(withTitle(task, 'Renew the passport'))).toBe('- [ ] Renew the passport ^ots-a1');
+    expect(formatTaskLine(withTitle(task, 'Renew the passport'))).toBe('- [ ] Renew the passport ^tb-a1');
   });
 
   it('moves a tag that stood inside the replaced text to the trailing position', () => {
-    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Call the #home dentist ^tb-a1')!;
 
-    expect(formatTaskLine(withTitle(task, 'Book a check-up'))).toBe('- [ ] Book a check-up #home ^ots-a1');
+    expect(formatTaskLine(withTitle(task, 'Book a check-up'))).toBe('- [ ] Book a check-up #home ^tb-a1');
   });
 });
 
 describe('withTags', () => {
   it('replaces the tags on the line, keeping its title', () => {
-    const task = parseTaskLine('- [ ] Renew passport #errands ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Renew passport #errands ^tb-a1')!;
 
-    expect(formatTaskLine(withTags(task, ['urgent']))).toBe('- [ ] Renew passport #urgent ^ots-a1');
+    expect(formatTaskLine(withTags(task, ['urgent']))).toBe('- [ ] Renew passport #urgent ^tb-a1');
   });
 
   it('leaves the bare title behind when every tag is taken away', () => {
-    const task = parseTaskLine('- [ ] Renew passport #errands ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Renew passport #errands ^tb-a1')!;
 
-    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Renew passport ^ots-a1');
+    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Renew passport ^tb-a1');
   });
 
   it('takes a tag out of the middle of the text where it stands, with one adjoining space', () => {
-    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Call the #home dentist ^tb-a1')!;
 
-    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Call the dentist ^ots-a1');
+    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Call the dentist ^tb-a1');
   });
 
   it('leaves the tags it keeps where they stand and appends only the new one', () => {
-    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+    const task = parseTaskLine('- [ ] Call the #home dentist ^tb-a1')!;
 
-    expect(formatTaskLine(withTags(task, ['home', 'urgent']))).toBe('- [ ] Call the #home dentist #urgent ^ots-a1');
+    expect(formatTaskLine(withTags(task, ['home', 'urgent']))).toBe('- [ ] Call the #home dentist #urgent ^tb-a1');
   });
 
   it('takes one tag out in place while appending another', () => {
-    const task = parseTaskLine('- [ ] #home Call the #urgent dentist ^ots-a1')!;
+    const task = parseTaskLine('- [ ] #home Call the #urgent dentist ^tb-a1')!;
 
-    expect(formatTaskLine(withTags(task, ['home', 'errands']))).toBe('- [ ] #home Call the dentist #errands ^ots-a1');
+    expect(formatTaskLine(withTags(task, ['home', 'errands']))).toBe('- [ ] #home Call the dentist #errands ^tb-a1');
   });
 });
 
@@ -316,9 +316,9 @@ describe('isRepresentableAsTag', () => {
 
 describe('collectBlockIds', () => {
   it('finds block ids on task lines and on ordinary lines alike', () => {
-    const ids = collectBlockIds(['- [ ] Buy milk ^ots-a1', 'A paragraph ^note-7', '- [ ] Bare']);
+    const ids = collectBlockIds(['- [ ] Buy milk ^tb-a1', 'A paragraph ^note-7', '- [ ] Bare']);
 
-    expect([...ids].sort()).toEqual(['note-7', 'ots-a1']);
+    expect([...ids].sort()).toEqual(['note-7', 'tb-a1']);
   });
 
   it('finds nothing in a note without anchors', () => {

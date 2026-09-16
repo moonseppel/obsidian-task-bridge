@@ -15,11 +15,11 @@ function everythingLogged(): () => string {
 
 async function syncTouchingEveryField(): Promise<void> {
   const links = new TaskLinkStore([
-    { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: `${PRIVATE} title` },
+    { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: `${PRIVATE} title` },
   ]);
   const note = new FakeNote(
     [
-      `- [ ] ${PRIVATE} title #${PRIVATE}tag ^ots-a1`,
+      `- [ ] ${PRIVATE} title #${PRIVATE}tag ^tb-a1`,
       `\t${PRIVATE} description`,
       `- [ ] ${PRIVATE} brand new`,
     ].join('\n'),
@@ -28,8 +28,8 @@ async function syncTouchingEveryField(): Promise<void> {
     listTasks: remoteTasks({
       id: TASK_ID,
       title: `${PRIVATE} renamed`,
-      description: [`${PRIVATE} remote description`, '', 'TaskBridge ID: ^ots-a1'].join('\n'),
-      embeddedBlockId: 'ots-a1',
+      description: [`${PRIVATE} remote description`, '', 'TaskBridge ID: ^tb-a1'].join('\n'),
+      embeddedBlockId: 'tb-a1',
     }),
     listProjects: projectExists,
     createTask: (task) => Promise.resolve({ id: 'new-task', title: task.title }),
@@ -55,7 +55,7 @@ describe('Debug logging', () => {
 
     await syncTouchingEveryField();
 
-    expect(logged()).toContain('ots-a1');
+    expect(logged()).toContain('tb-a1');
   });
 
   it('never records a title, description, tag or any other note text', async () => {

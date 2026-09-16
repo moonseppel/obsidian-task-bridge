@@ -16,9 +16,9 @@ describe('TaskSync field sync', () => {
 
   describe('state sync', () => {
     it('completes the task when the line is checked locally', async () => {
-      const note = new FakeNote('- [x] Buy milk ^ots-a1');
+      const note = new FakeNote('- [x] Buy milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
       ]);
       const completed: string[] = [];
       const sync = makeSync(note, links, {
@@ -31,12 +31,12 @@ describe('TaskSync field sync', () => {
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
       expect(completed).toEqual([TASK_ID]);
-      expect(links.get('ots-a1')?.lastSyncedDone).toBe(true);
+      expect(links.get('tb-a1')?.lastSyncedDone).toBe(true);
     });
 
     it('treats a link with no recorded state as not done, so an already-checked line pushes a completion', async () => {
-      const note = new FakeNote('- [x] Buy milk ^ots-a1');
-      const links = new TaskLinkStore([{ blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
+      const note = new FakeNote('- [x] Buy milk ^tb-a1');
+      const links = new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
       const completed: string[] = [];
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
@@ -52,9 +52,9 @@ describe('TaskSync field sync', () => {
     });
 
     it('clears the checkbox when the task was reopened in Todoist', async () => {
-      const note = new FakeNote('- [x] Buy milk ^ots-a1');
+      const note = new FakeNote('- [x] Buy milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
       ]);
       const sync = makeSync(note, links, {
         // Still present in the active list at all means Todoist now considers it not completed.
@@ -62,27 +62,27 @@ describe('TaskSync field sync', () => {
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 1 });
-      expect(note.content).toBe('- [ ] Buy milk ^ots-a1');
-      expect(links.get('ots-a1')?.lastSyncedDone).toBe(false);
+      expect(note.content).toBe('- [ ] Buy milk ^tb-a1');
+      expect(links.get('tb-a1')?.lastSyncedDone).toBe(false);
     });
 
     it('settles silently when both sides already dropped the completion, without calling the provider', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true },
       ]);
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
-      expect(links.get('ots-a1')?.lastSyncedDone).toBe(false);
+      expect(links.get('tb-a1')?.lastSyncedDone).toBe(false);
     });
 
     it('does nothing when both sides already agree the task is not done', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
       ]);
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
@@ -93,9 +93,9 @@ describe('TaskSync field sync', () => {
     });
 
     it('syncs title and state independently in the same pass', async () => {
-      const note = new FakeNote('- [x] Buy oat milk ^ots-a1');
+      const note = new FakeNote('- [x] Buy oat milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
       ]);
       const pushedTitles: string[] = [];
       const completed: string[] = [];
@@ -114,15 +114,15 @@ describe('TaskSync field sync', () => {
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 2 });
       expect(pushedTitles).toEqual(['Buy oat milk']);
       expect(completed).toEqual([TASK_ID]);
-      expect(links.get('ots-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
+      expect(links.get('tb-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
     });
   });
 
   describe('description sync', () => {
     it('pushes a newly added indented description', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1\n\tOat milk, not regular');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1\n\tOat milk, not regular');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: '' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: '' },
       ]);
       const updated: Array<[string, string]> = [];
       const sync = makeSync(note, links, {
@@ -134,74 +134,74 @@ describe('TaskSync field sync', () => {
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 0 });
-      expect(updated).toEqual([[TASK_ID, 'Oat milk, not regular\n\nTaskBridge ID: ^ots-a1']]);
-      expect(links.get('ots-a1')?.lastSyncedDescription).toBe('Oat milk, not regular');
+      expect(updated).toEqual([[TASK_ID, 'Oat milk, not regular\n\nTaskBridge ID: ^tb-a1']]);
+      expect(links.get('tb-a1')?.lastSyncedDescription).toBe('Oat milk, not regular');
     });
 
     it('inserts a description pulled from the provider under the task line', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: '' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: '' },
       ]);
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Oat milk, not regular\n\nTaskBridge ID: ^ots-a1',
+          description: 'Oat milk, not regular\n\nTaskBridge ID: ^tb-a1',
         }),
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 1, conflicted: 0 });
-      expect(note.content).toBe('- [ ] Buy milk ^ots-a1\n\tOat milk, not regular');
-      expect(links.get('ots-a1')?.lastSyncedDescription).toBe('Oat milk, not regular');
+      expect(note.content).toBe('- [ ] Buy milk ^tb-a1\n\tOat milk, not regular');
+      expect(links.get('tb-a1')?.lastSyncedDescription).toBe('Oat milk, not regular');
     });
 
     it('replaces an existing description with a remote change', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1\n\tOld notes');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1\n\tOld notes');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
       ]);
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'New notes\n\nTaskBridge ID: ^ots-a1',
+          description: 'New notes\n\nTaskBridge ID: ^tb-a1',
         }),
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 1 });
-      expect(note.content).toBe('- [ ] Buy milk ^ots-a1\n\tNew notes');
+      expect(note.content).toBe('- [ ] Buy milk ^tb-a1\n\tNew notes');
     });
 
     it('is not a conflict when both sides changed the description to the same text', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1\n\tSame notes');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1\n\tSame notes');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
       ]);
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Same notes\n\nTaskBridge ID: ^ots-a1',
+          description: 'Same notes\n\nTaskBridge ID: ^tb-a1',
         }),
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 0, pulled: 0, conflicted: 0 });
-      expect(note.content).toBe('- [ ] Buy milk ^ots-a1\n\tSame notes');
-      expect(links.get('ots-a1')?.lastSyncedDescription).toBe('Same notes');
+      expect(note.content).toBe('- [ ] Buy milk ^tb-a1\n\tSame notes');
+      expect(links.get('tb-a1')?.lastSyncedDescription).toBe('Same notes');
     });
 
     it('resolves a description conflict in local\'s favor when the remote task has no last-modified time', async () => {
-      const note = new FakeNote('- [ ] Buy milk ^ots-a1\n\tLocal notes');
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1\n\tLocal notes');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDescription: 'Old notes' },
       ]);
       const updated: Array<[string, string]> = [];
       const sync = makeSync(note, links, {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          description: 'Remote notes\n\nTaskBridge ID: ^ots-a1',
+          description: 'Remote notes\n\nTaskBridge ID: ^tb-a1',
         }),
         updateTaskDescription: (id, description) => {
           updated.push([id, description]);
@@ -210,7 +210,7 @@ describe('TaskSync field sync', () => {
       });
 
       expect(await sync.run(PROJECT)).toMatchObject({ pushed: 1, pulled: 0, conflicted: 1 });
-      expect(updated).toEqual([[TASK_ID, 'Local notes\n\nTaskBridge ID: ^ots-a1']]);
+      expect(updated).toEqual([[TASK_ID, 'Local notes\n\nTaskBridge ID: ^tb-a1']]);
     });
 
     it('sends the description on creation when the line already has one', async () => {

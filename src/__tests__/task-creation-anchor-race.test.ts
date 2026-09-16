@@ -36,7 +36,7 @@ describe('TaskSync creating a task whose line changes before the anchor can land
     const outcome = await sync.run(PROJECT);
 
     expect(outcome).toMatchObject({ created: 1, abandonedCreations: 0 });
-    expect(note.content).toMatch(/^- \[ \] Buy oat milk \^ots-[a-z0-9]{8}$/);
+    expect(note.content).toMatch(/^- \[ \] Buy oat milk \^tb-[a-z0-9]{8}$/);
   });
 
   it('undoes the task rather than leaving an untraceable duplicate when the line moved on entirely', async () => {
@@ -116,7 +116,7 @@ describe('TaskSync creating a task whose line changes before the anchor can land
     const outcome = await sync.run(PROJECT);
 
     expect(outcome).toMatchObject({ created: 1, abandonedCreations: 0 });
-    expect(note.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
+    expect(note.content).toMatch(/^- \[ \] Buy milk \^tb-[a-z0-9]{8}$/);
     expect(links.size).toBe(1);
   });
 });

@@ -2,7 +2,7 @@ import { OrphanTracker } from '../services/sync/orphan-tracker';
 import { TaskLinkStore } from '../services/sync/task-links';
 import { FakeNote, PROJECT, TASK_ID, makeMultiFileSync, makeSync, remoteTasks } from './support/sync-harness';
 
-const ORPHAN = { id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' };
+const ORPHAN = { id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' };
 
 describe('TaskSync run outcome', () => {
   afterEach(() => {
@@ -11,12 +11,12 @@ describe('TaskSync run outcome', () => {
 
   it('counts the notes scanned and the tasks linked once the run is done', async () => {
     const notes = new Map([
-      ['A.md', new FakeNote('- [ ] First ^ots-a1')],
+      ['A.md', new FakeNote('- [ ] First ^tb-a1')],
       ['B.md', new FakeNote('')],
     ]);
-    const links = new TaskLinkStore([{ blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'First' }]);
+    const links = new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'First' }]);
     const sync = makeMultiFileSync(notes, links, {
-      listTasks: remoteTasks({ id: TASK_ID, title: 'First', embeddedBlockId: 'ots-a1' }),
+      listTasks: remoteTasks({ id: TASK_ID, title: 'First', embeddedBlockId: 'tb-a1' }),
     });
 
     const outcome = await sync.run(PROJECT);
@@ -25,16 +25,16 @@ describe('TaskSync run outcome', () => {
   });
 
   it('counts an edit left unwritten because its line changed while the sync ran', async () => {
-    const note = new FakeNote('- [ ] Milk ^ots-a');
+    const note = new FakeNote('- [ ] Milk ^tb-a');
     const readBeforeTheUserTyped = note.read.bind(note);
     note.read = async (): Promise<string> => {
       const content = await readBeforeTheUserTyped();
-      note.content = '- [ ] Milk typed meanwhile ^ots-a';
+      note.content = '- [ ] Milk typed meanwhile ^tb-a';
       return content;
     };
-    const links = new TaskLinkStore([{ blockId: 'ots-a', providerTaskId: TASK_ID, lastSyncedTitle: 'Milk' }]);
+    const links = new TaskLinkStore([{ blockId: 'tb-a', providerTaskId: TASK_ID, lastSyncedTitle: 'Milk' }]);
     const sync = makeSync(note, links, {
-      listTasks: remoteTasks({ id: TASK_ID, title: 'Oat milk', embeddedBlockId: 'ots-a' }),
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Oat milk', embeddedBlockId: 'tb-a' }),
     });
 
     const outcome = await sync.run(PROJECT);
@@ -81,12 +81,12 @@ describe('TaskSync run outcome', () => {
     const orphans = new OrphanTracker();
     orphans.track(TASK_ID, 0);
     orphans.flag(TASK_ID, Date.now() + 60_000);
-    const links = new TaskLinkStore([{ blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
+    const links = new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
     const sync = makeSync(
-      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      new FakeNote('- [ ] Buy milk ^tb-a1'),
       links,
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }),
         updateTaskDescription: jest.fn().mockResolvedValue(undefined),
       },
       { orphans },

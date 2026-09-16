@@ -20,7 +20,7 @@ describe('TaskSync orphan lifecycle', () => {
     const sync = makeSync(
       new FakeNote(''),
       new TaskLinkStore(),
-      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }) },
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }) },
       { orphans },
     );
 
@@ -32,12 +32,12 @@ describe('TaskSync orphan lifecycle', () => {
   it('never tracks a task whose link legitimately exists', async () => {
     const orphans = new OrphanTracker();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const sync = makeSync(
-      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      new FakeNote('- [ ] Buy milk ^tb-a1'),
       links,
-      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }) },
       { orphans },
     );
 
@@ -50,12 +50,12 @@ describe('TaskSync orphan lifecycle', () => {
     const orphans = new OrphanTracker();
     orphans.track(TASK_ID, 1_000);
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const sync = makeSync(
-      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      new FakeNote('- [ ] Buy milk ^tb-a1'),
       links,
-      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }) },
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }) },
       { orphans },
     );
 
@@ -72,7 +72,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote(''),
       new TaskLinkStore(),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }),
         updateTaskDescription,
       },
       { orphans },
@@ -94,7 +94,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote(''),
       new TaskLinkStore(),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }),
         updateTaskDescription,
       },
       { orphans },
@@ -107,7 +107,7 @@ describe('TaskSync orphan lifecycle', () => {
     expect(updateTaskDescription).toHaveBeenCalledTimes(1);
     const [calledTaskId, description] = updateTaskDescription.mock.calls[0] as [string, string];
     expect(calledTaskId).toBe(TASK_ID);
-    expect(description).toContain('^ots-orphan');
+    expect(description).toContain('^tb-orphan');
     expect(description.toLowerCase()).toContain('orphaned');
     expect(description.toLowerCase()).toContain('removed');
 
@@ -125,8 +125,8 @@ describe('TaskSync orphan lifecycle', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          embeddedBlockId: 'ots-orphan',
-          description: bareBlockIdDescription('ots-orphan', 'Oat milk, not regular'),
+          embeddedBlockId: 'tb-orphan',
+          description: bareBlockIdDescription('tb-orphan', 'Oat milk, not regular'),
         }),
         updateTaskDescription,
       },
@@ -153,7 +153,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote(''),
       new TaskLinkStore(),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }),
         removeTask,
       },
       { orphans },
@@ -176,7 +176,7 @@ describe('TaskSync orphan lifecycle', () => {
       new FakeNote(''),
       new TaskLinkStore(),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }),
         removeTask,
       },
       { orphans },
@@ -193,14 +193,14 @@ describe('TaskSync orphan lifecycle', () => {
     orphans.track(TASK_ID, 0);
     orphans.flag(TASK_ID, 999_999_999);
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(
-      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      new FakeNote('- [ ] Buy milk ^tb-a1'),
       links,
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }),
         updateTaskDescription,
       },
       { orphans },
@@ -208,7 +208,7 @@ describe('TaskSync orphan lifecycle', () => {
 
     await sync.run(PROJECT);
 
-    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'TaskBridge ID: ^ots-a1');
+    expect(updateTaskDescription).toHaveBeenCalledWith(TASK_ID, 'TaskBridge ID: ^tb-a1');
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });
 
@@ -217,18 +217,18 @@ describe('TaskSync orphan lifecycle', () => {
     orphans.track(TASK_ID, 0);
     orphans.flag(TASK_ID, 999_999_999);
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(
-      new FakeNote('- [ ] Buy milk ^ots-a1'),
+      new FakeNote('- [ ] Buy milk ^tb-a1'),
       links,
       {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          embeddedBlockId: 'ots-a1',
-          description: orphanNoticeDescription('ots-a1', 999_999_999, 'Oat milk, not regular'),
+          embeddedBlockId: 'tb-a1',
+          description: orphanNoticeDescription('tb-a1', 999_999_999, 'Oat milk, not regular'),
         }),
         updateTaskDescription,
       },
@@ -239,7 +239,7 @@ describe('TaskSync orphan lifecycle', () => {
 
     expect(updateTaskDescription).toHaveBeenCalledWith(
       TASK_ID,
-      bareBlockIdDescription('ots-a1', 'Oat milk, not regular'),
+      bareBlockIdDescription('tb-a1', 'Oat milk, not regular'),
     );
     expect(orphans.get(TASK_ID)).toBeUndefined();
   });

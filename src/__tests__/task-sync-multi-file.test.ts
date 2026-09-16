@@ -29,17 +29,17 @@ describe('TaskSync across multiple files', () => {
     );
 
     expect(await sync.run(PROJECT)).toMatchObject({ created: 2 });
-    expect(fileA.content).toMatch(/^- \[ \] Buy milk \^ots-[a-z0-9]{8}$/);
-    expect(fileB.content).toMatch(/^- \[ \] Walk the dog \^ots-[a-z0-9]{8}$/);
+    expect(fileA.content).toMatch(/^- \[ \] Buy milk \^tb-[a-z0-9]{8}$/);
+    expect(fileB.content).toMatch(/^- \[ \] Walk the dog \^tb-[a-z0-9]{8}$/);
     expect(created.map((task) => task.title).sort()).toEqual(['Buy milk', 'Walk the dog']);
   });
 
   it('pulls a remote title change into whichever file the task is actually anchored in', async () => {
-    const fileA = new FakeNote('- [ ] Other task ^ots-b1');
-    const fileB = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const fileA = new FakeNote('- [ ] Other task ^tb-b1');
+    const fileB = new FakeNote('- [ ] Buy milk ^tb-a1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
-      { blockId: 'ots-b1', providerTaskId: 'other-task-id', lastSyncedTitle: 'Other task' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-b1', providerTaskId: 'other-task-id', lastSyncedTitle: 'Other task' },
     ]);
     const sync = makeMultiFileSync(
       new Map([
@@ -56,8 +56,8 @@ describe('TaskSync across multiple files', () => {
     );
 
     expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
-    expect(fileB.content).toBe('- [ ] Buy oat milk ^ots-a1');
-    expect(fileA.content).toBe('- [ ] Other task ^ots-b1');
+    expect(fileB.content).toBe('- [ ] Buy oat milk ^tb-a1');
+    expect(fileA.content).toBe('- [ ] Other task ^tb-b1');
   });
 
   it('skips a task line whose tag does not match the configured filter', async () => {
@@ -80,17 +80,17 @@ describe('TaskSync across multiple files', () => {
     expect(await sync.run(PROJECT)).toMatchObject({ created: 1 });
     expect(created.map((task) => task.title)).toEqual(['Tagged task']);
     expect(note.content).toContain('Untagged task\n'.trim());
-    expect(note.content).not.toMatch(/Untagged task \^ots-/);
+    expect(note.content).not.toMatch(/Untagged task \^tb-/);
   });
 
   it('resurrects a deleted-but-conflicting line into its last anchored file, not the first in scope', async () => {
     jest.useFakeTimers();
-    const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
-    const fileB = new FakeNote('- [ ] Buy milk ^ots-a1');
+    const fileA = new FakeNote('- [ ] Unrelated ^tb-other');
+    const fileB = new FakeNote('- [ ] Buy milk ^tb-a1');
     fileB.modifiedAt = 1_000;
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
-      { blockId: 'ots-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
     ]);
     const removeTask = jest.fn().mockResolvedValue(undefined);
     // Starts agreeing with the line, so establishing lastKnownFilePath below does not itself pull
@@ -113,9 +113,9 @@ describe('TaskSync across multiple files', () => {
       },
     );
 
-    // Establishes ots-a1's lastKnownFilePath as B.md.
+    // Establishes tb-a1's lastKnownFilePath as B.md.
     await sync.run(PROJECT);
-    expect(links.get('ots-a1')?.lastKnownFilePath).toBe('B.md');
+    expect(links.get('tb-a1')?.lastKnownFilePath).toBe('B.md');
 
     // The line disappears from B.md, racing a remote title change newer than B.md's mtime.
     fileB.content = '';
@@ -128,16 +128,16 @@ describe('TaskSync across multiple files', () => {
 
     expect(outcome).toMatchObject({ conflicted: 1, resurrectedLine: 1, removedTask: 0 });
     expect(removeTask).not.toHaveBeenCalledWith(TASK_ID);
-    expect(fileB.content).toBe('- [ ] Buy oat milk ^ots-a1');
-    expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
+    expect(fileB.content).toBe('- [ ] Buy oat milk ^tb-a1');
+    expect(fileA.content).toBe('- [ ] Unrelated ^tb-other');
   });
 
   it('pulls a remote-only sub-task into the file its linked parent lives in, not another file in scope', async () => {
-    const fileA = new FakeNote('- [ ] Unrelated ^ots-other');
-    const fileB = new FakeNote('- [ ] Parent ^ots-parent1');
+    const fileA = new FakeNote('- [ ] Unrelated ^tb-other');
+    const fileB = new FakeNote('- [ ] Parent ^tb-parent1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
-      { blockId: 'ots-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-other', providerTaskId: 'other-id', lastSyncedTitle: 'Unrelated' },
     ]);
     const sync = makeMultiFileSync(
       new Map([
@@ -147,8 +147,8 @@ describe('TaskSync across multiple files', () => {
       links,
       {
         listTasks: remoteTasks(
-          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
-          { id: 'other-id', title: 'Unrelated', embeddedBlockId: 'ots-other' },
+          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
+          { id: 'other-id', title: 'Unrelated', embeddedBlockId: 'tb-other' },
           { id: 'child-task', title: 'Child', parentId: 'parent-task' },
         ),
         listProjects: projectExists,
@@ -156,17 +156,17 @@ describe('TaskSync across multiple files', () => {
     );
 
     expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
-    expect(fileB.content).toMatch(/^- \[ \] Parent \^ots-parent1\n\t- \[ \] Child \^ots-[a-z0-9]{8}$/);
-    expect(fileA.content).toBe('- [ ] Unrelated ^ots-other');
+    expect(fileB.content).toMatch(/^- \[ \] Parent \^tb-parent1\n\t- \[ \] Child \^tb-[a-z0-9]{8}$/);
+    expect(fileA.content).toBe('- [ ] Unrelated ^tb-other');
   });
 
   it('relocates a remote reparent to a note the new parent lives in, carrying its description and nested child along', async () => {
-    const fileB = new FakeNote(['- [ ] B ^ots-b', "\tB's own description", '\t- [ ] Grandchild ^ots-g'].join('\n'));
-    const fileC = new FakeNote('- [ ] C ^ots-c');
+    const fileB = new FakeNote(['- [ ] B ^tb-b', "\tB's own description", '\t- [ ] Grandchild ^tb-g'].join('\n'));
+    const fileC = new FakeNote('- [ ] C ^tb-c');
     const links = new TaskLinkStore([
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedDescription: "B's own description" },
-      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
-      { blockId: 'ots-g', providerTaskId: 'task-g', lastSyncedTitle: 'Grandchild', lastSyncedParentBlockId: 'ots-b' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedDescription: "B's own description" },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-g', providerTaskId: 'task-g', lastSyncedTitle: 'Grandchild', lastSyncedParentBlockId: 'tb-b' },
     ]);
     const sync = makeMultiFileSync(
       new Map([
@@ -179,12 +179,12 @@ describe('TaskSync across multiple files', () => {
           {
             id: 'task-b',
             title: 'B',
-            embeddedBlockId: 'ots-b',
+            embeddedBlockId: 'tb-b',
             parentId: 'task-c',
-            description: "B's own description\n\nTaskBridge ID: ^ots-b",
+            description: "B's own description\n\nTaskBridge ID: ^tb-b",
           },
-          { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
-          { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'ots-g', parentId: 'task-b' },
+          { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c' },
+          { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'tb-g', parentId: 'task-b' },
         ),
         listProjects: projectExists,
       },
@@ -193,29 +193,29 @@ describe('TaskSync across multiple files', () => {
     expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
     expect(fileB.content).toBe('');
     expect(fileC.content).toBe(
-      ['- [ ] C ^ots-c', '\t- [ ] B ^ots-b', "\t\tB's own description", '\t\t- [ ] Grandchild ^ots-g'].join('\n'),
+      ['- [ ] C ^tb-c', '\t- [ ] B ^tb-b', "\t\tB's own description", '\t\t- [ ] Grandchild ^tb-g'].join('\n'),
     );
-    expect(links.get('ots-b')).toMatchObject({ lastSyncedParentBlockId: 'ots-c', lastKnownFilePath: 'C.md' });
+    expect(links.get('tb-b')).toMatchObject({ lastSyncedParentBlockId: 'tb-c', lastKnownFilePath: 'C.md' });
   });
 
   it('leaves a remote reparent alone when the new parent has no line anywhere in scope yet', async () => {
-    const fileB = new FakeNote('- [ ] B ^ots-b');
-    const links = new TaskLinkStore([{ blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B' }]);
+    const fileB = new FakeNote('- [ ] B ^tb-b');
+    const links = new TaskLinkStore([{ blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B' }]);
     const sync = makeMultiFileSync(
       new Map([['B.md', fileB]]),
       links,
       {
         listTasks: remoteTasks(
-          { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'ghost-task' },
+          { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'ghost-task' },
           // Tracked in the fetched project, so its block id resolves, but no note anchors it.
-          { id: 'ghost-task', title: 'Ghost', embeddedBlockId: 'ots-ghost' },
+          { id: 'ghost-task', title: 'Ghost', embeddedBlockId: 'tb-ghost' },
         ),
         listProjects: projectExists,
       },
     );
 
     expect(await sync.run(PROJECT)).toMatchObject({ pulled: 0, conflicted: 0 });
-    expect(fileB.content).toBe('- [ ] B ^ots-b');
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBeUndefined();
+    expect(fileB.content).toBe('- [ ] B ^tb-b');
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBeUndefined();
   });
 });

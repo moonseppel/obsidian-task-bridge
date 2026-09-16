@@ -49,14 +49,14 @@ Choose which tasks to sync and a Todoist project in the settings, and every chec
 is kept in step with a task in that project.
 
 ```markdown
-- [ ] Buy milk #errands ^ots-a1b2c3
+- [ ] Buy milk #errands ^tb-a1b2c3
 	Oat milk, not regular
-- [x] Call the dentist ^ots-d4e5f6
+- [x] Call the dentist ^tb-d4e5f6
 ```
 
-The `^ots-...` suffix is an ordinary Obsidian block identifier. The plugin appends it the first time
+The `^tb-...` suffix is an ordinary Obsidian block identifier. The plugin appends it the first time
 it syncs a line, and it is what ties that line to its Todoist task, so the title can change on
-either side without the link breaking. `[[Tasks#^ots-a1b2c3]]` links to that task from anywhere in
+either side without the link breaking. `[[Tasks#^tb-a1b2c3]]` links to that task from anywhere in
 the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
 
 Checking the box completes the Todoist task, and completing it in Todoist checks the box. The lines
@@ -146,9 +146,9 @@ Todoist syncs into the note as a line indented one tab under its parent — recu
 tree of tasks nests the same way on both sides.
 
 ```markdown
-- [ ] Plan the trip ^ots-a1b2c3
-	- [ ] Book flights ^ots-d4e5f6
-	- [ ] Book hotel ^ots-g7h8i9
+- [ ] Plan the trip ^tb-a1b2c3
+	- [ ] Book flights ^tb-d4e5f6
+	- [ ] Book hotel ^tb-g7h8i9
 ```
 
 Which task is a line's parent is read fresh from indentation every sync, never stored as a separate
@@ -170,7 +170,7 @@ parent's description.
 ## Debug mode
 
 One switch in the settings, off by default, for when something needs diagnosing. It does two things:
-it reveals this plugin's `^ots-` anchors in reading view, and it prints this plugin's debug logging
+it reveals this plugin's `^tb-` anchors in reading view, and it prints this plugin's debug logging
 to the developer console.
 
 The debug log records every decision a sync makes — which field was pushed or pulled and why, every
@@ -182,11 +182,11 @@ and project changes, every task and task line created or deleted, failures, and 
 sync that changed something.
 
 Reading view offers no CSS hook for a block identifier, so while debug mode is off the plugin edits
-the rendered text instead, matching on the `ots-` prefix. Only its own anchors are touched, and only
-the rendered copy: the note on disk keeps its anchor. This applies as views are drawn, so a reading
-view that is already open may need reopening after you flip the switch. Obsidian itself swallows a
-block identifier that terminates a block, which is what the last item of a list does; those never
-reach the page, so no setting can reveal them there.
+the rendered text instead, matching on the `tb-` prefix, and on the `ots-` prefix minted before it.
+Only its own anchors are touched, and only the rendered copy: the note on disk keeps its anchor.
+This applies as views are drawn, so a reading view that is already open may need reopening after you
+flip the switch. Obsidian itself swallows a block identifier that terminates a block, which is what
+the last item of a list does; those never reach the page, so no setting can reveal them there.
 
 Live Preview shows the anchors on every task line regardless of this setting. Hiding them only on
 the lines the cursor is not on made the end of a line jump around as the cursor moved onto and off
@@ -248,7 +248,7 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Transport port** — provider clients speak to an `HttpClient` rather than to a concrete transport, so the plugin can use Obsidian's `requestUrl` (CORS-free, works on desktop and mobile) while the integration tests drive the identical code over `fetch`
 - **Clear error handling and user feedback** — failures are typed (`not-configured`, `project-missing`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
 - **Task source** — one module decides which tasks are in scope and which vault changes matter, derived fresh from the settings every time rather than stored
-- **Task identity** — each synced line carries an Obsidian block id such as `^ots-a1b2c3`, and `data.json` maps that id to the provider's task id plus what both sides last agreed on for each field. The provider's id never enters the note, so switching providers rewrites one file rather than every note
+- **Task identity** — each synced line carries an Obsidian block id such as `^tb-a1b2c3`, and `data.json` maps that id to the provider's task id plus what both sides last agreed on for each field. The provider's id never enters the note, so switching providers rewrites one file rather than every note
 - **Duplicate avoidance** — the same block id is also embedded in the provider task's description, so a line `data.json` has lost track of can be found and re-linked instead of duplicated, and a per-device tag keeps two devices from ever minting the same id in the first place
 - **Orphan lifecycle** — a task that loses its link, or whose line moves out of scope, is flagged, then removed, on a schedule tracked entirely in the plugin's own data; the description notice it gets is a courtesy only
 - **Deletion sync** — a linked line missing from every scanned note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project

@@ -109,7 +109,7 @@ describe('TodoistProvider task and project mapping', () => {
           {
             id: 't1',
             content: 'Buy milk',
-            embeddedBlockId: 'ots-a1b2c3d4',
+            embeddedBlockId: 'tb-a1b2c3d4',
             isCompleted: false,
             projectId: 'p1',
             description: '',
@@ -118,7 +118,7 @@ describe('TodoistProvider task and project mapping', () => {
         ]),
     });
 
-    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ embeddedBlockId: 'ots-a1b2c3d4' }]);
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ embeddedBlockId: 'tb-a1b2c3d4' }]);
   });
 
   it('carries completion state and the current project through to the provider-neutral shape', async () => {
@@ -168,9 +168,9 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await provider.createTask({ title: 'Buy milk', projectId: 'p1', description: '^ots-a1b2c3d4' });
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', description: '^tb-a1b2c3d4' });
 
-    expect(created).toEqual(['^ots-a1b2c3d4']);
+    expect(created).toEqual(['^tb-a1b2c3d4']);
   });
 
   it('sends labels on to the API client when creating a task', async () => {
@@ -247,8 +247,8 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^ots-a1')).resolves.toBeUndefined();
-    expect(updated).toEqual([['t1', 'Now orphaned.\n^ots-a1']]);
+    await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^tb-a1')).resolves.toBeUndefined();
+    expect(updated).toEqual([['t1', 'Now orphaned.\n^tb-a1']]);
   });
 
   it('sends a labels update on to the API client', async () => {

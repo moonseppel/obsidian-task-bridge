@@ -196,13 +196,13 @@ describe('TaskBridgePlugin task sync', () => {
 
   it('persists the task links alongside the settings', async () => {
     const { plugin, saveData } = makePlugin();
-    plugin.taskLinks.set({ blockId: 'ots-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' });
+    plugin.taskLinks.set({ blockId: 'tb-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' });
 
     await plugin.saveSettings();
 
     expect(saveData).toHaveBeenCalledWith(
       expect.objectContaining({
-        taskLinks: [{ blockId: 'ots-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' }],
+        taskLinks: [{ blockId: 'tb-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' }],
       }),
     );
   });
@@ -210,12 +210,12 @@ describe('TaskBridgePlugin task sync', () => {
   it('restores the task links that were stored last time', async () => {
     const { plugin, loadData } = makePlugin();
     loadData.mockResolvedValue({
-      taskLinks: [{ blockId: 'ots-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' }],
+      taskLinks: [{ blockId: 'tb-a1', providerTaskId: 't1', lastSyncedTitle: 'Buy milk' }],
     });
 
     await plugin.loadSettings();
 
-    expect(plugin.taskLinks.get('ots-a1')?.providerTaskId).toBe('t1');
+    expect(plugin.taskLinks.get('tb-a1')?.providerTaskId).toBe('t1');
   });
 
   it('starts with no links when the stored ones are unreadable', async () => {

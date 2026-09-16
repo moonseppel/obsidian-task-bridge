@@ -5,24 +5,24 @@ import { TaskLinkStore } from '../services/sync/task-links';
 import { LooseProviderTask } from './support/stub-provider';
 import { FakeNote, PROJECT, makeSync, projectExists, remoteTasks } from './support/sync-harness';
 
-const PARENT_LINE = '- [ ] another nesting test ^ots-parent1';
-const TEXT_LINE = '\t\t- [ ] direct grandchild ^ots-child1';
-const PUSHED_TEXT = '\t- [ ] direct grandchild ^ots-child1';
+const PARENT_LINE = '- [ ] another nesting test ^tb-parent1';
+const TEXT_LINE = '\t\t- [ ] direct grandchild ^tb-child1';
+const PUSHED_TEXT = '\t- [ ] direct grandchild ^tb-child1';
 
 /** A child synced as a task of its own before its line became the parent's description text. */
 function linksForSyncedChild(parentDescription: string): TaskLinkStore {
   return new TaskLinkStore([
     {
-      blockId: 'ots-parent1',
+      blockId: 'tb-parent1',
       providerTaskId: 'parent-task',
       lastSyncedTitle: 'another nesting test',
       lastSyncedDescription: parentDescription,
     },
     {
-      blockId: 'ots-child1',
+      blockId: 'tb-child1',
       providerTaskId: 'child-task',
       lastSyncedTitle: 'direct grandchild',
-      lastSyncedParentBlockId: 'ots-parent1',
+      lastSyncedParentBlockId: 'tb-parent1',
     },
   ]);
 }
@@ -32,15 +32,15 @@ function remoteParentAndChild(parentDescription: string): () => Promise<LoosePro
     {
       id: 'parent-task',
       title: 'another nesting test',
-      embeddedBlockId: 'ots-parent1',
-      description: composeRemoteDescription(parentDescription, 'ots-parent1'),
+      embeddedBlockId: 'tb-parent1',
+      description: composeRemoteDescription(parentDescription, 'tb-parent1'),
     },
     {
       id: 'child-task',
       title: 'direct grandchild',
-      embeddedBlockId: 'ots-child1',
+      embeddedBlockId: 'tb-child1',
       parentId: 'parent-task',
-      description: composeRemoteDescription('', 'ots-child1'),
+      description: composeRemoteDescription('', 'tb-child1'),
     },
   );
 }
@@ -64,8 +64,8 @@ describe('TaskSync with a checkbox line inside a description', () => {
   });
 
   it('does not sync an already-linked line that became description text as a task of its own', async () => {
-    const renamedLine = '\t\t- [ ] direct grandchild renamed ^ots-child1';
-    const settledText = '\t- [ ] direct grandchild renamed ^ots-child1';
+    const renamedLine = '\t\t- [ ] direct grandchild renamed ^tb-child1';
+    const settledText = '\t- [ ] direct grandchild renamed ^tb-child1';
     const updateTaskTitle = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(new FakeNote(`${PARENT_LINE}\n${renamedLine}`), linksForSyncedChild(settledText), {
       listTasks: remoteParentAndChild(settledText),
@@ -90,7 +90,7 @@ describe('TaskSync with a checkbox line inside a description', () => {
 
     expect(updateTaskDescription).toHaveBeenCalledWith(
       'parent-task',
-      composeRemoteDescription(PUSHED_TEXT, 'ots-parent1'),
+      composeRemoteDescription(PUSHED_TEXT, 'tb-parent1'),
     );
   });
 
@@ -124,23 +124,23 @@ describe('TaskSync with a checkbox line inside a description', () => {
   });
 
   it('does not move a task under a checkbox line that is description text', async () => {
-    const original = '- [ ] A ^ots-a\n\t\t- [ ] B ^ots-b\n- [ ] C ^ots-c';
+    const original = '- [ ] A ^tb-a\n\t\t- [ ] B ^tb-b\n- [ ] C ^tb-c';
     const note = new FakeNote(original);
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A', lastSyncedDescription: '\t- [ ] B ^ots-b' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
-      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A', lastSyncedDescription: '\t- [ ] B ^tb-b' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
         {
           id: 'task-a',
           title: 'A',
-          embeddedBlockId: 'ots-a',
-          description: composeRemoteDescription('\t- [ ] B ^ots-b', 'ots-a'),
+          embeddedBlockId: 'tb-a',
+          description: composeRemoteDescription('\t- [ ] B ^tb-b', 'tb-a'),
         },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-a' },
-        { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c', parentId: 'task-b' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-a' },
+        { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c', parentId: 'task-b' },
       ),
       listProjects: projectExists,
     });
@@ -153,16 +153,16 @@ describe('TaskSync with a checkbox line inside a description', () => {
 
 describe('CrossFileParentSync with a checkbox line inside a description', () => {
   it('does not relocate a task under a new parent whose line is description text', async () => {
-    const source = new FakeNote('- [ ] C ^ots-c');
-    const target = new FakeNote('- [ ] A ^ots-a\n\t\t- [ ] B ^ots-b');
-    const links = new TaskLinkStore([{ blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' }]);
+    const source = new FakeNote('- [ ] C ^tb-c');
+    const target = new FakeNote('- [ ] A ^tb-a\n\t\t- [ ] B ^tb-b');
+    const links = new TaskLinkStore([{ blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' }]);
     const relocation = new CrossFileParentSync({
       links,
       noteFor: (path) => (path === 'Target.md' ? target : source),
     });
 
     const relocated = await relocation.run([
-      { blockId: 'ots-c', sourcePath: 'Source.md', targetPath: 'Target.md', newParentBlockId: 'ots-b' },
+      { blockId: 'tb-c', sourcePath: 'Source.md', targetPath: 'Target.md', newParentBlockId: 'tb-b' },
     ]);
 
     expect(relocated).toBe(0);

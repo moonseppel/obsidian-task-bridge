@@ -80,26 +80,26 @@ describeAgainstTodoist('Todoist task round trip', () => {
     const created = await client.createTask({
       content: 'Buy milk',
       projectId: project.id,
-      description: '^ots-a1b2c3d4',
+      description: '^tb-a1b2c3d4',
     });
 
-    await client.updateTaskDescription(created.id, 'Now orphaned.\n^ots-a1b2c3d4');
+    await client.updateTaskDescription(created.id, 'Now orphaned.\n^tb-a1b2c3d4');
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);
 
-    expect(task?.embeddedBlockId).toBe('ots-a1b2c3d4');
+    expect(task?.embeddedBlockId).toBe('tb-a1b2c3d4');
   });
 
   it('round-trips a block id embedded in the description through a real fetch', async () => {
     const created = await client.createTask({
       content: 'Buy milk',
       projectId: project.id,
-      description: '^ots-a1b2c3d4',
+      description: '^tb-a1b2c3d4',
     });
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);
 
-    expect(task?.embeddedBlockId).toBe('ots-a1b2c3d4');
+    expect(task?.embeddedBlockId).toBe('tb-a1b2c3d4');
   });
 
   it('carries a parseable last-modified time on a real task', async () => {
@@ -196,7 +196,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   describe('assigning a label Todoist has never seen before', () => {
     it('accepts it rather than failing, and echoes it back on the task', async () => {
       const created = await client.createTask({ content: 'Temporary', projectId: project.id });
-      const label = `ots-probe-${Date.now()}`;
+      const label = `tb-probe-${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label]);
 
@@ -205,7 +205,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
 
     it('keeps it listed on a fresh fetch of the task', async () => {
       const created = await client.createTask({ content: 'Temporary', projectId: project.id });
-      const label = `ots-probe-${Date.now()}`;
+      const label = `tb-probe-${Date.now()}`;
       await client.updateTaskLabels(created.id, [label]);
 
       const tasks = await client.listTasks(project.id);
@@ -261,7 +261,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
   describe('labels that do not map cleanly onto Obsidian tags', () => {
     it('accepts a label containing a space, which no #tag syntax can represent', async () => {
       const created = await client.createTask({ content: 'Temporary', projectId: project.id });
-      const label = `ots probe ${Date.now()}`;
+      const label = `tb probe ${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label]);
 
@@ -270,7 +270,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
 
     it('silently collapses an exact-case duplicate within the same label list', async () => {
       const created = await client.createTask({ content: 'Temporary', projectId: project.id });
-      const label = `ots-dup-${Date.now()}`;
+      const label = `tb-dup-${Date.now()}`;
 
       await client.updateTaskLabels(created.id, [label, label]);
 

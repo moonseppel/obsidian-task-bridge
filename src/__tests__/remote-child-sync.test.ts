@@ -10,26 +10,26 @@ import {
 
 describe('TaskSync pulling remote-only nested tasks', () => {
   it('inserts a sub-task added directly in the provider under its linked parent', async () => {
-    const note = new FakeNote('- [ ] Parent ^ots-parent1');
+    const note = new FakeNote('- [ ] Parent ^tb-parent1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
       ),
       listProjects: projectExists,
     });
 
     expect(await sync.run(PROJECT)).toMatchObject({ pulled: 1 });
-    expect(note.content).toMatch(/^- \[ \] Parent \^ots-parent1\n\t- \[ \] Child \^ots-[a-z0-9]{8}$/);
+    expect(note.content).toMatch(/^- \[ \] Parent \^tb-parent1\n\t- \[ \] Child \^tb-[a-z0-9]{8}$/);
 
     const childBlockId = /\t- \[ \] Child \^(\S+)/.exec(note.content)?.[1] ?? '';
     expect(links.get(childBlockId)).toMatchObject({
       providerTaskId: 'child-task',
       lastSyncedTitle: 'Child',
-      lastSyncedParentBlockId: 'ots-parent1',
+      lastSyncedParentBlockId: 'tb-parent1',
     });
   });
 
@@ -47,13 +47,13 @@ describe('TaskSync pulling remote-only nested tasks', () => {
   });
 
   it('pulls a remote-only grandchild in together with its remote-only parent, in one pass', async () => {
-    const note = new FakeNote('- [ ] Parent ^ots-parent1');
+    const note = new FakeNote('- [ ] Parent ^tb-parent1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
         { id: 'grandchild-task', title: 'Grandchild', parentId: 'child-task' },
       ),
@@ -75,10 +75,10 @@ describe('TaskSync pulling remote-only nested tasks', () => {
   });
 
   it('appends a new remote child after an existing description, leaving the description untouched', async () => {
-    const note = new FakeNote('- [ ] Parent ^ots-parent1\n\tSome description');
+    const note = new FakeNote('- [ ] Parent ^tb-parent1\n\tSome description');
     const links = new TaskLinkStore([
       {
-        blockId: 'ots-parent1',
+        blockId: 'tb-parent1',
         providerTaskId: 'parent-task',
         lastSyncedTitle: 'Parent',
         lastSyncedDescription: 'Some description',
@@ -89,8 +89,8 @@ describe('TaskSync pulling remote-only nested tasks', () => {
         {
           id: 'parent-task',
           title: 'Parent',
-          embeddedBlockId: 'ots-parent1',
-          description: 'Some description\n\nTaskBridge ID: ^ots-parent1',
+          embeddedBlockId: 'tb-parent1',
+          description: 'Some description\n\nTaskBridge ID: ^tb-parent1',
         },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
       ),
@@ -100,43 +100,43 @@ describe('TaskSync pulling remote-only nested tasks', () => {
     await sync.run(PROJECT);
 
     expect(note.content.split('\n')).toEqual([
-      '- [ ] Parent ^ots-parent1',
+      '- [ ] Parent ^tb-parent1',
       '\tSome description',
       expect.stringMatching(/^\t- \[ \] Child \^/) as unknown as string,
     ]);
   });
 
   it('does not duplicate a remote task that is already linked to a line elsewhere', async () => {
-    const note = new FakeNote('- [ ] Parent ^ots-parent1\n- [ ] Child elsewhere ^ots-child1');
+    const note = new FakeNote('- [ ] Parent ^tb-parent1\n- [ ] Child elsewhere ^tb-child1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
-      { blockId: 'ots-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child elsewhere' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child elsewhere' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
-        { id: 'child-task', title: 'Child elsewhere', embeddedBlockId: 'ots-child1' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
+        { id: 'child-task', title: 'Child elsewhere', embeddedBlockId: 'tb-child1' },
       ),
       listProjects: projectExists,
     });
 
     await sync.run(PROJECT);
 
-    expect(note.content).toBe('- [ ] Parent ^ots-parent1\n- [ ] Child elsewhere ^ots-child1');
+    expect(note.content).toBe('- [ ] Parent ^tb-parent1\n- [ ] Child elsewhere ^tb-child1');
   });
 
   it('retries a remote child whose earlier insert never landed in the note, instead of losing it', async () => {
     // A link already exists for the child (an earlier pull attempt), but it was never actually
     // written into any note: no lastKnownFilePath, and the note doesn't have its block id either.
-    const note = new FakeNote('- [ ] Parent ^ots-parent1');
+    const note = new FakeNote('- [ ] Parent ^tb-parent1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
-      { blockId: 'ots-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-child1', providerTaskId: 'child-task', lastSyncedTitle: 'Child' },
     ]);
     const removeTask = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
       ),
       listProjects: projectExists,
@@ -145,18 +145,18 @@ describe('TaskSync pulling remote-only nested tasks', () => {
 
     await sync.run(PROJECT);
 
-    expect(note.content).toBe('- [ ] Parent ^ots-parent1\n\t- [ ] Child ^ots-child1');
-    expect(links.get('ots-child1')).toMatchObject({ providerTaskId: 'child-task' });
+    expect(note.content).toBe('- [ ] Parent ^tb-parent1\n\t- [ ] Child ^tb-child1');
+    expect(links.get('tb-child1')).toMatchObject({ providerTaskId: 'child-task' });
     expect(removeTask).not.toHaveBeenCalled();
   });
 
   it('does not duplicate a remote child whose line already exists in a different file — relocates it there instead', async () => {
-    const fileA = new FakeNote('- [ ] Parent ^ots-parent1');
-    const fileB = new FakeNote('- [ ] Child ^ots-child1');
+    const fileA = new FakeNote('- [ ] Parent ^tb-parent1');
+    const fileB = new FakeNote('- [ ] Child ^tb-child1');
     const links = new TaskLinkStore([
-      { blockId: 'ots-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-parent1', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
       {
-        blockId: 'ots-child1',
+        blockId: 'tb-child1',
         providerTaskId: 'child-task',
         lastSyncedTitle: 'Child',
         lastKnownFilePath: 'B.md',
@@ -170,7 +170,7 @@ describe('TaskSync pulling remote-only nested tasks', () => {
       links,
       {
         listTasks: remoteTasks(
-          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-parent1' },
+          { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-parent1' },
           { id: 'child-task', title: 'Child', parentId: 'parent-task' },
         ),
         listProjects: projectExists,
@@ -183,7 +183,7 @@ describe('TaskSync pulling remote-only nested tasks', () => {
     // inserting a second, freshly-created line for child-task while scanning A.md; the single
     // existing line instead relocates there through the ordinary cross-file reparent path, since
     // its remote parent already lives in A.md.
-    expect(fileA.content).toBe('- [ ] Parent ^ots-parent1\n\t- [ ] Child ^ots-child1');
+    expect(fileA.content).toBe('- [ ] Parent ^tb-parent1\n\t- [ ] Child ^tb-child1');
     expect(fileB.content).toBe('');
   });
 });

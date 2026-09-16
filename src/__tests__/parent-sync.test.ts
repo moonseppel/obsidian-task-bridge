@@ -8,16 +8,16 @@ describe('a deleted parent line', () => {
 
   it('leaves its child untouched locally, pushing the loss of a parent with no note edit at all', async () => {
     // The parent's own line is already gone from the note; only the child's remains.
-    const note = new FakeNote('- [ ] Child ^ots-c');
+    const note = new FakeNote('- [ ] Child ^tb-c');
     const links = new TaskLinkStore([
-      { blockId: 'ots-p', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
-      { blockId: 'ots-c', providerTaskId: 'child-task', lastSyncedTitle: 'Child', lastSyncedParentBlockId: 'ots-p' },
+      { blockId: 'tb-p', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-c', providerTaskId: 'child-task', lastSyncedTitle: 'Child', lastSyncedParentBlockId: 'tb-p' },
     ]);
     const reparented: Array<[string, string | undefined]> = [];
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-p' },
-        { id: 'child-task', title: 'Child', embeddedBlockId: 'ots-c', parentId: 'parent-task' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-p' },
+        { id: 'child-task', title: 'Child', embeddedBlockId: 'tb-c', parentId: 'parent-task' },
       ),
       listProjects: projectExists,
       reparentTask: (taskId, parentId) => {
@@ -31,24 +31,24 @@ describe('a deleted parent line', () => {
 
     expect(reparented).toEqual([['child-task', undefined]]);
     expect(note.content).toBe(before);
-    expect(links.get('ots-c')?.lastSyncedParentBlockId).toBeUndefined();
+    expect(links.get('tb-c')?.lastSyncedParentBlockId).toBeUndefined();
   });
 });
 
 describe('TaskSync parent field sync', () => {
   it('pushes a local reparent to a specific new parent, without touching the note', async () => {
-    const note = new FakeNote('- [ ] A ^ots-a\n- [ ] C ^ots-c\n\t- [ ] B ^ots-b');
+    const note = new FakeNote('- [ ] A ^tb-a\n- [ ] C ^tb-c\n\t- [ ] B ^tb-b');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
     ]);
     const reparented: Array<[string, string | undefined, string]> = [];
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-a', projectId: PROJECT },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-a', projectId: PROJECT },
       ),
       listProjects: projectExists,
       reparentTask: (taskId, parentId, projectId) => {
@@ -62,21 +62,21 @@ describe('TaskSync parent field sync', () => {
 
     expect(reparented).toEqual([['task-b', 'task-c', PROJECT]]);
     expect(note.content).toBe(before);
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBe('ots-c');
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBe('tb-c');
     expect(outcome.pushed).toBe(1);
   });
 
   it('pushes a local reparent to top-level as clearing the parent', async () => {
-    const note = new FakeNote('- [ ] A ^ots-a\n- [ ] B ^ots-b');
+    const note = new FakeNote('- [ ] A ^tb-a\n- [ ] B ^tb-b');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
     ]);
     const reparented: Array<string | undefined> = [];
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-a' },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-a' },
       ),
       listProjects: projectExists,
       reparentTask: (_taskId, parentId) => {
@@ -88,86 +88,86 @@ describe('TaskSync parent field sync', () => {
     await sync.run(PROJECT);
 
     expect(reparented).toEqual([undefined]);
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBeUndefined();
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBeUndefined();
   });
 
   it('pulls a cleared remote parent by dedenting the line in place', async () => {
-    const note = new FakeNote('- [ ] A ^ots-a\n\t- [ ] B ^ots-b');
+    const note = new FakeNote('- [ ] A ^tb-a\n\t- [ ] B ^tb-b');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b' },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b' },
       ),
       listProjects: projectExists,
     });
 
     const outcome = await sync.run(PROJECT);
 
-    expect(note.content).toBe('- [ ] A ^ots-a\n- [ ] B ^ots-b');
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBeUndefined();
+    expect(note.content).toBe('- [ ] A ^tb-a\n- [ ] B ^tb-b');
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBeUndefined();
     expect(outcome.pulled).toBe(1);
   });
 
   it('pulls a remote reparent to a specific new parent by relocating the line', async () => {
-    const note = new FakeNote('- [ ] A ^ots-a\n\t- [ ] B ^ots-b\n- [ ] C ^ots-c');
+    const note = new FakeNote('- [ ] A ^tb-a\n\t- [ ] B ^tb-b\n- [ ] C ^tb-c');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-c' },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-c' },
       ),
       listProjects: projectExists,
     });
 
     await sync.run(PROJECT);
 
-    expect(note.content).toBe('- [ ] A ^ots-a\n- [ ] C ^ots-c\n\t- [ ] B ^ots-b');
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBe('ots-c');
+    expect(note.content).toBe('- [ ] A ^tb-a\n- [ ] C ^tb-c\n\t- [ ] B ^tb-b');
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBe('tb-c');
   });
 
   it('relocates a task together with its own description and nested children, intact', async () => {
     const note = new FakeNote(
       [
-        '- [ ] A ^ots-a',
-        '\t- [ ] B ^ots-b',
+        '- [ ] A ^tb-a',
+        '\t- [ ] B ^tb-b',
         "\t\tB's own description",
-        '\t\t- [ ] Grandchild ^ots-g',
-        '- [ ] C ^ots-c',
+        '\t\t- [ ] Grandchild ^tb-g',
+        '- [ ] C ^tb-c',
       ].join('\n'),
     );
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
       {
-        blockId: 'ots-b',
+        blockId: 'tb-b',
         providerTaskId: 'task-b',
         lastSyncedTitle: 'B',
-        lastSyncedParentBlockId: 'ots-a',
+        lastSyncedParentBlockId: 'tb-a',
         lastSyncedDescription: "B's own description",
       },
-      { blockId: 'ots-g', providerTaskId: 'task-g', lastSyncedTitle: 'Grandchild', lastSyncedParentBlockId: 'ots-b' },
+      { blockId: 'tb-g', providerTaskId: 'task-g', lastSyncedTitle: 'Grandchild', lastSyncedParentBlockId: 'tb-b' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-c', title: 'C', embeddedBlockId: 'ots-c' },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c' },
         {
           id: 'task-b',
           title: 'B',
-          embeddedBlockId: 'ots-b',
+          embeddedBlockId: 'tb-b',
           parentId: 'task-c',
-          description: "B's own description\n\nTaskBridge ID: ^ots-b",
+          description: "B's own description\n\nTaskBridge ID: ^tb-b",
         },
-        { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'ots-g', parentId: 'task-b' },
+        { id: 'task-g', title: 'Grandchild', embeddedBlockId: 'tb-g', parentId: 'task-b' },
       ),
       listProjects: projectExists,
     });
@@ -176,30 +176,30 @@ describe('TaskSync parent field sync', () => {
 
     expect(note.content).toBe(
       [
-        '- [ ] A ^ots-a',
-        '- [ ] C ^ots-c',
-        '\t- [ ] B ^ots-b',
+        '- [ ] A ^tb-a',
+        '- [ ] C ^tb-c',
+        '\t- [ ] B ^tb-b',
         "\t\tB's own description",
-        '\t\t- [ ] Grandchild ^ots-g',
+        '\t\t- [ ] Grandchild ^tb-g',
       ].join('\n'),
     );
   });
 
   it('resolves a conflicting reparent on both sides by recency, pulling the newer remote move', async () => {
-    const note = new FakeNote('- [ ] A ^ots-a\n- [ ] D ^ots-d\n\t- [ ] B ^ots-b\n- [ ] E ^ots-e');
+    const note = new FakeNote('- [ ] A ^tb-a\n- [ ] D ^tb-d\n\t- [ ] B ^tb-b\n- [ ] E ^tb-e');
     note.modifiedAt = 1_000;
     const links = new TaskLinkStore([
-      { blockId: 'ots-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
-      { blockId: 'ots-d', providerTaskId: 'task-d', lastSyncedTitle: 'D' },
-      { blockId: 'ots-e', providerTaskId: 'task-e', lastSyncedTitle: 'E' },
-      { blockId: 'ots-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'ots-a' },
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-d', providerTaskId: 'task-d', lastSyncedTitle: 'D' },
+      { blockId: 'tb-e', providerTaskId: 'task-e', lastSyncedTitle: 'E' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
     ]);
     const sync = makeSync(note, links, {
       listTasks: remoteTasks(
-        { id: 'task-a', title: 'A', embeddedBlockId: 'ots-a' },
-        { id: 'task-d', title: 'D', embeddedBlockId: 'ots-d' },
-        { id: 'task-e', title: 'E', embeddedBlockId: 'ots-e' },
-        { id: 'task-b', title: 'B', embeddedBlockId: 'ots-b', parentId: 'task-e', updatedAt: 2_000 },
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-d', title: 'D', embeddedBlockId: 'tb-d' },
+        { id: 'task-e', title: 'E', embeddedBlockId: 'tb-e' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-e', updatedAt: 2_000 },
       ),
       listProjects: projectExists,
     });
@@ -207,7 +207,7 @@ describe('TaskSync parent field sync', () => {
     const outcome = await sync.run(PROJECT);
 
     expect(outcome.conflicted).toBe(1);
-    expect(note.content).toBe('- [ ] A ^ots-a\n- [ ] D ^ots-d\n- [ ] E ^ots-e\n\t- [ ] B ^ots-b');
-    expect(links.get('ots-b')?.lastSyncedParentBlockId).toBe('ots-e');
+    expect(note.content).toBe('- [ ] A ^tb-a\n- [ ] D ^tb-d\n- [ ] E ^tb-e\n\t- [ ] B ^tb-b');
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBe('tb-e');
   });
 });

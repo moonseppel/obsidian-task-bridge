@@ -10,7 +10,7 @@ function infoLogged(): jest.SpyInstance {
 }
 
 function linkedTo(title: string): TaskLinkStore {
-  return new TaskLinkStore([{ blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: title }]);
+  return new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: title }]);
 }
 
 describe('TaskSync logs every task and task line it creates or deletes at info', () => {
@@ -37,7 +37,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
   it('logs a task recreated because its line carried a newer edit than the deletion', async () => {
     const info = infoLogged();
-    const sync = makeSync(new FakeNote('- [ ] Buy oat milk ^ots-a1'), linkedTo('Buy milk'), {
+    const sync = makeSync(new FakeNote('- [ ] Buy oat milk ^tb-a1'), linkedTo('Buy milk'), {
       listTasks: remoteTasks(),
       listProjects: projectExists,
       getTask: () => Promise.resolve(undefined),
@@ -54,7 +54,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
   it('logs a line removed because its task was deleted in Todoist', async () => {
     const info = infoLogged();
-    const sync = makeSync(new FakeNote('- [ ] Buy milk ^ots-a1'), linkedTo('Buy milk'), {
+    const sync = makeSync(new FakeNote('- [ ] Buy milk ^tb-a1'), linkedTo('Buy milk'), {
       listTasks: remoteTasks(),
       listProjects: projectExists,
       getTask: () => Promise.resolve(undefined),
@@ -64,7 +64,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
     expect(info).toHaveBeenCalledWith(
       'Removing the line of a task deleted in Todoist',
-      expect.objectContaining({ blockId: 'ots-a1' }),
+      expect.objectContaining({ blockId: 'tb-a1' }),
     );
   });
 
@@ -72,7 +72,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
     jest.useFakeTimers();
     const info = infoLogged();
     const sync = makeSync(new FakeNote(''), linkedTo('Buy milk'), {
-      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }),
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }),
       removeTask: () => Promise.resolve(),
     });
 
@@ -97,7 +97,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
       new FakeNote(''),
       new TaskLinkStore(),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-orphan' }),
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' }),
         removeTask: () => Promise.resolve(),
       },
       { orphans },
@@ -115,7 +115,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
     jest.useFakeTimers();
     const info = infoLogged();
     const sync = makeSync(new FakeNote(''), linkedTo('Buy milk'), {
-      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy oat milk', embeddedBlockId: 'ots-a1', updatedAt: 1_000 }),
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy oat milk', embeddedBlockId: 'tb-a1', updatedAt: 1_000 }),
     });
 
     await sync.run(PROJECT);
@@ -124,16 +124,16 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
     expect(info).toHaveBeenCalledWith(
       'Re-added a deleted line, since its task was edited in Todoist afterwards',
-      expect.objectContaining({ blockId: 'ots-a1' }),
+      expect.objectContaining({ blockId: 'tb-a1' }),
     );
   });
 
   it('logs a line added for a sub-task created in Todoist', async () => {
     const info = infoLogged();
-    const links = new TaskLinkStore([{ blockId: 'ots-p', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' }]);
-    const sync = makeSync(new FakeNote('- [ ] Parent ^ots-p'), links, {
+    const links = new TaskLinkStore([{ blockId: 'tb-p', providerTaskId: 'parent-task', lastSyncedTitle: 'Parent' }]);
+    const sync = makeSync(new FakeNote('- [ ] Parent ^tb-p'), links, {
       listTasks: remoteTasks(
-        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'ots-p' },
+        { id: 'parent-task', title: 'Parent', embeddedBlockId: 'tb-p' },
         { id: 'child-task', title: 'Child', parentId: 'parent-task' },
       ),
     });

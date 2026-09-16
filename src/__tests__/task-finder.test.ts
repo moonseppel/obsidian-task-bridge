@@ -127,7 +127,7 @@ describe('TaskFinder.isTagInScope', () => {
 
   it('accepts a task whose tag stands inside its text rather than trailing it', () => {
     const finder = finderWith({ files: [] }, { sourceTag: 'work' });
-    expect(finder.isTagInScope(parseTaskLine('- [ ] Call the #work dentist ^ots-a1')!)).toBe(true);
+    expect(finder.isTagInScope(parseTaskLine('- [ ] Call the #work dentist ^tb-a1')!)).toBe(true);
   });
 
   it('still rejects a # the text only reads as ordinary characters', () => {
@@ -138,25 +138,25 @@ describe('TaskFinder.isTagInScope', () => {
 
 describe('TaskFinder.existsOutsideIgnoredFiles', () => {
   it('finds a block id anchored in a non-ignored file', () => {
-    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['ots-abc123'] } });
-    expect(finder.existsOutsideIgnoredFiles('ots-abc123')).toBe(true);
+    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['tb-abc123'] } });
+    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
   });
 
   it('does not find a block id anchored nowhere', () => {
     const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': [] } });
-    expect(finder.existsOutsideIgnoredFiles('ots-abc123')).toBe(false);
+    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
   });
 
   it('ignores a match inside a file matching the ignore pattern', () => {
     const finder = finderWith(
-      { files: ['Tasks.sync-conflict.md'], blocksByFile: { 'Tasks.sync-conflict.md': ['ots-abc123'] } },
+      { files: ['Tasks.sync-conflict.md'], blocksByFile: { 'Tasks.sync-conflict.md': ['tb-abc123'] } },
       { ignoreFilePatterns: '*.sync-conflict.md' },
     );
-    expect(finder.existsOutsideIgnoredFiles('ots-abc123')).toBe(false);
+    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
   });
 
   it('matches case-insensitively', () => {
-    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['OTS-ABC123'] } });
-    expect(finder.existsOutsideIgnoredFiles('ots-abc123')).toBe(true);
+    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['TB-ABC123'] } });
+    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
   });
 });

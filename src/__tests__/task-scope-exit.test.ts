@@ -10,13 +10,13 @@ describe('TaskSync scope-exit handling', () => {
   it('does not delete a missing-line task whose block id still exists outside the scanned scope', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const removeTask = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(
       new FakeNote('# Nothing here'),
       links,
-      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }), removeTask },
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }), removeTask },
       { existsOutsideIgnoredFiles: () => true }, // still found in some other, non-ignored vault file
     );
 
@@ -25,19 +25,19 @@ describe('TaskSync scope-exit handling', () => {
     await sync.run(PROJECT);
 
     expect(removeTask).not.toHaveBeenCalled();
-    expect(links.get('ots-a1')).toBeDefined();
+    expect(links.get('tb-a1')).toBeDefined();
   });
 
   it('still deletes a missing-line task immediately when it is not found anywhere else either', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const removeTask = jest.fn().mockResolvedValue(undefined);
     const sync = makeSync(
       new FakeNote('# Nothing here'),
       links,
-      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'ots-a1' }), removeTask },
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-a1' }), removeTask },
       { existsOutsideIgnoredFiles: () => false }, // genuinely gone, the default for a sync that never wires scope
     );
 
@@ -51,7 +51,7 @@ describe('TaskSync scope-exit handling', () => {
   it('flags an out-of-scope task on the same timing an orphan is flagged', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
     const orphans = new OrphanTracker();
@@ -62,8 +62,8 @@ describe('TaskSync scope-exit handling', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          embeddedBlockId: 'ots-a1',
-          description: 'TaskBridge ID: ^ots-a1',
+          embeddedBlockId: 'tb-a1',
+          description: 'TaskBridge ID: ^tb-a1',
         }),
         updateTaskDescription,
       },
@@ -77,13 +77,13 @@ describe('TaskSync scope-exit handling', () => {
     expect(updateTaskDescription).toHaveBeenCalledTimes(1);
     expect(orphans.get(TASK_ID)?.removalDueAt).toBeDefined();
     // Still linked and not removed — only flagged with a courtesy notice so far.
-    expect(links.get('ots-a1')).toBeDefined();
+    expect(links.get('tb-a1')).toBeDefined();
   });
 
   it('removes a flagged out-of-scope task once the full removal grace period has passed', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
     const removeTask = jest.fn().mockResolvedValue(undefined);
@@ -95,8 +95,8 @@ describe('TaskSync scope-exit handling', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          embeddedBlockId: 'ots-a1',
-          description: 'TaskBridge ID: ^ots-a1',
+          embeddedBlockId: 'tb-a1',
+          description: 'TaskBridge ID: ^tb-a1',
         }),
         updateTaskDescription,
         removeTask,
@@ -122,20 +122,20 @@ describe('TaskSync scope-exit handling', () => {
     const anchoredTask = {
       id: TASK_ID,
       title: 'Buy milk',
-      embeddedBlockId: 'ots-a1',
-      description: 'TaskBridge ID: ^ots-a1',
+      embeddedBlockId: 'tb-a1',
+      description: 'TaskBridge ID: ^tb-a1',
     };
 
     it('stops counting as found, and is flagged and then removed on the out-of-scope lifecycle', async () => {
       jest.useFakeTimers();
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
       ]);
       const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
       const removeTask = jest.fn().mockResolvedValue(undefined);
       const orphans = new OrphanTracker();
       const sync = makeSync(
-        new FakeNote('- [ ] Buy milk #home ^ots-a1'),
+        new FakeNote('- [ ] Buy milk #home ^tb-a1'),
         links,
         { listTasks: remoteTasks(anchoredTask), updateTaskDescription, removeTask },
         { ...STILL_IN_THE_VAULT, orphans, isTagInScope: carriesWorkTag },
@@ -156,9 +156,9 @@ describe('TaskSync scope-exit handling', () => {
 
     it('reverts the notice and drops the tracking once the tag comes back', async () => {
       jest.useFakeTimers();
-      const note = new FakeNote('- [ ] Buy milk #home ^ots-a1');
+      const note = new FakeNote('- [ ] Buy milk #home ^tb-a1');
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
       ]);
       const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
       const removeTask = jest.fn().mockResolvedValue(undefined);
@@ -176,10 +176,10 @@ describe('TaskSync scope-exit handling', () => {
 
       expect(orphans.get(TASK_ID)?.removalDueAt).toBeDefined();
 
-      note.content = '- [ ] Buy milk #work ^ots-a1';
+      note.content = '- [ ] Buy milk #work ^tb-a1';
       await sync.run(PROJECT);
 
-      expect(updateTaskDescription).toHaveBeenLastCalledWith(TASK_ID, 'TaskBridge ID: ^ots-a1');
+      expect(updateTaskDescription).toHaveBeenLastCalledWith(TASK_ID, 'TaskBridge ID: ^tb-a1');
       expect(orphans.get(TASK_ID)).toBeUndefined();
       expect(removeTask).not.toHaveBeenCalled();
     });
@@ -187,21 +187,21 @@ describe('TaskSync scope-exit handling', () => {
     it('promotes the still-linked children of a removed task before removing it', async () => {
       jest.useFakeTimers();
       const links = new TaskLinkStore([
-        { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
-        { blockId: 'ots-b2', providerTaskId: 'child-1', lastSyncedTitle: 'Buy oat milk' },
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+        { blockId: 'tb-b2', providerTaskId: 'child-1', lastSyncedTitle: 'Buy oat milk' },
       ]);
       const calls: string[] = [];
       const orphans = new OrphanTracker();
       const sync = makeSync(
-        new FakeNote('- [ ] Buy milk #home ^ots-a1\n\t- [ ] Buy oat milk #work ^ots-b2'),
+        new FakeNote('- [ ] Buy milk #home ^tb-a1\n\t- [ ] Buy oat milk #work ^tb-b2'),
         links,
         {
           listTasks: remoteTasks(anchoredTask, {
             id: 'child-1',
             title: 'Buy oat milk',
             parentId: TASK_ID,
-            embeddedBlockId: 'ots-b2',
-            description: 'TaskBridge ID: ^ots-b2',
+            embeddedBlockId: 'tb-b2',
+            description: 'TaskBridge ID: ^tb-b2',
           }),
           updateTaskDescription: jest.fn().mockResolvedValue(undefined),
           reparentTask: (taskId) => {
@@ -244,7 +244,7 @@ describe('TaskSync scope-exit handling', () => {
     jest.useFakeTimers();
     const note = new FakeNote('# Nothing here');
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
     const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
     const removeTask = jest.fn().mockResolvedValue(undefined);
@@ -256,8 +256,8 @@ describe('TaskSync scope-exit handling', () => {
         listTasks: remoteTasks({
           id: TASK_ID,
           title: 'Buy milk',
-          embeddedBlockId: 'ots-a1',
-          description: 'TaskBridge ID: ^ots-a1',
+          embeddedBlockId: 'tb-a1',
+          description: 'TaskBridge ID: ^tb-a1',
         }),
         updateTaskDescription,
         removeTask,
@@ -273,7 +273,7 @@ describe('TaskSync scope-exit handling', () => {
 
     // The line reappears (e.g. the file moved back into scope) before the removal deadline; it is
     // now found in the scanned scope itself, regardless of what existsOutsideIgnoredFiles reports.
-    note.content = '- [ ] Buy milk ^ots-a1';
+    note.content = '- [ ] Buy milk ^tb-a1';
     await sync.run(PROJECT);
 
     expect(orphans.get(TASK_ID)).toBeUndefined();

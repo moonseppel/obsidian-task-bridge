@@ -73,9 +73,9 @@ describe('TaskSync project resolution', () => {
   it('does not go looking for the project when the list came back with tasks in it', async () => {
     const listProjects = jest.fn();
     const links = new TaskLinkStore([
-      { blockId: 'ots-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
+      { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
     ]);
-    const sync = makeSync(new FakeNote('- [ ] Buy milk ^ots-a1'), links, {
+    const sync = makeSync(new FakeNote('- [ ] Buy milk ^tb-a1'), links, {
       listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
       listProjects,
     });
@@ -103,7 +103,7 @@ describe('TaskSync project resolution', () => {
     const outcome = await sync.run(PROJECT);
 
     expect(outcome.created).toBe(1);
-    expect(note.content).toMatch(/^- \[ \] First \^ots-[a-z0-9]{8}\n- \[ \] Second$/);
+    expect(note.content).toMatch(/^- \[ \] First \^tb-[a-z0-9]{8}\n- \[ \] Second$/);
     expect(links.size).toBe(1);
   });
 

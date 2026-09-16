@@ -116,11 +116,11 @@ describe('TodoistApiClient reads', () => {
 
     it('finds a block id embedded at the end of the description', async () => {
       const context = clientReplying(() =>
-        Promise.resolve(page([{ id: 't1', content: 'One', description: '^ots-a1b2c3d4' }])),
+        Promise.resolve(page([{ id: 't1', content: 'One', description: '^tb-a1b2c3d4' }])),
       );
 
       const [task] = await context.client.listTasks('p1');
-      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+      expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
     });
 
     it('finds a block id buried mid-description after a user edit', async () => {
@@ -130,14 +130,14 @@ describe('TodoistApiClient reads', () => {
             {
               id: 't1',
               content: 'One',
-              description: 'Some notes\n^ots-a1b2c3d4\nMore notes added afterward',
+              description: 'Some notes\n^tb-a1b2c3d4\nMore notes added afterward',
             },
           ]),
         ),
       );
 
       const [task] = await context.client.listTasks('p1');
-      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+      expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
     });
 
     it('takes the footer\'s block id over one carried by the description text above it', async () => {
@@ -147,14 +147,14 @@ describe('TodoistApiClient reads', () => {
             {
               id: 't1',
               content: 'One',
-              description: '- [ ] direct grandchild ^ots-e5f6g7h8\n\nTaskBridge ID: ^ots-a1b2c3d4',
+              description: '- [ ] direct grandchild ^tb-e5f6g7h8\n\nTaskBridge ID: ^tb-a1b2c3d4',
             },
           ]),
         ),
       );
 
       const [task] = await context.client.listTasks('p1');
-      expect(task.embeddedBlockId).toBe('ots-a1b2c3d4');
+      expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
     });
 
     it('leaves embeddedBlockId undefined when the description carries no block id', async () => {

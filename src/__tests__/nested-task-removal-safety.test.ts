@@ -25,7 +25,7 @@ describe('protecting a still-linked child from a provider-side cascade delete', 
       new TaskLinkStore(),
       {
         listTasks: remoteTasks(
-          { id: TASK_ID, title: 'Orphaned parent', embeddedBlockId: 'ots-orphan' },
+          { id: TASK_ID, title: 'Orphaned parent', embeddedBlockId: 'tb-orphan' },
           { id: 'child-task', title: 'Still-linked child', parentId: TASK_ID },
         ),
         removeTask,
@@ -46,7 +46,7 @@ describe('protecting a still-linked child from a provider-side cascade delete', 
   it('reparents a deleted line\'s still-linked child to top-level before the task itself is removed', async () => {
     jest.useFakeTimers();
     const links = new TaskLinkStore([
-      { blockId: 'ots-p', providerTaskId: TASK_ID, lastSyncedTitle: 'Parent' },
+      { blockId: 'tb-p', providerTaskId: TASK_ID, lastSyncedTitle: 'Parent' },
     ]);
     const removeTask = jest.fn().mockResolvedValue(undefined);
     const reparented: Array<[string, string | undefined, string]> = [];

@@ -13,15 +13,19 @@ function element(...children: Node[]): Node {
 
 describe('stripTrailingAnchor', () => {
   it('removes an anchor this plugin wrote', () => {
-    expect(stripTrailingAnchor('Buy milk ^ots-a1b2c3d4')).toBe('Buy milk');
+    expect(stripTrailingAnchor('Buy milk ^tb-a1b2c3d4')).toBe('Buy milk');
   });
 
   it('removes an anchor carrying the device tag after the prefix', () => {
-    expect(stripTrailingAnchor('Buy milk ^ots-dev1a-a1b2c3d4')).toBe('Buy milk');
+    expect(stripTrailingAnchor('Buy milk ^tb-dev1a-a1b2c3d4')).toBe('Buy milk');
   });
 
   it('removes an anchor carrying the device tag after the random part, as older notes still do', () => {
-    expect(stripTrailingAnchor('Buy milk ^ots-a1b2c3d4-dev1a')).toBe('Buy milk');
+    expect(stripTrailingAnchor('Buy milk ^tb-a1b2c3d4-dev1a')).toBe('Buy milk');
+  });
+
+  it('still removes an anchor carrying the prefix minted before `tb-`', () => {
+    expect(stripTrailingAnchor('Buy milk ^ots-dev1a-a1b2c3d4')).toBe('Buy milk');
   });
 
   it('leaves a block id the user wrote themselves alone', () => {
@@ -29,7 +33,7 @@ describe('stripTrailingAnchor', () => {
   });
 
   it('leaves an anchor that is not at the end alone', () => {
-    expect(stripTrailingAnchor('^ots-a1b2c3d4 Buy milk')).toBe('^ots-a1b2c3d4 Buy milk');
+    expect(stripTrailingAnchor('^tb-a1b2c3d4 Buy milk')).toBe('^tb-a1b2c3d4 Buy milk');
   });
 
   it('leaves a caret that is part of the text alone', () => {
@@ -43,15 +47,15 @@ describe('stripTrailingAnchor', () => {
 
 describe('hideRenderedAnchors', () => {
   it('strips the anchor from a rendered list item', () => {
-    const anchorText = text('Buy milk ^ots-a1b2c3d4');
+    const anchorText = text('Buy milk ^tb-a1b2c3d4');
     hideRenderedAnchors(element(element(anchorText)));
 
     expect(anchorText.textContent).toBe('Buy milk');
   });
 
   it('reaches an anchor sitting before a nested list', () => {
-    const parentText = text('Parent ^ots-a1b2c3d4');
-    const childText = text('Child ^ots-e5f6g7h8');
+    const parentText = text('Parent ^tb-a1b2c3d4');
+    const childText = text('Child ^tb-e5f6g7h8');
     hideRenderedAnchors(element(element(parentText, element(childText))));
 
     expect(parentText.textContent).toBe('Parent');

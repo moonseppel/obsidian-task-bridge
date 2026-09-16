@@ -1,5 +1,8 @@
-/** Only this plugin's own anchors are hidden; block ids the user wrote stay visible. */
-const TRAILING_ANCHOR = /[ \t]*\^ots-[a-z0-9-]+[ \t]*$/;
+/**
+ * Only this plugin's own anchors are hidden; block ids the user wrote stay visible. `ots-` is the
+ * prefix minted before `tb-`, still carried by every anchor written back then.
+ */
+const TRAILING_ANCHOR = /[ \t]*\^(?:tb|ots)-[a-z0-9-]+[ \t]*$/;
 const TEXT_NODE = 3;
 
 export function stripTrailingAnchor(text: string): string {

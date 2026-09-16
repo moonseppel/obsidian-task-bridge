@@ -1,6 +1,6 @@
 import { RandomSource, randomToken } from '../../utils/random-token';
 
-const PREFIX = 'ots-';
+const PREFIX = 'tb-';
 const LENGTH = 8;
 const MAX_ATTEMPTS = 100;
 

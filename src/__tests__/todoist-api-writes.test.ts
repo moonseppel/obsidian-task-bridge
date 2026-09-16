@@ -31,12 +31,12 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.createTask({ content: 'Buy milk', projectId: 'p1', description: '^ots-a1b2c3d4' });
+      await context.client.createTask({ content: 'Buy milk', projectId: 'p1', description: '^tb-a1b2c3d4' });
 
       expect(JSON.parse(sentRequest(context).body ?? '')).toEqual({
         content: 'Buy milk',
         project_id: 'p1',
-        description: '^ots-a1b2c3d4',
+        description: '^tb-a1b2c3d4',
       });
     });
 
@@ -174,12 +174,12 @@ describe('TodoistApiClient writes', () => {
         Promise.resolve({ status: 200, text: JSON.stringify({ id: 't1', content: 'Buy milk' }) }),
       );
 
-      await context.client.updateTaskDescription('t1', 'This task is orphaned.\n^ots-a1b2c3d4');
+      await context.client.updateTaskDescription('t1', 'This task is orphaned.\n^tb-a1b2c3d4');
 
       const request = sentRequest(context);
       expect(request.url).toBe('https://api.todoist.com/api/v1/tasks/t1');
       expect(JSON.parse(request.body ?? '')).toEqual({
-        description: 'This task is orphaned.\n^ots-a1b2c3d4',
+        description: 'This task is orphaned.\n^tb-a1b2c3d4',
       });
     });
   });
