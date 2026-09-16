@@ -44,7 +44,7 @@ export class Logger {
 
   /** Omitting an absent second argument keeps a bare message from logging a trailing `undefined`. */
   private write(to: ConsoleWriter, message: string, data: unknown): void {
-    const line = `[${this.namespace}] ${message}`;
+    const line = `[${new Date().toISOString()}] [${this.namespace}] ${message}`;
 
     if (data === undefined) {
       to(line);
