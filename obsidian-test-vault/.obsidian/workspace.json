@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Test Note.md",
+                "file": "Another test note.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Test Note"
+              "title": "Another test note"
             }
           },
           {
@@ -204,8 +204,8 @@
   },
   "active": "80fffa0d1a0c7068",
   "lastOpenFiles": [
-    "Another test note.md",
     "Test Note.md",
+    "Another test note.md",
     "plugins",
     "Neuer Ordner"
   ]

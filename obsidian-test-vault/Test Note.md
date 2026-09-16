@@ -2,36 +2,35 @@ Some content lorem ipsum
 
 ## Tasks
 
-- [x] Buy milk ^ots-ib7kpp4v
+- [x] Buy milk 
 	another description without bullet point
 	
-	Obsidian Task Sync ID: ^ots-ib7kpp4v
-- [ ] Call the #taginthemiddle dentist ^ots-0pc0073d
+	Obsidian Task Sync ID: 
+- [ ] Call the #taginthemiddle dentist 
 	- task description
 	
-	Obsidian Task Sync ID: ^ots-0pc0073d
-- [ ] Nested parent changed in Todoist ^ots-jg1w8hw3
-- [ ] Nested child ^ots-3tgglva3
-- [ ] neuer task ^ots-hrtzbvim-5daxh6
-	^ots-hrtzbvim-5daxh6
-	- [ ] this is a nested task that now gets synced. ^ots-v2sf6qce-mkkiji
+	Obsidian Task Sync ID: 
+- [ ] Nested parent changed in Todoist 
+- [ ] Nested child 
+- [ ] neuer task 
+	- [ ] this is a nested task that now gets synced. 
 
 Prose between tasks is left alone, and so is a plain bullet:
 - Not a task
 
-- [x] Parent task ^ots-10h3de3j-mkkiji
-	- [x] nested child ^ots-8504r40s-mkkiji
-		- [x] nested grandchild 1 ^ots-aep3ie9a-mkkiji
+- [x] Parent task 
+	- [x] nested child
+		- [x] nested grandchild 1
 			- grandchildren are great, though they are not great grandchildren.
 			How confusing is that?!
-- [ ] not nested grandchild 2 ^ots-0nzcqc8p-mkkiji
-	- [ ] nest great-grandchild ^ots-si70wufv-mkkiji
-		- [ ] some description ^ots-ppv33gli-mkkiji
+- [ ] not nested grandchild 2
+	- [ ] nest great-grandchild 
+		- [ ] some description 
 
-- [ ] another nesting test ^ots-r7g92lps-mkkiji
-		- [ ] direct grandchild, now take a look at that #tag ^ots-n7v6x7uo-mkkiji
+- [ ] another nesting testji
+		- [ ] direct grandchild, now take a look at that #tag 
 
-- [ ] Test for complex description ^ots-16l4emh5-mkkiji
+- [ ] Test for complex description 
 	- this is a bullet point in the description.
       This should still be part of the bullet point. I pressed shift + enter for new line here.
 	This should not be part of the bullet point, but part of the description. It is still indented as the bullet point, but a new paragraph or something in Obsidian. I pressed enter and then backspace twice to remove the bullet point.
