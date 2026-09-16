@@ -3,7 +3,7 @@ import { ProviderTask } from '../task-provider';
 import { createBlockId } from './block-id';
 import { SyncPass, recordInsertUnder } from './sync-pass';
 import { leadingWhitespace } from './task-description';
-import { collectBlockIds, formatTaskLine } from './task-line';
+import { collectBlockIds, formatTaskLine, taskLineFrom } from './task-line';
 import { TaskLink, TaskLinkStore } from './task-links';
 
 const logger = new Logger('TaskBridge:Sync');
@@ -72,7 +72,7 @@ export class RemoteChildSync {
       const blockId = this.linkChild(pull, task, parent.blockId);
       const prefix = `${parent.childIndent}- `;
 
-      lines.push(formatTaskLine({ prefix, checkbox: ' ', title: task.title, tags: [], blockId }));
+      lines.push(formatTaskLine(taskLineFrom({ prefix, checkbox: ' ', text: task.title, blockId })));
       lines.push(...this.buildChildLines(pull, { taskId: task.id, blockId, childIndent: `${parent.childIndent}\t` }));
     }
 

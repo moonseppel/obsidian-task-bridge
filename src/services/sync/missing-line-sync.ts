@@ -7,7 +7,7 @@ import { promoteChildrenToTopLevel } from './reparent-children';
 import { SourceNote } from './source-note';
 import { SyncOutcome, emptyOutcome } from './sync-outcome';
 import { indexTasksById } from './task-index';
-import { formatTaskLine } from './task-line';
+import { formatTaskLine, taskLineFrom } from './task-line';
 import { TaskLink, TaskLinkStore, linkIds } from './task-links';
 
 const logger = new Logger('TaskBridge:Sync');
@@ -169,13 +169,14 @@ export class MissingLineSync {
 
   private async resurrectLine(missing: MissingLine, path: string): Promise<void> {
     const { link, remoteTask } = missing;
-    const resurrected = formatTaskLine({
-      prefix: RESURRECTED_LINE_PREFIX,
-      checkbox: RESURRECTED_LINE_CHECKBOX,
-      title: remoteTask.title,
-      tags: [],
-      blockId: link.blockId,
-    });
+    const resurrected = formatTaskLine(
+      taskLineFrom({
+        prefix: RESURRECTED_LINE_PREFIX,
+        checkbox: RESURRECTED_LINE_CHECKBOX,
+        text: remoteTask.title,
+        blockId: link.blockId,
+      }),
+    );
 
     await this.noteFor(path).applyEdits(appendingOnly([resurrected]));
     this.links.set({ ...link, lastSyncedTitle: remoteTask.title, lastKnownFilePath: path });

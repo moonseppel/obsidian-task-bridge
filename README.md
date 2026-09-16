@@ -63,8 +63,8 @@ Checking the box completes the Todoist task, and completing it in Todoist checks
 indented at least one tab deeper than a task line are its Todoist description — bullets, their
 continuation lines, paragraphs, and lines holding nothing but tabs, which count as blank lines inside
 it — until the first line indented no deeper than the task itself, an empty line included. It reaches
-Todoist with one tab of indentation removed, so any deeper indentation inside it is kept. A trailing
-`#tag`, right before the anchor, is a Todoist label. A task indented one level under another is its
+Todoist with one tab of indentation removed, so any deeper indentation inside it is kept. A
+`#tag`, wherever it stands in the task's own text, is a Todoist label. A task indented one level under another is its
 Todoist sub-task. All five fields — title, state, description, tags, parent — sync both ways and
 independently of each other. See [Nested tasks](#nested-tasks) for how nesting itself works.
 
@@ -80,7 +80,7 @@ next poll.
 
 - **Note or folder** — a note syncs just that note; a folder syncs every note under it, however deeply nested
 - **Sync the whole vault** — syncs every note in the vault; the note or folder field stays visible but disabled while this is on
-- **Tag** — only task lines carrying this trailing `#tag` are synced, on top of whichever of the above applies; leave it empty to sync every task in scope
+- **Tag** — only task lines carrying this `#tag`, anywhere in their own text, are synced, on top of whichever of the above applies; leave it empty to sync every task in scope
 - **Ignore file patterns** — comma-separated file names skipped when scanning a folder or the whole vault, such as the conflict copies a third-party sync tool creates; `*` matches any run of characters, and matching ignores case
 
 A note you selected explicitly is always synced, even if an ignore pattern matches it, and the
@@ -196,12 +196,13 @@ of it.
 
 - Any checkbox character other than a space counts as done, so a custom state such as `[/]` or `[-]` syncs as a completed task
 - A line resurrected from a Todoist edit is appended as a plain `- [ ]` line at the end of its note, carrying only the title; its original position and list marker are not restored
-- A Todoist label containing a space, or any other character a `#tag` cannot hold, is left untouched in Todoist rather than synced into the note
+- A Todoist label containing a space, any other character a `#tag` cannot hold, or nothing but digits is left untouched in Todoist rather than synced into the note
 - Tasks created directly in Todoist are not pulled into a note, unless they are a sub-task nested under a task this plugin already syncs. Otherwise, only tasks this plugin created are followed, which is what "partial two-way sync" means
 - Conflicts are resolved by comparing the device's clock with Todoist's, so a device whose clock is badly off can pick the wrong winner
 - Todoist offers no trash for tasks, so a task this plugin removes is deleted permanently
 - The notes and `data.json` are separate files. If they get out of step, through a partial restore or a third-party vault sync running slightly behind, task identity and the 60-second grace period usually re-link the line to its existing task rather than duplicating it — but a link that never catches up still ends up creating a second task eventually
 - Only tabs count as indentation: a line indented with spaces only neither forms a description nor nests under a task
+- A tag's place inside a task's text is not preserved when the title is changed in Todoist and pulled: the tag moves to the end of the line, since the text it stood in no longer exists
 
 ## Installation using BRAT
 

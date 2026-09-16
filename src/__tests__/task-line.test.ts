@@ -4,6 +4,9 @@ import {
   isDone,
   isRepresentableAsTag,
   parseTaskLine,
+  taskLineFrom,
+  withTags,
+  withTitle,
 } from '../services/sync/task-line';
 
 describe('parseTaskLine', () => {
@@ -14,7 +17,7 @@ describe('parseTaskLine', () => {
     ['1. [ ] Buy milk', '1. ', 'Buy milk'],
     ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', title, tags: [], blockId: undefined });
+    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', text: title, title, tags: [], blockId: undefined });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
@@ -32,6 +35,7 @@ describe('parseTaskLine', () => {
     expect(parseTaskLine('- [ ] Buy milk ^ots-a1b2c3')).toEqual({
       prefix: '- ',
       checkbox: ' ',
+      text: 'Buy milk',
       title: 'Buy milk',
       tags: [],
       blockId: 'ots-a1b2c3',
@@ -42,6 +46,7 @@ describe('parseTaskLine', () => {
     expect(parseTaskLine('- [ ] Read ^chapter ^ots-a1')).toEqual({
       prefix: '- ',
       checkbox: ' ',
+      text: 'Read ^chapter',
       title: 'Read ^chapter',
       tags: [],
       blockId: 'ots-a1',
@@ -71,6 +76,7 @@ describe('parseTaskLine', () => {
       expect(parseTaskLine('- [ ] Renew passport #errands')).toEqual({
         prefix: '- ',
         checkbox: ' ',
+        text: 'Renew passport #errands',
         title: 'Renew passport',
         tags: ['errands'],
         blockId: undefined,
@@ -85,17 +91,56 @@ describe('parseTaskLine', () => {
       expect(parseTaskLine('- [ ] Renew passport #errands #urgent ^ots-a1')).toEqual({
         prefix: '- ',
         checkbox: ' ',
+        text: 'Renew passport #errands #urgent',
         title: 'Renew passport',
         tags: ['errands', 'urgent'],
         blockId: 'ots-a1',
       });
     });
 
-    it('leaves a mid-sentence tag as ordinary text in the title, not a tag', () => {
-      const task = parseTaskLine('- [ ] Ask about #hashtags in general');
+    it('reads a tag in the middle of the text, taking it out of the title with one space', () => {
+      const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1');
 
-      expect(task?.title).toBe('Ask about #hashtags in general');
+      expect(task?.title).toBe('Call the dentist');
+      expect(task?.tags).toEqual(['home']);
+      expect(task?.text).toBe('Call the #home dentist');
+    });
+
+    it('reads a tag opening the text', () => {
+      const task = parseTaskLine('- [ ] #home Call the dentist');
+
+      expect(task?.title).toBe('Call the dentist');
+      expect(task?.tags).toEqual(['home']);
+    });
+
+    it('reads several tags across one line, in the order they stand there', () => {
+      const task = parseTaskLine('- [ ] #home Call the #urgent dentist #errands ^ots-a1');
+
+      expect(task?.title).toBe('Call the dentist');
+      expect(task?.tags).toEqual(['home', 'urgent', 'errands']);
+    });
+
+    it('keeps the spacing of the text a removed tag stood in', () => {
+      expect(parseTaskLine('- [ ] Call  the #home  dentist')?.title).toBe('Call  the  dentist');
+    });
+
+    it('reads a tag standing directly before the block id anchor', () => {
+      const task = parseTaskLine('- [ ] Call the dentist #home ^ots-a1');
+
+      expect(task?.title).toBe('Call the dentist');
+      expect(task?.tags).toEqual(['home']);
+    });
+
+    it.each([
+      ['- [ ] Learn C# properly', 'a # glued to the word before it'],
+      ['- [ ] Read example.com/#section', 'a URL fragment'],
+      ['- [ ] Ask about `#hashtags` in general', 'a # inside an inline-code span'],
+      ['- [ ] Pay invoice #123', 'a run of digits alone'],
+    ])('leaves %s alone (%s)', (line) => {
+      const task = parseTaskLine(line);
+
       expect(task?.tags).toEqual([]);
+      expect(task?.title).toBe(line.slice('- [ ] '.length));
     });
 
     it('allows a nested tag with a slash', () => {
@@ -104,6 +149,27 @@ describe('parseTaskLine', () => {
 
     it('reports no tags when there are none', () => {
       expect(parseTaskLine('- [ ] Buy milk')?.tags).toEqual([]);
+    });
+
+    it.each(['büro', 'wortschöpfung', '日本語', 'tag/sub', 'with-dash', 'with_underscore', '🎉', '1a'])(
+      'reads #%s as a tag',
+      (tag) => {
+        expect(parseTaskLine(`- [ ] Renew passport #${tag}`)?.tags).toEqual([tag]);
+      },
+    );
+
+    it('leaves a run of digits as ordinary text, the way Obsidian reads it', () => {
+      const task = parseTaskLine('- [ ] Pay invoice #123');
+
+      expect(task?.title).toBe('Pay invoice #123');
+      expect(task?.tags).toEqual([]);
+    });
+
+    it('reads the tags of a line that also carries a non-tag #', () => {
+      const task = parseTaskLine('- [ ] Pay invoice #123 #errands');
+
+      expect(task?.title).toBe('Pay invoice #123');
+      expect(task?.tags).toEqual(['errands']);
     });
   });
 });
@@ -120,26 +186,27 @@ describe('isDone', () => {
 
 describe('formatTaskLine', () => {
   it('appends the block id when there is one', () => {
-    expect(formatTaskLine({ prefix: '- ', checkbox: ' ', title: 'Buy milk', tags: [], blockId: 'ots-a1' })).toBe(
-      '- [ ] Buy milk ^ots-a1',
-    );
+    expect(
+      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Buy milk', blockId: 'ots-a1' })),
+    ).toBe('- [ ] Buy milk ^ots-a1');
   });
 
   it('leaves the line bare when there is no block id', () => {
-    expect(formatTaskLine({ prefix: '- ', checkbox: 'x', title: 'Buy milk', tags: [], blockId: undefined })).toBe(
-      '- [x] Buy milk',
-    );
+    expect(
+      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: 'x', text: 'Buy milk', blockId: undefined })),
+    ).toBe('- [x] Buy milk');
   });
 
   it('places tags between the title and the block id', () => {
     expect(
-      formatTaskLine({
-        prefix: '- ',
-        checkbox: ' ',
-        title: 'Renew passport',
-        tags: ['errands', 'urgent'],
-        blockId: 'ots-a1',
-      }),
+      formatTaskLine(
+        taskLineFrom({
+          prefix: '- ',
+          checkbox: ' ',
+          text: 'Renew passport #errands #urgent',
+          blockId: 'ots-a1',
+        }),
+      ),
     ).toBe('- [ ] Renew passport #errands #urgent ^ots-a1');
   });
 
@@ -149,7 +216,11 @@ describe('formatTaskLine', () => {
     '3. [ ] Numbered',
     '- [/] Tasks-plugin-style state ^ots-c3',
     '- [ ] Renew passport #errands #urgent ^ots-a1',
-    '- [ ] Ask about #hashtags in general',
+    '- [ ] Call the #home dentist ^ots-a1',
+    '- [ ] Ask about `#hashtags` in general',
+    '- [ ] Renew passport #büro ^ots-a1',
+    '- [ ] Renew passport #tag/sub',
+    '- [ ] Pay invoice #123',
   ])('round trips %s unchanged', (line) => {
     const parsed = parseTaskLine(line);
 
@@ -158,8 +229,75 @@ describe('formatTaskLine', () => {
   });
 });
 
+describe('taskLineFrom', () => {
+  it('reads the title and the tags out of the text it is given', () => {
+    expect(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Renew passport #errands', blockId: undefined })).toEqual({
+      prefix: '- ',
+      checkbox: ' ',
+      text: 'Renew passport #errands',
+      title: 'Renew passport',
+      tags: ['errands'],
+      blockId: undefined,
+    });
+  });
+});
+
+describe('withTitle', () => {
+  it('rewrites the text as the new title followed by the tags it had', () => {
+    const task = parseTaskLine('- [ ] Renew passport #errands #urgent ^ots-a1')!;
+
+    expect(formatTaskLine(withTitle(task, 'Renew the passport'))).toBe(
+      '- [ ] Renew the passport #errands #urgent ^ots-a1',
+    );
+  });
+
+  it('leaves a line without tags as the bare title', () => {
+    const task = parseTaskLine('- [ ] Renew passport ^ots-a1')!;
+
+    expect(formatTaskLine(withTitle(task, 'Renew the passport'))).toBe('- [ ] Renew the passport ^ots-a1');
+  });
+
+  it('moves a tag that stood inside the replaced text to the trailing position', () => {
+    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+
+    expect(formatTaskLine(withTitle(task, 'Book a check-up'))).toBe('- [ ] Book a check-up #home ^ots-a1');
+  });
+});
+
+describe('withTags', () => {
+  it('replaces the tags on the line, keeping its title', () => {
+    const task = parseTaskLine('- [ ] Renew passport #errands ^ots-a1')!;
+
+    expect(formatTaskLine(withTags(task, ['urgent']))).toBe('- [ ] Renew passport #urgent ^ots-a1');
+  });
+
+  it('leaves the bare title behind when every tag is taken away', () => {
+    const task = parseTaskLine('- [ ] Renew passport #errands ^ots-a1')!;
+
+    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Renew passport ^ots-a1');
+  });
+
+  it('takes a tag out of the middle of the text where it stands, with one adjoining space', () => {
+    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+
+    expect(formatTaskLine(withTags(task, []))).toBe('- [ ] Call the dentist ^ots-a1');
+  });
+
+  it('leaves the tags it keeps where they stand and appends only the new one', () => {
+    const task = parseTaskLine('- [ ] Call the #home dentist ^ots-a1')!;
+
+    expect(formatTaskLine(withTags(task, ['home', 'urgent']))).toBe('- [ ] Call the #home dentist #urgent ^ots-a1');
+  });
+
+  it('takes one tag out in place while appending another', () => {
+    const task = parseTaskLine('- [ ] #home Call the #urgent dentist ^ots-a1')!;
+
+    expect(formatTaskLine(withTags(task, ['home', 'errands']))).toBe('- [ ] #home Call the dentist #errands ^ots-a1');
+  });
+});
+
 describe('isRepresentableAsTag', () => {
-  it.each(['errands', 'todo/urgent', 'with-dash', 'with_underscore', 'CamelCase', '123'])(
+  it.each(['errands', 'todo/urgent', 'with-dash', 'with_underscore', 'CamelCase', 'Ünïcode', '日本語', '🎉', '1a'])(
     'accepts %s',
     (label) => {
       expect(isRepresentableAsTag(label)).toBe(true);
@@ -168,7 +306,8 @@ describe('isRepresentableAsTag', () => {
 
   it.each([
     ['with space', 'a Todoist label may contain a space, which Obsidian tag syntax cannot'],
-    ['Ünïcode', 'a Todoist label may contain characters outside the ones a #tag can be written with'],
+    ['exclaim!', 'a Todoist label may contain punctuation no #tag can be written with'],
+    ['123', 'Obsidian reads a run of digits alone as a number rather than a tag'],
     ['', 'an empty label carries no text to write as a tag'],
   ])('rejects %s (%s)', (label) => {
     expect(isRepresentableAsTag(label)).toBe(false);

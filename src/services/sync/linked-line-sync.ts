@@ -11,7 +11,7 @@ import {
   readDescriptionBlock,
   renderDescriptionBlock,
 } from './task-description';
-import { isDone, isRepresentableAsTag } from './task-line';
+import { isDone, isRepresentableAsTag, withTags, withTitle } from './task-line';
 import { TaskLinkStore } from './task-links';
 
 export interface RemoteCompletion {
@@ -127,7 +127,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedTitle: title });
-    recordTaskEdit(line, { title });
+    recordTaskEdit(line, (task) => withTitle(task, title));
     line.pass.outcome.pulled += 1;
   }
 
@@ -143,7 +143,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedDone: done });
-    recordTaskEdit(line, { checkbox: done ? 'x' : ' ' });
+    recordTaskEdit(line, (task) => ({ ...task, checkbox: done ? 'x' : ' ' }));
     line.pass.outcome.pulled += 1;
   }
 
@@ -184,7 +184,7 @@ export class LinkedLineSync {
     const { line, link } = linked;
 
     this.links.set({ ...link, lastSyncedTags: canonicalTags(tags) });
-    recordTaskEdit(line, { tags: [...tags] });
+    recordTaskEdit(line, (task) => withTags(task, tags));
     line.pass.outcome.pulled += 1;
   }
 }

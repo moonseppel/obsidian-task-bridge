@@ -100,13 +100,19 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, pat
 }
 
 /**
- * Every block id anchoring a task line, plus every one minted this pass, whose line may not be
- * written yet. One carried only by description text is left out: its task has no line.
+ * Every block id anchoring a task line this run counts as found, plus every one minted this pass,
+ * whose line may not be written yet. One carried only by description text is left out: its task
+ * has no line. So is one whose line fails the tag filter — that line is out of scope exactly as if
+ * it stood in no scanned note at all, which is what puts its task on the out-of-scope lifecycle.
  */
-export function anchoredBlockIds(pass: SyncPass): string[] {
+export function anchoredBlockIds(pass: SyncPass, isTagInScope: (task: ParsedTaskLine) => boolean): string[] {
   const inNote = collectBlockIds(pass.lines);
 
-  return [...pass.takenBlockIds].filter((blockId) => pass.lineNumberByBlockId.has(blockId) || !inNote.has(blockId));
+  return [...pass.takenBlockIds].filter((blockId) => {
+    const lineNumber = pass.lineNumberByBlockId.get(blockId);
+
+    return lineNumber === undefined ? !inNote.has(blockId) : anchorsLineInScope(pass, lineNumber, isTagInScope);
+  });
 }
 
 export function collectedEdits(pass: SyncPass): NoteEdits {
@@ -119,11 +125,11 @@ export function collectedEdits(pass: SyncPass): NoteEdits {
   };
 }
 
-/** Merges onto whatever this pass already changed on the line, so every field pulled onto it lands. */
-export function recordTaskEdit(line: LineUnderSync, changes: Partial<ParsedTaskLine>): void {
+/** Revises whatever this pass already changed on the line, so every field pulled onto it lands. */
+export function recordTaskEdit(line: LineUnderSync, revise: (task: ParsedTaskLine) => ParsedTaskLine): void {
   const { pass, lineNumber } = line;
 
-  pass.editedTasks.set(lineNumber, { ...(pass.editedTasks.get(lineNumber) ?? line.task), ...changes });
+  pass.editedTasks.set(lineNumber, revise(pass.editedTasks.get(lineNumber) ?? line.task));
 }
 
 export function recordRemoval(line: LineUnderSync): void {
@@ -187,6 +193,16 @@ export function localParentBlockId(pass: SyncPass, lineNumber: number): string |
   const parentLineNumber = pass.parentLineNumbers.get(lineNumber);
 
   return parentLineNumber === undefined ? undefined : pass.blockIdByLineNumber.get(parentLineNumber);
+}
+
+function anchorsLineInScope(
+  pass: SyncPass,
+  lineNumber: number,
+  isTagInScope: (task: ParsedTaskLine) => boolean,
+): boolean {
+  const task = parseTaskLine(pass.lines[lineNumber]);
+
+  return task !== undefined && isTagInScope(task);
 }
 
 function taskLineReplacements(pass: SyncPass): LineEdit[] {

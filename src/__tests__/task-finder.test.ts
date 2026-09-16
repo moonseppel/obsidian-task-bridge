@@ -124,6 +124,16 @@ describe('TaskFinder.isTagInScope', () => {
     const finder = finderWith({ files: [] }, { sourceTag: 'work' });
     expect(finder.isTagInScope(parseTaskLine('- [ ] A #personal')!)).toBe(false);
   });
+
+  it('accepts a task whose tag stands inside its text rather than trailing it', () => {
+    const finder = finderWith({ files: [] }, { sourceTag: 'work' });
+    expect(finder.isTagInScope(parseTaskLine('- [ ] Call the #work dentist ^ots-a1')!)).toBe(true);
+  });
+
+  it('still rejects a # the text only reads as ordinary characters', () => {
+    const finder = finderWith({ files: [] }, { sourceTag: 'work' });
+    expect(finder.isTagInScope(parseTaskLine('- [ ] Read example.com/#work today')!)).toBe(false);
+  });
 });
 
 describe('TaskFinder.existsOutsideIgnoredFiles', () => {

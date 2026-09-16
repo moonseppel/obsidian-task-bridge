@@ -188,7 +188,7 @@ export class TaskSync {
         },
         async () => {
           // Kept even if syncing failed: a line given a block id but never written would be created again.
-          anchoredBlockIds(pass).forEach((blockId) => scope.scannedBlockIds.add(blockId));
+          anchoredBlockIds(pass, this.isTagInScope).forEach((blockId) => scope.scannedBlockIds.add(blockId));
           scope.pendingRelocations.push(...pass.pendingParentRelocations);
           this.recordLastKnownFile(pass, path);
           pass.outcome.skippedEdits += await writeCollectedEdits(note, pass);
