@@ -8,6 +8,8 @@
         "feat",
         "fix",
         "docs",
+        "build",
+        "ci",
         "style",
         "refactor",
         "perf",
