@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "move tasks test area/Direkt Grandchild test.md",
+                "file": "Test Note.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Direkt Grandchild test"
+              "title": "Test Note"
             }
           }
         ],
@@ -220,8 +220,8 @@
   "active": "8bba283d37a5eff3",
   "lastOpenFiles": [
     "move tasks test area/Another test note.md",
-    "move tasks test area",
     "move tasks test area/Direkt Grandchild test.md",
+    "move tasks test area",
     "Test Note.md",
     "plugins",
     "Neuer Ordner"
