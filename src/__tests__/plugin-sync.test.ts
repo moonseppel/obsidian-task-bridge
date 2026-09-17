@@ -1,6 +1,7 @@
 import * as obsidian from 'obsidian';
 import TaskBridgePlugin from '../main';
 import { TaskProviderError } from '../services/task-provider-error';
+import { SYNC_DISABLED_MINUTES } from '../utils/sync-interval';
 import {
   PluginContext,
   makePlugin,
@@ -11,6 +12,11 @@ import {
 const INBOX_PROJECT = { id: 'inbox-1', name: 'Inbox', isDefault: true };
 /** Just past the scheduler's 10s debounce, so a scheduled follow-up pass has certainly fired. */
 const SYNC_DEBOUNCE_GRACE_MS = 10_500;
+
+/** Lets the promise chain `onload` starts run to its end. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -183,6 +189,47 @@ describe('TaskBridgePlugin task sync', () => {
     expect(notice).toHaveBeenCalledTimes(2);
   });
 
+  it('syncs on load once connected', async () => {
+    const { plugin } = syncablePlugin();
+    const { run } = taskSyncOf(plugin);
+    jest.spyOn(plugin, 'loadSettings').mockResolvedValue(undefined);
+
+    await plugin.onload();
+    await settle();
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not sync on load while automatic syncing is off', async () => {
+    const { plugin } = syncablePlugin();
+    plugin.settings = settingsWith({
+      relativeTaskSourcePath: 'Tasks.md',
+      projectId: 'p1',
+      syncIntervalMinutes: SYNC_DISABLED_MINUTES,
+    });
+    const { run } = taskSyncOf(plugin);
+    jest.spyOn(plugin, 'loadSettings').mockResolvedValue(undefined);
+
+    await plugin.onload();
+    await settle();
+
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('still syncs on command while automatic syncing is off', async () => {
+    const { plugin } = syncablePlugin();
+    plugin.settings = settingsWith({
+      relativeTaskSourcePath: 'Tasks.md',
+      projectId: 'p1',
+      syncIntervalMinutes: SYNC_DISABLED_MINUTES,
+    });
+    const { run } = taskSyncOf(plugin);
+
+    await plugin.syncTasks();
+
+    expect(run).toHaveBeenCalledWith('p1');
+  });
+
   it('registers a "Sync now" command without repeating the plugin name', async () => {
     const { plugin } = syncablePlugin();
     const addCommand = jest.spyOn(plugin, 'addCommand').mockImplementation((command) => command);
@@ -253,10 +300,6 @@ describe('TaskBridgePlugin task sync', () => {
 });
 
 describe('TaskBridgePlugin edits made while syncing', () => {
-  function settle(): Promise<void> {
-    return new Promise((resolve) => setImmediate(resolve));
-  }
-
   function pausedSync(plugin: TaskBridgePlugin): { run: jest.Mock; finish: () => void } {
     const run = jest.fn();
     let finish = (): void => undefined;

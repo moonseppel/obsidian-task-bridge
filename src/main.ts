@@ -17,6 +17,7 @@ import { TodoistCredentials } from './services/todoist/todoist-credentials';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
 import { readProviderCredentials, readStoredField, toKnownProjects, toSettings } from './stored-data';
 import { Logger, setDebugLogging } from './utils/logger';
+import { isAutomaticSyncEnabled } from './utils/sync-interval';
 import { announce, inform } from './views/notices';
 import { hideRenderedAnchors } from './views/rendered-anchor';
 
@@ -137,6 +138,12 @@ export default class TaskBridgePlugin extends Plugin {
 
   restartSyncSchedule(): void {
     this.scheduler.restartPolling(this.settings.syncIntervalMinutes);
+
+    if (!this.scheduler.syncsAutomatically) {
+      logger.info('Automatic syncing is off; tasks sync only when the "Sync now" command is run');
+      return;
+    }
+
     logger.info('Checking for changes on a timer', { everyMinutes: this.settings.syncIntervalMinutes });
   }
 
@@ -190,6 +197,11 @@ export default class TaskBridgePlugin extends Plugin {
     }
 
     await this.ensureProjectSelected();
+
+    if (!isAutomaticSyncEnabled(this.settings.syncIntervalMinutes)) {
+      return;
+    }
+
     await this.syncTasks();
   }
 

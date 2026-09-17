@@ -1,4 +1,4 @@
-import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
+import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES, SYNC_DISABLED_MINUTES } from '../utils/sync-interval';
 
 export const WHOLE_VAULT_DISPLAY_NAME = 'Sync the whole vault';
 export const WHOLE_VAULT_DESC =
@@ -51,7 +51,9 @@ export function syncIntervalDescription(providerName: string): string {
   return (
     `How often ${providerName} is polled for changes, in minutes ` +
     `(${MIN_SYNC_INTERVAL_MINUTES}–${MAX_SYNC_INTERVAL_MINUTES}). ` +
-    'Changes made in Obsidian are sent shortly after you stop editing.'
+    'Changes made in Obsidian are sent shortly after you stop editing. ' +
+    `Set it to ${SYNC_DISABLED_MINUTES} to stop syncing automatically altogether, ` +
+    'leaving the "Sync now" command as the only way to sync.'
   );
 }
 

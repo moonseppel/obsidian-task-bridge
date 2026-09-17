@@ -1,6 +1,6 @@
 import { SearchComponent, Setting, ToggleComponent } from 'obsidian';
 import { DEFAULT_SETTINGS, TaskBridgeSettingTab } from '../settings';
-import { MAX_SYNC_INTERVAL_MINUTES, MIN_SYNC_INTERVAL_MINUTES } from '../utils/sync-interval';
+import { MAX_SYNC_INTERVAL_MINUTES, SYNC_DISABLED_MINUTES } from '../utils/sync-interval';
 import { makeTab, selectProject, spySettingNames } from './support/settings-harness';
 
 afterEach(() => {
@@ -84,8 +84,8 @@ describe('TaskBridgeSettingTab sync section', () => {
   });
 
   it.each([
-    ['0', MIN_SYNC_INTERVAL_MINUTES],
-    ['-5', MIN_SYNC_INTERVAL_MINUTES],
+    ['0', SYNC_DISABLED_MINUTES],
+    ['-5', SYNC_DISABLED_MINUTES],
     ['99999', MAX_SYNC_INTERVAL_MINUTES],
     ['7.6', 8],
   ])('clamps a typed interval of %s to %s', async (typed, expected) => {
@@ -95,6 +95,25 @@ describe('TaskBridgeSettingTab sync section', () => {
     await saveInterval(tab, typed);
 
     expect(plugin.settings.syncIntervalMinutes).toBe(expected);
+  });
+
+  it('reschedules when the interval is turned off, so the running poll stops', async () => {
+    const { tab, plugin, restartSyncSchedule } = makeTab('');
+    tab.display();
+
+    await saveInterval(tab, '0');
+
+    expect(plugin.settings.syncIntervalMinutes).toBe(SYNC_DISABLED_MINUTES);
+    expect(restartSyncSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('says that 0 leaves the command as the only way to sync', () => {
+    const setDesc = jest.spyOn(Setting.prototype, 'setDesc');
+    makeTab('').tab.display();
+
+    expect(setDesc.mock.calls.map((call) => String(call[0]))).toEqual(
+      expect.arrayContaining([expect.stringContaining('Set it to 0 to stop syncing automatically')]),
+    );
   });
 
   it.each(['soon', '', '   '])('keeps the previous interval when the field reads %s', async (typed) => {
