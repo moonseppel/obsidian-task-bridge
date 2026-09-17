@@ -13,7 +13,7 @@ export type TaskFinderSettingsReader = () => TaskFinderSettings;
 
 /**
  * Finds which tasks are currently in scope, from settings and vault state — the "finding" half of
- * the task-source module (see architecture-rules.md rules 29-33). Scope is derived fresh on every
+ * the task-source module (see architecture-rules.md rules 28-32). Scope is derived fresh on every
  * call, never cached, since the vault can change between passes.
  */
 export class TaskFinder {

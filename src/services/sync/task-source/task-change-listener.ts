@@ -23,7 +23,7 @@ export interface TaskChangeListenerCallbacks {
 
 /**
  * Decides whether a vault event matters to the configured task source — the "reacting" half of
- * the task-source module (architecture-rules.md rule 29). Registering with `vault.on` stays with
+ * the task-source module (architecture-rules.md rule 28). Registering with `vault.on` stays with
  * the caller, since only a `Component` can own that registration.
  */
 export class TaskChangeListener {

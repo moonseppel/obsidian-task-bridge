@@ -51,7 +51,7 @@ export class LineLinker {
    * strand the new task with no line pointing back at it, is as small as it can be. If the anchor
    * still can't land, the task is undone rather than left as an untraceable duplicate: the line is
    * untouched, so the very next pass gives it a clean, ordinary attempt (architecture-rules.md
-   * rule 38).
+   * rule 37).
    */
   async create(line: LineUnderSync, note: SourceNote): Promise<void> {
     const { pass, task } = line;

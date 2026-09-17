@@ -37,7 +37,7 @@ function dedent(rawLines: readonly string[], taskLine: string, indentation: Inde
 
 /**
  * Ends for good at the first line no deeper than the task, or at its nested task; any other
- * checkbox line before that is text, never a task of its own (architecture-rules.md #39).
+ * checkbox line before that is text, never a task of its own (architecture-rules.md #38).
  */
 export function readDescriptionBlock(
   lines: readonly string[],

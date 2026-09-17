@@ -15,7 +15,7 @@ export interface AnchorWrite {
  * (a block id reused from the note rather than freshly minted counts as already anchored, not as
  * having moved on). This way a task line whose creation raced a concurrent edit still gets its
  * anchor as long as the line is still recognizably the same, anchor-less task, whatever else about
- * it (its title, say) changed in the meantime. See architecture-rules.md rule 38.
+ * it (its title, say) changed in the meantime. See architecture-rules.md rule 37.
  */
 export function appendAnchorToLine(
   content: string,
