@@ -145,9 +145,7 @@ since Todoist itself would otherwise delete every descendant of a removed task a
 
 A task indented one level under another syncs as that task's sub-task in Todoist, and a sub-task in
 Todoist syncs into the note as a line indented one tab under its parent — recursively, so a whole
-tree of tasks nests the same way on both sides. An indent level is a tab or a full run of as many
-spaces as your editor's tab size, read fresh at the start of every sync, so both ways of indenting a
-line count the same.
+tree of tasks nests the same way on both sides.
 
 ```markdown
 - [ ] Plan the trip ^tb-a1b2c3
@@ -258,7 +256,6 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Orphan lifecycle** — a task that loses its link, or whose line moves out of scope, is flagged, then removed, on a schedule tracked entirely in the plugin's own data; the description notice it gets is a courtesy only
 - **Deletion sync** — a linked line missing from every scanned note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
 - **Nested tasks** — a line's parent is derived from indentation every pass rather than stored as a setting, so it stays correct through renames and reordering; relocating a task moves its whole subtree, description and nested children included
-- **One indentation rule** — what counts as an indent level lives in a single value object, built once per sync run from the editor's own tab size, so every reader of a note counts tabs and runs of spaces the same way
 
 ## License
 
@@ -273,17 +270,6 @@ All changes must pass the test suite:
 ```bash
 npm test
 ```
-
-Tests cover:
-
-- Plugin structure, lifecycle hooks, and graceful failure
-- Settings load/save, including tolerance of a corrupt `data.json`
-- The settings tab: source scope, tag and ignore patterns, credentials, connection status, project picker, sync interval and debug mode
-- Following a renamed or moved source location, and clearing a deleted one
-- The Todoist client's request shape, pagination, and its mapping of API failures
-- Task line parsing, description blocks, tags, indentation counted in tabs or runs of spaces, indentation-derived nesting, and block id minting (including the per-device tag)
-- The sync run in both directions for every field, across one or many files, with conflict resolution by recency
-- Re-linking and the creation grace period, deletion sync, and the orphaned-task lifecycle — including what is kept when a call fails midway
 
 ### Integration tests
 
