@@ -1,7 +1,7 @@
 import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { NotifyUser } from './status-reporter';
-import { ProjectResolution } from './sync/project-resolver';
+import { ProjectResolution } from './sync/sync-run/project-resolver';
 import { ProviderProject, defaultProjectOf } from './task-provider';
 
 export interface SelectedProject {

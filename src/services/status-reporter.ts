@@ -1,7 +1,7 @@
 import { sanitizeForDisplay } from '../utils/external-text';
 import { Logger } from '../utils/logger';
 import { ConnectionStatus } from './provider-connection';
-import { SyncOutcome, changedAnything } from './sync/sync-outcome';
+import { SyncOutcome, changedAnything } from './sync/sync-run/sync-outcome';
 import {
   TaskProviderError,
   TaskProviderFailure,

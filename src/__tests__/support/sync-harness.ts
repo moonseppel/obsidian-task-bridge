@@ -1,12 +1,12 @@
-import { appendAnchorToLine } from '../../services/sync/anchor-write';
-import { Indentation } from '../../services/sync/indentation';
-import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/sync/note-edits';
-import { OrphanTracker } from '../../services/sync/orphan-tracker';
-import { SourceNote } from '../../services/sync/source-note';
-import { composeRemoteDescription } from '../../services/sync/task-description';
-import { ParsedTaskLine, parseTaskLine } from '../../services/sync/task-line';
-import { TaskLinkStore } from '../../services/sync/task-links';
-import { TaskSync, TaskSyncDependencies } from '../../services/sync/task-sync';
+import { appendAnchorToLine } from '../../services/sync/note-access/anchor-write';
+import { Indentation } from '../../services/sync/task-format/indentation';
+import { NoteEdits, applyNoteEdits, countSkippedEdits } from '../../services/sync/note-access/note-edits';
+import { OrphanTracker } from '../../services/sync/orphans/orphan-tracker';
+import { SourceNote } from '../../services/sync/note-access/source-note';
+import { composeRemoteDescription } from '../../services/sync/task-format/task-description';
+import { ParsedTaskLine, parseTaskLine } from '../../services/sync/task-format/task-line';
+import { TaskLinkStore } from '../../services/sync/sync-state/task-links';
+import { TaskSync, TaskSyncDependencies } from '../../services/sync/sync-pass/task-sync';
 import { LooseProviderTask, StubProviderOptions, stubProvider } from './stub-provider';
 
 export const PROJECT = 'project-1';
