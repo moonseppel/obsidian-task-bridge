@@ -27,6 +27,7 @@ Created and maintaned by Jan Pralle, [www.jpcloudsolutions.de](www.jpcloudsoluti
 - Filter synced tasks by tag.
 - Ignore pattern for files (e.g. for conflict files from third party sync tool for vaults).
 - Syncs title, description, nested tasks and state.
+- Copy a task line and the copy becomes a task of its own.
 - Support of Obsidian's "Tasks" plugin to come.
 
 See `docs/features/` directory in the source code for more details on the features. There may be
@@ -143,6 +144,19 @@ from an edited task — instead of the edit being silently lost. Deleting a task
 synced sub-tasks does not take them down with it: they are promoted to top-level in Todoist first,
 since Todoist itself would otherwise delete every descendant of a removed task along with it.
 
+### Copied task lines
+
+Copy a task line somewhere else and you get a second task: the line the block id has always
+belonged to keeps its own task, and every other line carrying that id is given a fresh id and a
+task of its own. Nothing else about those lines changes — their text, their indentation, their
+description and everything nested under them stay exactly as they are.
+
+Until that is settled, only the line keeping the id is synced: no field of its task is compared
+against, pushed from or pulled into any other line carrying the same id. A copy is only acted on
+once it has been there for 60 seconds across passes, the same wait a newly written task line
+already gets, so a vault sync tool that writes a moved note before removing the old one does not
+leave you with a spurious second task.
+
 ### Nested tasks
 
 A task indented one level under another syncs as that task's sub-task in Todoist, and a sub-task in
@@ -258,6 +272,7 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Orphan lifecycle** — a task that loses its link, or whose line moves out of scope, is flagged, then removed, on a schedule tracked entirely in the plugin's own data; the description notice it gets is a courtesy only
 - **Deletion sync** — a linked line missing from every scanned note, or a linked task missing from the project's fetched list, is resolved past a grace period via `TaskProvider.getTask`, which tells a genuine deletion apart from the task simply having moved to a different project
 - **Nested tasks** — a line's parent is derived from indentation every pass rather than stored as a setting, so it stays correct through renames and reordering; relocating a task moves its whole subtree, description and nested children included
+- **Copied lines** — which line a block id belongs to is decided across a whole run rather than within one note, since files are synced one at a time; only that line is synced, and every copy is given an id of its own once the duplicate has held long enough to be real
 
 ## License
 
