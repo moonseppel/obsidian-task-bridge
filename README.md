@@ -1,5 +1,7 @@
 # TaskBridge
 
+## BETA NOT YET STARTED. Still under test, but will get it's first beta release soon.
+
 An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and Todoist. If you
 are using tasks in Obsidian and want also to have the full feature set of a task manager or just
 create a few tasks in Obsidian and mainly are suing a task manager, this plugin might be the right
