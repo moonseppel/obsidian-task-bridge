@@ -1,4 +1,4 @@
-import { composeRemoteDescription } from '../task-format/task-description';
+import { composeRemoteDescription } from '../task-format/task-footer';
 
 /** Distinctive enough to find the notice line by search, the same way the footer is found. */
 const NOTICE_MARKER = 'It is now orphaned —';

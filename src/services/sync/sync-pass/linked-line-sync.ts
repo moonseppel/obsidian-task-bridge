@@ -5,12 +5,11 @@ import { LinkedLine, recordBlockEdit, recordTaskEdit } from './sync-pass';
 import { canonicalTags, sameTagSet } from './tag-set';
 import {
   DescriptionBlock,
-  composeRemoteDescription,
-  extractUserDescription,
   leadingWhitespace,
   readDescriptionBlock,
   renderDescriptionBlock,
 } from '../task-format/task-description';
+import { composeRemoteDescription, extractUserDescription } from '../task-format/task-footer';
 import { isDone, isRepresentableAsTag, withTags, withTitle } from '../task-format/task-line';
 import { TaskLinkStore } from '../sync-state/task-links';
 

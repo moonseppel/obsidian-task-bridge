@@ -1,6 +1,6 @@
 import { CrossFileParentSync } from '../../../../services/sync/sync-pass/cross-file-parent-sync';
 import { OrphanTracker } from '../../../../services/sync/orphans/orphan-tracker';
-import { composeRemoteDescription } from '../../../../services/sync/task-format/task-description';
+import { composeRemoteDescription } from '../../../../services/sync/task-format/task-footer';
 import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
 import { LooseProviderTask } from '../../../support/stub-provider';
 import { FakeNote, PROJECT, makeSync, projectExists, remoteTasks } from '../../../support/sync-harness';

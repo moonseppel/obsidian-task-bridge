@@ -1,6 +1,7 @@
 import { RandomSource, randomToken } from '../../../utils/random-token';
 
-const PREFIX = 'tb-';
+/** Shared with the footer, which is found by this prefix rather than by a bare caret and id. */
+export const BLOCK_ID_PREFIX = 'tb-';
 const LENGTH = 8;
 const MAX_ATTEMPTS = 100;
 
@@ -15,7 +16,7 @@ export function createBlockId(
   random: RandomSource = Math.random,
 ): string {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const candidate = `${PREFIX}${tagSegment(deviceTag)}${randomToken(LENGTH, random)}`;
+    const candidate = `${BLOCK_ID_PREFIX}${tagSegment(deviceTag)}${randomToken(LENGTH, random)}`;
 
     if (!taken.has(candidate)) {
       return candidate;

@@ -5,7 +5,7 @@ import { OrphanTracker } from './orphan-tracker';
 import { ResolvedProject } from '../sync-run/project-resolver';
 import { promoteChildrenToTopLevel } from './reparent-children';
 import { SyncOutcome, emptyOutcome } from '../sync-run/sync-outcome';
-import { composeRemoteDescription, extractUserDescription } from '../task-format/task-description';
+import { composeRemoteDescription, extractUserDescription } from '../task-format/task-footer';
 import { LinkIds, TaskLinkStore } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');

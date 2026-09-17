@@ -114,16 +114,33 @@ describe('TodoistApiClient reads', () => {
       expect(task.updatedAt).toBeUndefined();
     });
 
-    it('finds a block id embedded at the end of the description', async () => {
+    it('finds the block id the footer names', async () => {
       const context = clientReplying(() =>
-        Promise.resolve(page([{ id: 't1', content: 'One', description: '^tb-a1b2c3d4' }])),
+        Promise.resolve(page([{ id: 't1', content: 'One', description: 'TaskBridge ID: ^tb-a1b2c3d4' }])),
       );
 
       const [task] = await context.client.listTasks('p1');
       expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
     });
 
-    it('finds a block id buried mid-description after a user edit', async () => {
+    it('finds the footer buried mid-description after a user edit', async () => {
+      const context = clientReplying(() =>
+        Promise.resolve(
+          page([
+            {
+              id: 't1',
+              content: 'One',
+              description: 'Some notes\n\nTaskBridge ID: ^tb-a1b2c3d4\nMore notes added afterward',
+            },
+          ]),
+        ),
+      );
+
+      const [task] = await context.client.listTasks('p1');
+      expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
+    });
+
+    it('takes no block id from a description that carries one without the footer around it', async () => {
       const context = clientReplying(() =>
         Promise.resolve(
           page([
@@ -137,17 +154,17 @@ describe('TodoistApiClient reads', () => {
       );
 
       const [task] = await context.client.listTasks('p1');
-      expect(task.embeddedBlockId).toBe('tb-a1b2c3d4');
+      expect(task.embeddedBlockId).toBeUndefined();
     });
 
-    it('takes the footer\'s block id over one carried by the description text above it', async () => {
+    it('takes the footer\'s block id over one carried by the description text around it', async () => {
       const context = clientReplying(() =>
         Promise.resolve(
           page([
             {
               id: 't1',
               content: 'One',
-              description: '- [ ] direct grandchild ^tb-e5f6g7h8\n\nTaskBridge ID: ^tb-a1b2c3d4',
+              description: '- [ ] direct grandchild ^tb-e5f6g7h8\n\nTaskBridge ID: ^tb-a1b2c3d4\n^tb-i9j0k1l2',
             },
           ]),
         ),

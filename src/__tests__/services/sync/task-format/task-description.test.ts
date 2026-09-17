@@ -1,9 +1,4 @@
-import {
-  composeRemoteDescription,
-  extractUserDescription,
-  readDescriptionBlock,
-  renderDescriptionBlock,
-} from '../../../../services/sync/task-format/task-description';
+import { readDescriptionBlock, renderDescriptionBlock } from '../../../../services/sync/task-format/task-description';
 
 describe('readDescriptionBlock', () => {
   it('captures a single indented line below the task', () => {
@@ -202,49 +197,5 @@ describe('renderDescriptionBlock', () => {
     const { text } = readDescriptionBlock(['- [ ] Test for complex description', ...description, ''], 0);
 
     expect(renderDescriptionBlock('', text)).toEqual(description);
-  });
-});
-
-describe('composeRemoteDescription', () => {
-  it('is exactly the bare footer when there is no user text, unchanged from a freshly created task', () => {
-    expect(composeRemoteDescription('', 'tb-a1b2c3d4')).toBe('TaskBridge ID: ^tb-a1b2c3d4');
-  });
-
-  it('puts the user text above a blank line and then the footer', () => {
-    expect(composeRemoteDescription('Oat milk, not regular', 'tb-a1b2c3d4')).toBe(
-      'Oat milk, not regular\n\nTaskBridge ID: ^tb-a1b2c3d4',
-    );
-  });
-});
-
-describe('extractUserDescription', () => {
-  it('returns nothing for the bare footer alone', () => {
-    expect(extractUserDescription('TaskBridge ID: ^tb-a1b2c3d4')).toBe('');
-  });
-
-  it('recovers the user text, dropping the blank line composeRemoteDescription inserted', () => {
-    expect(extractUserDescription('Oat milk, not regular\n\nTaskBridge ID: ^tb-a1b2c3d4')).toBe(
-      'Oat milk, not regular',
-    );
-  });
-
-  it('finds the footer by searching rather than assuming it is the last line', () => {
-    const description = 'Oat milk\n\nTaskBridge ID: ^tb-a1b2c3d4\nA note added after the fact';
-
-    expect(extractUserDescription(description)).toBe('Oat milk');
-  });
-
-  it('keeps text before the footer even without a preceding blank line', () => {
-    expect(extractUserDescription('Oat milk\nTaskBridge ID: ^tb-a1b2c3d4')).toBe('Oat milk');
-  });
-
-  it('returns the whole description untouched when it carries no footer at all', () => {
-    expect(extractUserDescription('Just some notes')).toBe('Just some notes');
-  });
-
-  it('round-trips through composeRemoteDescription', () => {
-    expect(extractUserDescription(composeRemoteDescription('Oat milk, not regular', 'tb-a1'))).toBe(
-      'Oat milk, not regular',
-    );
   });
 });

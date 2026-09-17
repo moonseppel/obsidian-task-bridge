@@ -80,10 +80,10 @@ describeAgainstTodoist('Todoist task round trip', () => {
     const created = await client.createTask({
       content: 'Buy milk',
       projectId: project.id,
-      description: '^tb-a1b2c3d4',
+      description: 'TaskBridge ID: ^tb-a1b2c3d4',
     });
 
-    await client.updateTaskDescription(created.id, 'Now orphaned.\n^tb-a1b2c3d4');
+    await client.updateTaskDescription(created.id, 'Now orphaned.\n\nTaskBridge ID: ^tb-a1b2c3d4');
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);
 
@@ -94,7 +94,7 @@ describeAgainstTodoist('Todoist task round trip', () => {
     const created = await client.createTask({
       content: 'Buy milk',
       projectId: project.id,
-      description: '^tb-a1b2c3d4',
+      description: 'TaskBridge ID: ^tb-a1b2c3d4',
     });
     const tasks = await client.listTasks(project.id);
     const task = tasks.find((entry) => entry.id === created.id);

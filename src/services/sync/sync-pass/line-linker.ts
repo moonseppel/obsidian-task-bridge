@@ -4,7 +4,8 @@ import { createBlockId } from '../task-format/block-id';
 import { SourceNote } from '../note-access/source-note';
 import { LineUnderSync, LinkedLine, localParentBlockId } from './sync-pass';
 import { canonicalTags } from './tag-set';
-import { composeRemoteDescription, readDescriptionBlock } from '../task-format/task-description';
+import { readDescriptionBlock } from '../task-format/task-description';
+import { composeRemoteDescription } from '../task-format/task-footer';
 import { TaskLinkStore, linkIds } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');

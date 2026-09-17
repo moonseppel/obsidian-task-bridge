@@ -1,14 +1,8 @@
 import { sanitizeDescription, sanitizeForDisplay, sanitizeTitle } from '../../utils/external-text';
 import { isRecord } from '../../utils/type-guards';
 import { HttpResponse } from '../http/http-client';
+import { findFooterBlockId } from '../sync/task-format/task-footer';
 import { TaskProviderError, TaskProviderFailure } from '../task-provider-error';
-
-/**
- * Searched for rather than assumed at a fixed position, since the user is free to edit the
- * description after the plugin wrote it; the last match is the footer, because description text
- * can carry a block id of its own.
- */
-const EMBEDDED_BLOCK_ID = /\^([A-Za-z0-9-]+)/g;
 
 export interface TodoistUser {
   id: string;
@@ -194,14 +188,9 @@ function toEpochMs(value: unknown): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/** The raw description, not the sanitized one, so the footer is read exactly as Todoist stores it. */
 function findEmbeddedBlockId(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const matches = [...value.matchAll(EMBEDDED_BLOCK_ID)];
-
-  return matches[matches.length - 1]?.[1];
+  return typeof value === 'string' ? findFooterBlockId(value) : undefined;
 }
 
 function readIdentifier(value: unknown, complaint: string): string {

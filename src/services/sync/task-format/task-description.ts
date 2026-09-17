@@ -1,9 +1,6 @@
 import { DEFAULT_INDENTATION, Indentation } from './indentation';
 import { parseTaskLine } from './task-line';
 
-/** Labelled so the caret-prefixed id means something to a user reading the task in the provider. */
-const ID_LABEL = 'TaskBridge ID: ';
-
 export interface DescriptionBlock {
   /** Always the line after the task line, even when lineCount is 0 and no block was found. */
   readonly startLine: number;
@@ -72,28 +69,4 @@ export function renderDescriptionBlock(taskIndent: string, text: string): readon
   }
 
   return text.split('\n').map((line) => `${taskIndent}\t${line}`);
-}
-
-export function composeRemoteDescription(userText: string, blockId: string): string {
-  const footer = `${ID_LABEL}^${blockId}`;
-
-  return userText.length === 0 ? footer : `${userText}\n\n${footer}`;
-}
-
-/**
- * The footer is searched for, never assumed to be last: the user may have edited the description
- * after the plugin wrote it (architecture-rules.md #8).
- */
-export function extractUserDescription(rawDescription: string): string {
-  const lines = rawDescription.split('\n');
-  const footerIndex = lines.findIndex((line) => line.includes(ID_LABEL));
-
-  if (footerIndex === -1) {
-    return rawDescription;
-  }
-
-  const before = lines.slice(0, footerIndex);
-  const withoutBlankLine = before.length > 0 && before[before.length - 1] === '' ? before.slice(0, -1) : before;
-
-  return withoutBlankLine.join('\n');
 }
