@@ -277,4 +277,44 @@ describeAgainstTodoist('Todoist task round trip', () => {
       await expect(client.getTask(created.id)).resolves.toMatchObject({ labels: [label] });
     });
   });
+
+  // Feature 0.10.3 rests on exactly this: `TodoistProvider.storedDescription` declares the strip, so
+  // a description the note and Todoist disagree about only at its ends is never taken for a remote
+  // edit — and everything between those ends has to survive, or no indentation could round-trip.
+  describe('what Todoist keeps of a description it is given', () => {
+    // The trailing spaces sit on an inner line on purpose: on the last one they would be part of
+    // the stripped end, and this has to show that only the two ends are ever lost.
+    const GIVEN = [
+      '\tindented first',
+      'flush',
+      'trailing spaces   ',
+      '\tindented inner',
+      '\t\tdeeper',
+      '',
+      'last line',
+      '',
+    ].join('\n');
+
+    it('strips the whole string, losing the leading indent and the trailing blank line', async () => {
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id, description: GIVEN });
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ description: GIVEN.trim() });
+    });
+
+    it('keeps every byte between the ends, inner indentation and blank lines included', async () => {
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id, description: GIVEN });
+
+      const task = await client.getTask(created.id);
+
+      expect(task?.description.split('\n').slice(1)).toEqual(GIVEN.split('\n').slice(1, -1));
+    });
+
+    it('strips an updated description the same way, so it is how Todoist stores one at all', async () => {
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
+
+      await client.updateTaskDescription(created.id, GIVEN);
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ description: GIVEN.trim() });
+    });
+  });
 });
