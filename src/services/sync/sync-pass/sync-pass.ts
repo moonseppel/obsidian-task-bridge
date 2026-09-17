@@ -36,7 +36,8 @@ export interface SyncPass {
    * parent's block id was only just minted and hasn't been written into the note yet.
    */
   readonly blockIdByLineNumber: Map<number, string>;
-  /** Every block id currently anchoring a task line in the note, fixed for the pass like parentLineNumbers. */
+  /** Every block id currently anchoring a task line in the note, fixed for the pass like
+   *  parentLineNumbers. Where one id anchors two lines, the first is the one it belongs to. */
   readonly lineNumberByBlockId: ReadonlyMap<string, number>;
   /**
    * Each edited task line's latest form, so a field pulled after another builds on it rather than on
@@ -230,7 +231,7 @@ function lineNumberByBlockId(lines: readonly string[], taskLines: ReadonlySet<nu
   for (const lineNumber of taskLines) {
     const blockId = parseTaskLine(lines[lineNumber])?.blockId;
 
-    if (blockId !== undefined) {
+    if (blockId !== undefined && !found.has(blockId)) {
       found.set(blockId, lineNumber);
     }
   }

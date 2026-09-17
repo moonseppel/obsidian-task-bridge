@@ -1,6 +1,7 @@
 import { Logger } from '../../../utils/logger';
 import { ProviderTask, TaskProvider } from '../../task-provider';
 import { CrossFileParentSync } from './cross-file-parent-sync';
+import { DuplicateAnchors } from '../duplicates/duplicate-anchors';
 import { GracePeriod } from '../sync-state/grace-period';
 import { Indentation, indentationOf } from '../task-format/indentation';
 import { LineLinker } from './line-linker';
@@ -82,6 +83,7 @@ export class TaskSync {
   private readonly crossFileParentSync: CrossFileParentSync;
   private readonly orphanHousekeeping: OrphanHousekeeping;
   private readonly noteFailures: NoteFailureReporter;
+  private readonly duplicates: DuplicateAnchors;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
 
   constructor(dependencies: TaskSyncDependencies) {
@@ -107,6 +109,7 @@ export class TaskSync {
     this.crossFileParentSync = new CrossFileParentSync({ links: this.links, noteFor: this.noteFor });
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
     this.noteFailures = new NoteFailureReporter(this.links);
+    this.duplicates = new DuplicateAnchors(this.links, new GracePeriod(CREATION_GRACE_PERIOD_MS));
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
@@ -121,6 +124,7 @@ export class TaskSync {
     };
 
     logRunStart(scope);
+    this.duplicates.startRun();
     await runThenCommit(() => this.syncScope(scope), () => this.commitRun(scope));
 
     const outcome = mergeOutcomes(scope.outcomes, project.resolution);
@@ -149,6 +153,7 @@ export class TaskSync {
       indentation: scope.indentation,
     };
     scope.outcomes.push(await this.missingLineSync.run(context));
+    this.duplicates.endRun();
   }
 
   /** Links are saved before housekeeping, since an unsaved link would get its task created a second time. */
@@ -239,6 +244,14 @@ export class TaskSync {
     }
 
     if (task.blockId !== undefined) {
+      if (this.duplicates.noteOccurrence(task.blockId, pass.path, lineNumber) === 'copy') {
+        logger.debug('Skipping a task line whose block id another line already carries', {
+          blockId: task.blockId,
+          path: pass.path,
+        });
+        return;
+      }
+
       pass.blockIdByLineNumber.set(lineNumber, task.blockId);
     }
 
