@@ -86,10 +86,28 @@ export class LinkedLineSync {
       remote,
       lastSynced: link.lastSyncedDescription ?? '',
       remoteUpdatedAt: remoteTask.updatedAt,
+      equals: (left, right) => this.storedAlike(left, right, link.blockId),
       settle: () => this.links.set({ ...link, lastSyncedDescription: remote }),
       push: () => this.pushDescription(linked, localBlock.text),
       pull: () => this.pullDescription(linked, localBlock, remote),
     });
+  }
+
+  /**
+   * Two description texts are the same when the provider would store them the same, so a difference
+   * the provider cannot keep — Todoist strips the whole string — is never misread as a remote edit
+   * and pulled into the note. The whole composed description is compared rather than the bare text,
+   * because where the user's text sits inside it decides which of its ends is at risk at all.
+   */
+  private storedAlike(left: string, right: string, blockId: string): boolean {
+    const stored = (text: string): string => this.asStored(composeRemoteDescription(text, blockId));
+
+    return stored(left) === stored(right);
+  }
+
+  /** A provider that declares nothing stores what it is given (architecture-rules.md #40). */
+  private asStored(description: string): string {
+    return this.provider.storedDescription?.(description) ?? description;
   }
 
   /** A label no `#tag` could express is dropped before comparing, so it is left alone every pass. */
