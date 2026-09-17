@@ -1,5 +1,6 @@
 import { Logger } from '../../../utils/logger';
 import { ProviderTask, TaskProvider } from '../../task-provider';
+import { CopiedLineSync } from '../duplicates/copied-line-sync';
 import { CrossFileParentSync } from './cross-file-parent-sync';
 import { DuplicateAnchors } from '../duplicates/duplicate-anchors';
 import { GracePeriod } from '../sync-state/grace-period';
@@ -84,6 +85,7 @@ export class TaskSync {
   private readonly orphanHousekeeping: OrphanHousekeeping;
   private readonly noteFailures: NoteFailureReporter;
   private readonly duplicates: DuplicateAnchors;
+  private readonly copiedLineSync: CopiedLineSync;
   private readonly creationGrace = new GracePeriod(CREATION_GRACE_PERIOD_MS);
 
   constructor(dependencies: TaskSyncDependencies) {
@@ -110,6 +112,7 @@ export class TaskSync {
     this.orphanHousekeeping = new OrphanHousekeeping(this.provider, this.links, orphans);
     this.noteFailures = new NoteFailureReporter(this.links);
     this.duplicates = new DuplicateAnchors(this.links, new GracePeriod(CREATION_GRACE_PERIOD_MS));
+    this.copiedLineSync = new CopiedLineSync({ noteFor: this.noteFor, getDeviceTag });
   }
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
@@ -153,7 +156,9 @@ export class TaskSync {
       indentation: scope.indentation,
     };
     scope.outcomes.push(await this.missingLineSync.run(context));
-    this.duplicates.endRun();
+
+    const reminted = await this.copiedLineSync.run(this.duplicates.endRun(), scope.indentation);
+    scope.outcomes.push({ ...emptyOutcome(scope.project.resolution), ...reminted });
   }
 
   /** Links are saved before housekeeping, since an unsaved link would get its task created a second time. */

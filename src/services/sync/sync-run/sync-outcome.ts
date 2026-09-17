@@ -23,6 +23,8 @@ export interface SyncOutcome {
   skippedEdits: number;
   /** A freshly created task undone because its line changed before the anchor could land. */
   abandonedCreations: number;
+  /** A copied task line given a block id of its own, so it can become its own task. */
+  remintedCopies: number;
   /** How many notes the run covered; set once for the whole run rather than summed. */
   filesScanned: number;
   /** How many tasks are linked once the run is done; set once for the whole run rather than summed. */
@@ -46,6 +48,7 @@ const COUNTERS: readonly Counter[] = [
   'removedOrphans',
   'skippedEdits',
   'abandonedCreations',
+  'remintedCopies',
 ];
 
 export function emptyOutcome(projectResolution: ProjectResolution): SyncOutcome {
@@ -63,6 +66,7 @@ export function emptyOutcome(projectResolution: ProjectResolution): SyncOutcome 
     removedOrphans: 0,
     skippedEdits: 0,
     abandonedCreations: 0,
+    remintedCopies: 0,
     filesScanned: 0,
     linkedTasks: 0,
     projectResolution,

@@ -89,6 +89,7 @@ describe('StatusReporter.reportSyncOutcome for a sync that changed something', (
     ['removedOrphans', { removedOrphans: 1 }],
     ['skippedEdits', { skippedEdits: 1 }],
     ['abandonedCreations', { abandonedCreations: 1 }],
+    ['remintedCopies', { remintedCopies: 1 }],
   ])('logs every counter at info, not debug, when %s is non-zero', (_name, overrides) => {
     const { debug, info } = spyOnLevels();
     const outcome = outcomeWith(overrides);

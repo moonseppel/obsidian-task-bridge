@@ -1,3 +1,4 @@
+import { NewTask } from '../../../../services/task-provider';
 import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
 import {
   FakeNote,
@@ -9,6 +10,14 @@ import {
 } from '../../../support/sync-harness';
 
 const GRACE_MS = 60_000;
+const FRESH_ANCHOR = /\^tb-[a-z0-9]{8}$/;
+
+/** A link and its one remote task, as they stand before the line was ever copied. */
+function linkedTo(path: string): TaskLinkStore {
+  return new TaskLinkStore([
+    { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastKnownFilePath: path },
+  ]);
+}
 
 describe('TaskSync with a task line copied to a second place', () => {
   afterEach(() => {
@@ -115,5 +124,148 @@ describe('TaskSync with a task line copied to a second place', () => {
 
     expect(updateTaskTitle).toHaveBeenCalledWith(TASK_ID, 'Buy milk');
     expect(outOfScope.content).toBe('- [ ] Buy milk ^tb-a1');
+  });
+});
+
+describe('TaskSync re-minting a copied task line', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('leaves both notes untouched while the duplicate is still inside the grace period', async () => {
+    jest.useFakeTimers();
+    const keeper = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const copy = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const createTask = jest.fn();
+    const sync = makeMultiFileSync(
+      new Map([
+        ['Keeper.md', keeper],
+        ['Copy.md', copy],
+      ]),
+      linkedTo('Keeper.md'),
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }), listProjects: projectExists, createTask },
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(GRACE_MS - 1);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ remintedCopies: 0 });
+    expect(keeper.content).toBe('- [ ] Buy milk ^tb-a1');
+    expect(copy.content).toBe('- [ ] Buy milk ^tb-a1');
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
+  it('gives the copy an id of its own past the grace period, then a task of its own', async () => {
+    jest.useFakeTimers();
+    const keeper = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const copy = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const created: NewTask[] = [];
+    const sync = makeMultiFileSync(
+      new Map([
+        ['Keeper.md', keeper],
+        ['Copy.md', copy],
+      ]),
+      linkedTo('Keeper.md'),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        listProjects: projectExists,
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: 'task-2', title: task.title });
+        },
+      },
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(GRACE_MS + 1);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ remintedCopies: 1 });
+    expect(keeper.content).toBe('- [ ] Buy milk ^tb-a1');
+    expect(copy.content).toMatch(FRESH_ANCHOR);
+    expect(copy.content).not.toContain('^tb-a1');
+    expect(created).toEqual([]);
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(GRACE_MS + 1);
+    await sync.run(PROJECT);
+
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe('Buy milk');
+    expect(created[0].description).toContain(copy.content.split(' ^')[1]);
+  });
+
+  it('touches nothing on the copied line but its anchor', async () => {
+    jest.useFakeTimers();
+    const keeper = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const copied = ['\t- [ ] Buy milk #errands ^tb-a1', '\t\tremember the oat one', '\t\t- [ ] Check the date'];
+    const copy = new FakeNote(['- [ ] Groceries ^tb-top', ...copied].join('\n'));
+    const sync = makeMultiFileSync(
+      new Map([
+        ['Keeper.md', keeper],
+        ['Copy.md', copy],
+      ]),
+      linkedTo('Keeper.md'),
+      {
+        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        listProjects: projectExists,
+        createTask: (task) => Promise.resolve({ id: 'task-top', title: task.title }),
+      },
+    );
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(GRACE_MS + 1);
+    await sync.run(PROJECT);
+
+    const lines = copy.content.split('\n');
+
+    expect(lines[0]).toBe('- [ ] Groceries ^tb-top');
+    expect(lines[1]).toMatch(/^\t- \[ \] Buy milk #errands \^tb-[a-z0-9]{8}$/);
+    expect(lines[2]).toBe('\t\tremember the oat one');
+    expect(lines[3]).toMatch(/^\t\t- \[ \] Check the date(?: \^tb-[a-z0-9]{8})?$/);
+    expect(lines).toHaveLength(4);
+  });
+
+  it('re-mints the second of two lines in one note and leaves the first alone', async () => {
+    jest.useFakeTimers();
+    const note = new FakeNote('- [ ] Buy milk ^tb-a1\n- [ ] Buy milk ^tb-a1');
+    const sync = makeMultiFileSync(new Map([['Tasks.md', note]]), linkedTo('Tasks.md'), {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      listProjects: projectExists,
+    });
+
+    await sync.run(PROJECT);
+    jest.advanceTimersByTime(GRACE_MS + 1);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ remintedCopies: 1 });
+
+    const lines = note.content.split('\n');
+
+    expect(lines[0]).toBe('- [ ] Buy milk ^tb-a1');
+    expect(lines[1]).toMatch(FRESH_ANCHOR);
+    expect(lines[1]).not.toContain('^tb-a1');
+  });
+
+  it('re-mints nothing for a duplicate that is gone before its grace period is up', async () => {
+    jest.useFakeTimers();
+    const keeper = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const copy = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const notes = new Map([
+      ['Keeper.md', keeper],
+      ['Copy.md', copy],
+    ]);
+    const createTask = jest.fn();
+    const sync = makeMultiFileSync(notes, linkedTo('Keeper.md'), {
+      listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+      listProjects: projectExists,
+      createTask,
+    });
+
+    await sync.run(PROJECT);
+    copy.content = '';
+    jest.advanceTimersByTime(GRACE_MS + 1);
+
+    expect(await sync.run(PROJECT)).toMatchObject({ remintedCopies: 0 });
+    expect(keeper.content).toBe('- [ ] Buy milk ^tb-a1');
+    expect(createTask).not.toHaveBeenCalled();
   });
 });
