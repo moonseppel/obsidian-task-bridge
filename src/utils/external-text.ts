@@ -27,11 +27,19 @@ export function sanitizeTitle(value: unknown): string {
   return value.replace(NON_PRINTABLE_CHARACTERS, ' ').trim();
 }
 
-/** Like sanitizeTitle, but a description is genuinely multi-line, so a newline survives untouched. */
+/**
+ * Like sanitizeTitle, but a description is genuinely multi-line and indented: newline and tab are
+ * its own content rather than characters to be scrubbed, and neither end is trimmed, because what
+ * the provider did to the ends of a description is the sync layer's business, not this function's.
+ */
 export function sanitizeDescription(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
   }
 
-  return value.replace(NON_PRINTABLE_CHARACTER, (char) => (char === '\n' ? char : ' ')).trim();
+  return value.replace(NON_PRINTABLE_CHARACTER, (char) => (isDescriptionWhitespace(char) ? char : ' '));
+}
+
+function isDescriptionWhitespace(character: string): boolean {
+  return character === '\n' || character === '\t';
 }
