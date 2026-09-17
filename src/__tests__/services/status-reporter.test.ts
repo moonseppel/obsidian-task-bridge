@@ -46,7 +46,7 @@ describe('StatusReporter.reportSyncOutcome for a quiet sync', () => {
     statusReporter.reportSyncOutcome(outcomeWith());
 
     expect(info).toHaveBeenCalledTimes(1);
-    expect(debug).toHaveBeenCalledWith('Task sync finished with nothing to do');
+    expect(debug).toHaveBeenCalledWith('Task sync finished. Nothing changed.');
   });
 
   it('reports one at info again once the notes or links it covers change', () => {

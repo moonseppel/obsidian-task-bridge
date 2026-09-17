@@ -82,7 +82,7 @@ export class StatusReporter {
     } else if (coverageChanged) {
       this.logger.info('Task sync is up to date', coverage);
     } else {
-      this.logger.debug('Task sync finished with nothing to do');
+      this.logger.debug('Task sync finished. Nothing changed.');
     }
   }
 
