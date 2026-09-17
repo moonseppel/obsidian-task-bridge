@@ -11,6 +11,11 @@ export class TodoistProvider implements TaskProvider {
     this.api = api;
   }
 
+  /** Todoist stores a description with the whole string stripped, keeping every byte between its ends. */
+  storedDescription(description: string): string {
+    return description.trim();
+  }
+
   async connect(): Promise<ProviderAccount> {
     const user = await this.api.fetchUser();
 

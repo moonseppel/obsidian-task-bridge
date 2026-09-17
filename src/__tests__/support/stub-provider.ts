@@ -16,6 +16,8 @@ export interface StubProviderOptions {
   reparentTask?: (taskId: string, parentId: string | undefined, projectId: string) => Promise<void>;
   removeTask?: (taskId: string) => Promise<void>;
   getTask?: (taskId: string) => Promise<LooseProviderTask | undefined>;
+  /** Left out by a stub standing in for a provider that stores a description exactly as given. */
+  storedDescription?: (description: string) => string;
 }
 
 /** Every port method, so a test only has to spell out the ones it actually exercises. */
@@ -24,6 +26,7 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
 
   return {
     description: { displayName: 'Todoist', defaultProjectName: 'Inbox' },
+    storedDescription: options.storedDescription,
     connect: options.connect ?? notStubbed('connect'),
     listProjects: options.listProjects ?? notStubbed('listProjects'),
     listTasks: listTasks

@@ -46,6 +46,13 @@ export interface ProviderDescription {
 
 export interface TaskProvider {
   readonly description: ProviderDescription;
+  /**
+   * A description as this provider will actually store it, declared only where the provider changes
+   * one at all — Todoist strips the whole string, so whitespace at either end of it cannot carry
+   * meaning. Leaving it out means the provider stores what it is given. Used to tell a genuine
+   * remote edit apart from the provider's own normalization.
+   */
+  readonly storedDescription?: (description: string) => string;
   connect(): Promise<ProviderAccount>;
   listProjects(): Promise<ProviderProject[]>;
   listTasks(projectId: string): Promise<ProviderTask[]>;
