@@ -1,4 +1,4 @@
-import { MetadataCache, TFile, TFolder, Vault } from 'obsidian';
+import { TFile, TFolder, Vault } from 'obsidian';
 import { TaskFinder, TaskFinderSettings } from '../../../../services/sync/task-source/task-finder';
 import { parseTaskLine } from '../../../../services/sync/task-format/task-line';
 
@@ -25,7 +25,7 @@ function tfolder(path: string): TFolder {
 interface FakeVaultOptions {
   files: string[];
   folders?: string[];
-  blocksByFile?: Record<string, string[]>;
+  contentByFile?: Record<string, string>;
 }
 
 function finderWith(options: FakeVaultOptions, settings: Partial<TaskFinderSettings> = {}): TaskFinder {
@@ -37,16 +37,10 @@ function finderWith(options: FakeVaultOptions, settings: Partial<TaskFinderSetti
     getMarkdownFiles: (): TFile[] => files,
     getAbstractFileByPath: (path: string): TFile | TFolder | null =>
       filesByPath.get(path) ?? foldersByPath.get(path) ?? null,
+    cachedRead: (file: TFile): Promise<string> => Promise.resolve(options.contentByFile?.[file.path] ?? ''),
   } as unknown as Vault;
 
-  const metadataCache = {
-    getFileCache: (file: TFile) => {
-      const blockIds = options.blocksByFile?.[file.path] ?? [];
-      return { blocks: Object.fromEntries(blockIds.map((id) => [id.toLowerCase(), {}])) };
-    },
-  } as unknown as MetadataCache;
-
-  return new TaskFinder(vault, metadataCache, () => ({ ...BASE_SETTINGS, ...settings }));
+  return new TaskFinder(vault, () => ({ ...BASE_SETTINGS, ...settings }));
 }
 
 describe('TaskFinder.filesInScope', () => {
@@ -136,27 +130,83 @@ describe('TaskFinder.isTagInScope', () => {
   });
 });
 
-describe('TaskFinder.existsOutsideIgnoredFiles', () => {
-  it('finds a block id anchored in a non-ignored file', () => {
-    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['tb-abc123'] } });
-    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
-  });
-
-  it('does not find a block id anchored nowhere', () => {
-    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': [] } });
-    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
-  });
-
-  it('ignores a match inside a file matching the ignore pattern', () => {
+describe('TaskFinder.describeScope', () => {
+  it('reports the scope settings, saying only whether a filter tag is set rather than naming it', () => {
     const finder = finderWith(
-      { files: ['Tasks.sync-conflict.md'], blocksByFile: { 'Tasks.sync-conflict.md': ['tb-abc123'] } },
+      { files: [] },
+      { relativeTaskSourcePath: 'Tasks', sourceTag: 'private-tag', ignoreFilePatterns: '*.conflict.md' },
+    );
+
+    expect(finder.describeScope()).toEqual({
+      location: 'Tasks',
+      wholeVault: false,
+      tagFilter: true,
+      ignorePatterns: '*.conflict.md',
+    });
+  });
+});
+
+describe('TaskFinder.existsOutsideIgnoredFiles', () => {
+  it('finds a block id anchored in a non-ignored file', async () => {
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': '- [ ] Buy milk ^tb-abc123' } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  });
+
+  it('does not find a block id anchored nowhere', async () => {
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': '- [ ] Buy milk' } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
+  });
+
+  it('ignores a match inside a file matching the ignore pattern', async () => {
+    const finder = finderWith(
+      { files: ['Tasks.sync-conflict.md'], contentByFile: { 'Tasks.sync-conflict.md': '- [ ] Buy milk ^tb-abc123' } },
       { ignoreFilePatterns: '*.sync-conflict.md' },
     );
-    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(false);
   });
 
-  it('matches case-insensitively', () => {
-    const finder = finderWith({ files: ['Other.md'], blocksByFile: { 'Other.md': ['TB-ABC123'] } });
-    expect(finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  it('matches case-insensitively', async () => {
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': '- [ ] Buy milk ^TB-ABC123' } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  });
+
+  it('finds a task line whose paragraph plain indented text continues, which Obsidian indexes no block id for', async () => {
+    const content = '- [x] Buy milk  ^tb-abc123\n\tanother description without bullet point';
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': content } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  });
+
+  it('finds a task line followed by a child indented too deep to start a nested list', async () => {
+    const content = '- [ ] another nesting test ^tb-abc123\n\t\t- [ ] direct grandchild';
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': content } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  });
+
+  it('still finds a block id carried by description text, so its task takes the out-of-scope path', async () => {
+    const content = '- [ ] Parent ^tb-p1\n\tDemoted text ^tb-abc123';
+    const finder = finderWith({ files: ['Other.md'], contentByFile: { 'Other.md': content } });
+    expect(await finder.existsOutsideIgnoredFiles('tb-abc123')).toBe(true);
+  });
+});
+
+describe('TaskFinder.locateBlockId', () => {
+  it('names the in-scope file whose content anchors the block id', async () => {
+    const finder = finderWith(
+      {
+        files: ['Tasks/A.md', 'Tasks/B.md'],
+        folders: ['Tasks'],
+        contentByFile: { 'Tasks/A.md': '- [ ] Other ^tb-x1', 'Tasks/B.md': '- [ ] Parent ^tb-abc123\n\tplain text' },
+      },
+      { relativeTaskSourcePath: 'Tasks' },
+    );
+    expect((await finder.locateBlockId('tb-abc123'))?.path).toBe('Tasks/B.md');
+  });
+
+  it('does not look outside the configured scope', async () => {
+    const finder = finderWith(
+      { files: ['Tasks/A.md', 'Other.md'], folders: ['Tasks'], contentByFile: { 'Other.md': '- [ ] Parent ^tb-abc123' } },
+      { relativeTaskSourcePath: 'Tasks' },
+    );
+    expect(await finder.locateBlockId('tb-abc123')).toBeUndefined();
   });
 });

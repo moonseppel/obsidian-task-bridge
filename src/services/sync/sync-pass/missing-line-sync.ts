@@ -23,7 +23,7 @@ export interface MissingLineSyncDependencies {
   readonly grace: GracePeriod;
   readonly noteFor: (path: string) => SourceNote;
   /** Whether a block id still anchors a task line in a non-ignored vault file outside this run's scope. */
-  readonly existsOutsideIgnoredFiles: (blockId: string) => boolean;
+  readonly existsOutsideIgnoredFiles: (blockId: string) => Promise<boolean>;
 }
 
 export interface MissingLineRunContext {
@@ -58,7 +58,7 @@ export class MissingLineSync {
   private readonly links: TaskLinkStore;
   private readonly grace: GracePeriod;
   private readonly noteFor: (path: string) => SourceNote;
-  private readonly existsOutsideIgnoredFiles: (blockId: string) => boolean;
+  private readonly existsOutsideIgnoredFiles: (blockId: string) => Promise<boolean>;
 
   constructor(dependencies: MissingLineSyncDependencies) {
     this.provider = dependencies.provider;
@@ -107,7 +107,7 @@ export class MissingLineSync {
 
     // Still anchored outside the configured scope: orphan housekeeping flags and removes it on its own
     // timing, the same way re-entering scope resolves an orphan.
-    if (this.existsOutsideIgnoredFiles(link.blockId)) {
+    if (await this.existsOutsideIgnoredFiles(link.blockId)) {
       logger.debug('Line moved out of scope; left to orphan housekeeping', linkIds(link));
       return;
     }

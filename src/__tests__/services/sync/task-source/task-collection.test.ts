@@ -1,4 +1,4 @@
-import { EventRef, MetadataCache, TFile, Vault } from 'obsidian';
+import { EventRef, TFile, Vault } from 'obsidian';
 import { TaskChangeListenerCallbacks } from '../../../../services/sync/task-source/task-change-listener';
 import { RegisterEvent, TaskCollection, TaskCollectionSettings } from '../../../../services/sync/task-source/task-collection';
 
@@ -35,9 +35,7 @@ function collectionOver(
   registerEvent: RegisterEvent,
   callbacks: TaskChangeListenerCallbacks = silentCallbacks(),
 ): TaskCollection {
-  const metadataCache = { getFileCache: () => null } as unknown as MetadataCache;
-
-  return new TaskCollection({ vault, metadataCache, readSettings: () => SETTINGS, registerEvent, callbacks });
+  return new TaskCollection({ vault, readSettings: () => SETTINGS, registerEvent, callbacks });
 }
 
 describe('TaskCollection', () => {

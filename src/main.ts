@@ -55,7 +55,6 @@ export default class TaskBridgePlugin extends Plugin {
   });
   private readonly taskCollection: TaskCollection = new TaskCollection({
     vault: this.app.vault,
-    metadataCache: this.app.metadataCache,
     readSettings: () => this.settings,
     registerEvent: (eventRef) => this.registerEvent(eventRef),
     callbacks: {
@@ -68,6 +67,7 @@ export default class TaskBridgePlugin extends Plugin {
     filesInScope: () => this.taskCollection.filesInScope(),
     noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
     isTagInScope: (task) => this.taskCollection.isTagInScope(task),
+    describeScope: () => ({ ...this.taskCollection.describeScope() }),
     existsOutsideIgnoredFiles: (blockId) => this.taskCollection.existsOutsideIgnoredFiles(blockId),
     locateParentFile: (blockId) => this.taskCollection.locateParentFile(blockId),
     provider: this.provider,

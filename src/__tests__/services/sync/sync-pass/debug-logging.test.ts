@@ -58,6 +58,22 @@ describe('Debug logging', () => {
     expect(logged()).toContain('tb-a1');
   });
 
+  it('records the scope settings a run applied when it starts', async () => {
+    const logged = everythingLogged();
+    const note = new FakeNote('- [ ] Buy milk ^tb-a1');
+    const links = new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' }]);
+    const sync = makeSync(
+      note,
+      links,
+      { listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }) },
+      { describeScope: () => ({ location: 'Tasks', wholeVault: false, tagFilter: true, ignorePatterns: '*.conflict.md' }) },
+    );
+
+    await sync.run(PROJECT);
+
+    expect(logged()).toContain('"ignorePatterns":"*.conflict.md"');
+  });
+
   it('never records a title, description, tag or any other note text', async () => {
     const logged = everythingLogged();
 

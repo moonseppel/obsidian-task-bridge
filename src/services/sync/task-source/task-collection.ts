@@ -1,5 +1,5 @@
-import { EventRef, MetadataCache, Vault } from 'obsidian';
-import { TaskFinder, TaskFinderSettings } from './task-finder';
+import { EventRef, Vault } from 'obsidian';
+import { TaskFinder, TaskFinderScopeDescription, TaskFinderSettings } from './task-finder';
 import { TaskChangeListener, TaskChangeListenerCallbacks, TaskChangeListenerSettings } from './task-change-listener';
 import { ParsedTaskLine } from '../task-format/task-line';
 
@@ -9,7 +9,6 @@ export type RegisterEvent = (eventRef: EventRef) => void;
 
 export interface TaskCollectionDependencies {
   readonly vault: Vault;
-  readonly metadataCache: MetadataCache;
   readonly readSettings: TaskCollectionSettingsReader;
   readonly registerEvent: RegisterEvent;
   readonly callbacks: TaskChangeListenerCallbacks;
@@ -29,7 +28,7 @@ export class TaskCollection {
   constructor(dependencies: TaskCollectionDependencies) {
     this.vault = dependencies.vault;
     this.registerEvent = dependencies.registerEvent;
-    this.finder = new TaskFinder(dependencies.vault, dependencies.metadataCache, dependencies.readSettings);
+    this.finder = new TaskFinder(dependencies.vault, dependencies.readSettings);
     this.listener = new TaskChangeListener(dependencies.readSettings, dependencies.callbacks);
   }
 
@@ -44,16 +43,20 @@ export class TaskCollection {
     return this.finder.filesInScope().map((file) => file.path);
   }
 
+  describeScope(): TaskFinderScopeDescription {
+    return this.finder.describeScope();
+  }
+
   isTagInScope(task: ParsedTaskLine): boolean {
     return this.finder.isTagInScope(task);
   }
 
-  existsOutsideIgnoredFiles(blockId: string): boolean {
+  existsOutsideIgnoredFiles(blockId: string): Promise<boolean> {
     return this.finder.existsOutsideIgnoredFiles(blockId);
   }
 
   /** The path of the in-scope file currently anchoring a block id, if any. */
-  locateParentFile(blockId: string): string | undefined {
-    return this.finder.locateBlockId(blockId)?.path;
+  async locateParentFile(blockId: string): Promise<string | undefined> {
+    return (await this.finder.locateBlockId(blockId))?.path;
   }
 }

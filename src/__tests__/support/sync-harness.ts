@@ -27,6 +27,7 @@ export interface SyncHarnessOptions {
   readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
   readonly locateParentFile?: (blockId: string) => string | undefined;
   readonly readTabSize?: () => unknown;
+  readonly describeScope?: TaskSyncDependencies['describeScope'];
 }
 
 /** The description a freshly created task carries: the user's text above this plugin's footer. */
@@ -94,7 +95,7 @@ export function makeMultiFileSync(
 ): TaskSync {
   return new TaskSync({
     ...optionalDependencies(options),
-    locateParentFile: options.locateParentFile ?? defaultLocateParentFile(notesByPath),
+    locateParentFile: resolving(options.locateParentFile ?? defaultLocateParentFile(notesByPath)),
     filesInScope: () => [...notesByPath.keys()],
     noteFor: (path) => registeredNote(notesByPath, path),
     provider: stubProvider(provider),
@@ -115,6 +116,11 @@ function defaultLocateParentFile(notesByPath: ReadonlyMap<string, FakeNote>): (b
   };
 }
 
+/** Scenarios answer vault lookups synchronously; the sync awaits them, as it does the real vault. */
+function resolving<T>(lookup: (blockId: string) => T): (blockId: string) => Promise<T> {
+  return (blockId) => Promise.resolve(lookup(blockId));
+}
+
 export function remoteTasks(...tasks: LooseProviderTask[]): () => Promise<LooseProviderTask[]> {
   return () => Promise.resolve(tasks);
 }
@@ -129,9 +135,10 @@ function optionalDependencies(
     getDeviceTag: options.getDeviceTag,
     orphans: options.orphans,
     isTagInScope: options.isTagInScope,
-    existsOutsideIgnoredFiles: options.existsOutsideIgnoredFiles,
-    locateParentFile: options.locateParentFile,
+    existsOutsideIgnoredFiles: options.existsOutsideIgnoredFiles && resolving(options.existsOutsideIgnoredFiles),
+    locateParentFile: options.locateParentFile && resolving(options.locateParentFile),
     readTabSize: options.readTabSize,
+    describeScope: options.describeScope,
   };
 }
 

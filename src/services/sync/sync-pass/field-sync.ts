@@ -21,7 +21,8 @@ export interface FieldChange<T> {
   /** Both sides already agree, so neither is written; only the last-agreed value moves on. */
   settle(): void;
   push(): Promise<void>;
-  pull(): void;
+  /** May look beyond this note, such as for a new parent living in another one. */
+  pull(): void | Promise<void>;
 }
 
 interface FieldDecision {
@@ -52,7 +53,7 @@ export async function syncField<T>(line: LineUnderSync, change: FieldChange<T>):
 
   if (remoteChanged) {
     logger.debug('Pulling a remote change', decisionOf(line, change));
-    change.pull();
+    await change.pull();
   }
 }
 
@@ -77,7 +78,7 @@ async function resolveConflict<T>(
 
   if (change.remoteUpdatedAt !== undefined && change.remoteUpdatedAt > line.pass.localModifiedAt) {
     logger.debug('Conflict won by the newer remote change; pulling', conflictOf(line, change));
-    change.pull();
+    await change.pull();
     return;
   }
 

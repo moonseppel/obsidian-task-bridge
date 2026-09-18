@@ -50,13 +50,17 @@ export interface TaskSyncDependencies {
   readonly isTagInScope?: (task: ParsedTaskLine) => boolean;
   /** Whether a block id anchors a task line in some non-ignored vault file outside this run's
    *  scanned scope — the signal that tells a task merely moved out of scope from one truly gone. */
-  readonly existsOutsideIgnoredFiles?: (blockId: string) => boolean;
+  readonly existsOutsideIgnoredFiles?: (blockId: string) => Promise<boolean>;
   /** The path of the in-scope file currently anchoring a block id, if any — used to relocate a
    *  task whose remote parent lives in a different note than its own line. */
-  readonly locateParentFile?: (blockId: string) => string | undefined;
+  readonly locateParentFile?: (blockId: string) => Promise<string | undefined>;
   /** The editor's configured tab size, read raw: a changed setting takes effect on the next run. */
   readonly readTabSize?: () => unknown;
+  /** The settings deciding this run's scope, logged at its start so a bug report shows what applied. */
+  readonly describeScope?: () => ScopeDescription;
 }
+
+export type ScopeDescription = Readonly<Record<string, string | boolean>>;
 
 /** One run's project and scope, and what the run has found and done so far. */
 interface RunScope {
@@ -77,6 +81,7 @@ export class TaskSync {
   private readonly saveLinks: () => Promise<void>;
   private readonly isTagInScope: (task: ParsedTaskLine) => boolean;
   private readonly readTabSize: () => unknown;
+  private readonly describeScope: () => ScopeDescription;
   private readonly lineSync: LinkedLineSync;
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
@@ -98,14 +103,19 @@ export class TaskSync {
     this.saveLinks = dependencies.saveLinks;
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
     this.readTabSize = dependencies.readTabSize ?? (() => undefined);
-    this.lineSync = new LinkedLineSync(this.provider, this.links, dependencies.locateParentFile ?? (() => undefined));
+    this.describeScope = dependencies.describeScope ?? (() => ({}));
+    this.lineSync = new LinkedLineSync(
+      this.provider,
+      this.links,
+      dependencies.locateParentFile ?? (() => Promise.resolve(undefined)),
+    );
     this.lineLinker = new LineLinker(this.provider, this.links, getDeviceTag);
     this.missingLineSync = new MissingLineSync({
       provider: this.provider,
       links: this.links,
       grace: new GracePeriod(CREATION_GRACE_PERIOD_MS),
       noteFor: this.noteFor,
-      existsOutsideIgnoredFiles: dependencies.existsOutsideIgnoredFiles ?? (() => false),
+      existsOutsideIgnoredFiles: dependencies.existsOutsideIgnoredFiles ?? (() => Promise.resolve(false)),
     });
     this.remoteChildSync = new RemoteChildSync(this.links, getDeviceTag);
     this.crossFileParentSync = new CrossFileParentSync({ links: this.links, noteFor: this.noteFor });
@@ -126,7 +136,7 @@ export class TaskSync {
       outcomes: [],
     };
 
-    logRunStart(scope);
+    logRunStart(scope, this.describeScope());
     this.duplicates.startRun();
     await runThenCommit(() => this.syncScope(scope), () => this.commitRun(scope));
 
@@ -339,11 +349,12 @@ async function writeCollectedEdits(note: SourceNote, pass: SyncPass): Promise<nu
   return hasAnyEdit(edits) ? note.applyEdits(edits, pass.indentation) : 0;
 }
 
-function logRunStart(scope: RunScope): void {
+function logRunStart(scope: RunScope, settings: ScopeDescription): void {
   logger.debug('Sync run started', {
     projectId: scope.project.id,
     projectResolution: scope.project.resolution.kind,
     remoteTasks: scope.project.tasks.length,
     notesInScope: scope.paths.length,
+    ...settings,
   });
 }

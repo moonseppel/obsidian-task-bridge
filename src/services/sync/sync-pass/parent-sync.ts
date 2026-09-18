@@ -18,9 +18,9 @@ const logger = new Logger('TaskBridge:Sync');
 export class ParentSync {
   private readonly provider: TaskProvider;
   private readonly links: TaskLinkStore;
-  private readonly locateParentFile: (blockId: string) => string | undefined;
+  private readonly locateParentFile: (blockId: string) => Promise<string | undefined>;
 
-  constructor(provider: TaskProvider, links: TaskLinkStore, locateParentFile: (blockId: string) => string | undefined) {
+  constructor(provider: TaskProvider, links: TaskLinkStore, locateParentFile: (blockId: string) => Promise<string | undefined>) {
     this.provider = provider;
     this.links = links;
     this.locateParentFile = locateParentFile;
@@ -72,13 +72,13 @@ export class ParentSync {
     line.pass.outcome.pushed += 1;
   }
 
-  private pull(linked: LinkedLine, parentBlockId: string | undefined): void {
+  private async pull(linked: LinkedLine, parentBlockId: string | undefined): Promise<void> {
     if (parentBlockId === undefined) {
       this.pullToTopLevel(linked);
       return;
     }
 
-    this.pullToNewParent(linked, parentBlockId);
+    await this.pullToNewParent(linked, parentBlockId);
   }
 
   /** The line stays exactly where it is; only its own indentation and its subtree's move. */
@@ -98,7 +98,7 @@ export class ParentSync {
   }
 
   /** Relocates the line and its whole subtree under the new parent's existing content. */
-  private pullToNewParent(linked: LinkedLine, newParentBlockId: string): void {
+  private async pullToNewParent(linked: LinkedLine, newParentBlockId: string): Promise<void> {
     const { line, link } = linked;
     const newParentLineNumber = line.pass.lineNumberByBlockId.get(newParentBlockId);
 
@@ -109,7 +109,7 @@ export class ParentSync {
       return;
     }
 
-    this.queueCrossFileRelocation(linked, newParentBlockId);
+    await this.queueCrossFileRelocation(linked, newParentBlockId);
   }
 
   /**
@@ -118,9 +118,9 @@ export class ParentSync {
    * and the target's are read fresh only once every file's pass has committed its own. Not found
    * anywhere in scope is left exactly as before: retried next pass, no edits at all.
    */
-  private queueCrossFileRelocation(linked: LinkedLine, newParentBlockId: string): void {
+  private async queueCrossFileRelocation(linked: LinkedLine, newParentBlockId: string): Promise<void> {
     const { line, link } = linked;
-    const targetPath = this.locateParentFile(newParentBlockId);
+    const targetPath = await this.locateParentFile(newParentBlockId);
 
     if (targetPath === undefined) {
       logger.debug('New parent has no line anywhere in scope yet; relocation retried next pass', {

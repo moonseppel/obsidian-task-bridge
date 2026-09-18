@@ -23,7 +23,7 @@ export class LinkedLineSync {
   private readonly links: TaskLinkStore;
   private readonly parentSync: ParentSync;
 
-  constructor(provider: TaskProvider, links: TaskLinkStore, locateParentFile: (blockId: string) => string | undefined) {
+  constructor(provider: TaskProvider, links: TaskLinkStore, locateParentFile: (blockId: string) => Promise<string | undefined>) {
     this.provider = provider;
     this.links = links;
     this.parentSync = new ParentSync(provider, links, locateParentFile);
