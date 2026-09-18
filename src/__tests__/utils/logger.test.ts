@@ -20,7 +20,7 @@ describe('Logger', () => {
 
     new Logger('Test').info('Hello');
 
-    expect(info).toHaveBeenCalledWith('[2027-01-02T03:04:05.006Z] [Test] Hello');
+    expect(info).toHaveBeenCalledWith('[2027-01-02T03:04:05.006Z] [Test] [INFO ] Hello');
   });
 
   it('prefixes every message with its namespace', () => {
@@ -28,7 +28,7 @@ describe('Logger', () => {
 
     new Logger('Test').info('Hello');
 
-    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] Hello`);
+    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] [INFO ] Hello`);
   });
 
   it('makes a logged string from outside the plugin safe to display', () => {
@@ -36,7 +36,7 @@ describe('Logger', () => {
 
     new Logger('Test').info('Label', `bad${BELL}value`);
 
-    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] Label`, 'bad value');
+    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] [INFO ] Label`, 'bad value');
   });
 
   it('makes the string fields of a logged object safe to display', () => {
@@ -44,7 +44,7 @@ describe('Logger', () => {
 
     new Logger('Test').info('Label', { path: `a${BELL}b`, count: 2 });
 
-    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] Label`, { path: 'a b', count: 2 });
+    expect(info).toHaveBeenCalledWith(`[${NOW}] [Test] [INFO ] Label`, { path: 'a b', count: 2 });
   });
 
   it('keeps a logged error whole, so its stack survives', () => {

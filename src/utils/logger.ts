@@ -24,21 +24,21 @@ export class Logger {
     this.namespace = namespace;
   }
 
-  info(message: string, data?: unknown): void {
-    this.write(console.info, message, data);
+  error(message: string, error?: unknown): void {
+    this.write(console.error, "[ERROR] " + message, error);
   }
 
   warn(message: string, data?: unknown): void {
-    this.write(console.warn, message, data);
+    this.write(console.warn, "[WARN ] " + message, data);
   }
 
-  error(message: string, error?: unknown): void {
-    this.write(console.error, message, error);
+  info(message: string, data?: unknown): void {
+    this.write(console.info, "[INFO ] " + message, data);
   }
 
   debug(message: string, data?: unknown): void {
     if (debugLogging) {
-      this.write(console.debug, message, data);
+      this.write(console.debug, "[DEBUG] " + message, data);
     }
   }
 
