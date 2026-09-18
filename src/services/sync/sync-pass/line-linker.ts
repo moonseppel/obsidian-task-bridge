@@ -72,7 +72,7 @@ export class LineLinker {
     }
 
     pass.outcome.created += 1;
-    logger.info('Created a task for a new line', { blockId, taskId });
+    logger.debug('Created a task for a new line', { blockId, taskId });
     await this.completeIfDone(line, created);
   }
 
@@ -84,7 +84,7 @@ export class LineLinker {
 
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
-    logger.info('Recreated a task deleted in Todoist, since its line carried a newer edit', {
+    logger.debug('Recreated a task deleted in Todoist, since its line carried a newer edit', {
       blockId: link.blockId,
       deletedTaskId: link.providerTaskId,
       taskId: recreated.providerTaskId,

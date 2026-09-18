@@ -8,6 +8,9 @@ const GRACE_MS = 60_000;
 function infoLogged(): jest.SpyInstance {
   return jest.spyOn(Logger.prototype, 'info').mockImplementation();
 }
+function debugLogged(): jest.SpyInstance {
+  return jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+}
 
 function linkedTo(title: string): TaskLinkStore {
   return new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: title }]);
@@ -20,7 +23,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
   });
 
   it('logs a task created for a new line', async () => {
-    const info = infoLogged();
+    const debug = debugLogged();
     const sync = makeSync(new FakeNote('- [ ] Buy milk'), new TaskLinkStore(), {
       listTasks: remoteTasks(),
       listProjects: projectExists,
@@ -29,14 +32,14 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
     await sync.run(PROJECT);
 
-    expect(info).toHaveBeenCalledWith(
+    expect(debug).toHaveBeenCalledWith(
       'Created a task for a new line',
       expect.objectContaining({ taskId: 'created-task' }),
     );
   });
 
   it('logs a task recreated because its line carried a newer edit than the deletion', async () => {
-    const info = infoLogged();
+    const debug = debugLogged();
     const sync = makeSync(new FakeNote('- [ ] Buy oat milk ^tb-a1'), linkedTo('Buy milk'), {
       listTasks: remoteTasks(),
       listProjects: projectExists,
@@ -46,7 +49,7 @@ describe('TaskSync logs every task and task line it creates or deletes at info',
 
     await sync.run(PROJECT);
 
-    expect(info).toHaveBeenCalledWith(
+    expect(debug).toHaveBeenCalledWith(
       'Recreated a task deleted in Todoist, since its line carried a newer edit',
       expect.objectContaining({ taskId: 'recreated-task' }),
     );
