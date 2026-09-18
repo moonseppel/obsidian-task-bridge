@@ -116,6 +116,58 @@ describe('TaskSync field sync', () => {
       expect(completed).toEqual([TASK_ID]);
       expect(links.get('tb-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
     });
+
+    it('completes a task created from a line that is already checked', async () => {
+      const note = new FakeNote('- [x] Buy milk');
+      const links = new TaskLinkStore();
+      const completed: string[] = [];
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+        completeTask: (id) => {
+          completed.push(id);
+          return Promise.resolve();
+        },
+      });
+
+      expect(await sync.run(PROJECT)).toMatchObject({ created: 1, pushed: 0 });
+      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+
+      expect(completed).toEqual([TASK_ID]);
+      expect(links.get(blockId)?.lastSyncedDone).toBe(true);
+    });
+
+    it('records an open line as not done on creation, without completing its task', async () => {
+      const note = new FakeNote('- [ ] Buy milk');
+      const links = new TaskLinkStore();
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+      });
+
+      await sync.run(PROJECT);
+      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+
+      expect(links.get(blockId)?.lastSyncedDone).toBe(false);
+    });
+
+    it('leaves a failed completion on creation for the next pass to push', async () => {
+      const note = new FakeNote('- [x] Buy milk');
+      const links = new TaskLinkStore();
+      const sync = makeSync(note, links, {
+        listTasks: remoteTasks(),
+        listProjects: projectExists,
+        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+        completeTask: () => Promise.reject(new Error('offline')),
+      });
+
+      await sync.run(PROJECT).catch(() => undefined);
+      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+
+      expect(links.get(blockId)).toMatchObject({ providerTaskId: TASK_ID, lastSyncedDone: false });
+    });
   });
 
   describe('description sync', () => {

@@ -153,6 +153,7 @@ describe('TaskSync deletion and completion', () => {
       lastSyncedTitle: 'Buy oat milk',
       lastSyncedDescription: '',
       lastSyncedTags: [],
+      lastSyncedDone: false,
       lastKnownFilePath: 'Tasks.md',
     });
   });

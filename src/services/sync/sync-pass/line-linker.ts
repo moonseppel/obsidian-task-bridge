@@ -6,7 +6,8 @@ import { LineUnderSync, LinkedLine, localParentBlockId } from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { readDescriptionBlock } from '../task-format/task-description';
 import { composeRemoteDescription } from '../task-format/task-footer';
-import { TaskLinkStore, linkIds } from '../sync-state/task-links';
+import { isDone } from '../task-format/task-line';
+import { TaskLink, TaskLinkStore, linkIds } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');
 
@@ -61,7 +62,8 @@ export class LineLinker {
     pass.blockIdByLineNumber.set(line.lineNumber, blockId);
     pass.takenBlockIds.add(blockId);
 
-    const taskId = await this.createAndLink(line, blockId);
+    const created = await this.createAndLink(line, blockId);
+    const taskId = created.providerTaskId;
 
     if (!(await note.appendAnchorIfMissing(line.lineNumber, blockId, pass.indentation))) {
       await this.abandonUnanchored(blockId, taskId);
@@ -71,19 +73,21 @@ export class LineLinker {
 
     pass.outcome.created += 1;
     logger.info('Created a task for a new line', { blockId, taskId });
+    await this.completeIfDone(line, created);
   }
 
   /** A deleted task leaves no timestamp to compare, so the missing-timestamp rule hands it to local. */
   async recreate(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
-    const taskId = await this.createAndLink(line, link.blockId);
+    const recreated = await this.createAndLink(line, link.blockId);
+    await this.completeIfDone(line, recreated);
 
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
     logger.info('Recreated a task deleted in Todoist, since its line carried a newer edit', {
       blockId: link.blockId,
       deletedTaskId: link.providerTaskId,
-      taskId,
+      taskId: recreated.providerTaskId,
     });
   }
 
@@ -105,9 +109,9 @@ export class LineLinker {
   /**
    * Written together: a task whose link went unsaved is created again on the next pass. A parent
    * still waiting out its own creation grace period is not linked yet, so its child is created as
-   * top-level for now and corrected the next pass. Resolves to the new task's id.
+   * top-level for now and corrected the next pass. Resolves to the link it saved.
    */
-  private async createAndLink(line: LineUnderSync, blockId: string): Promise<string> {
+  private async createAndLink(line: LineUnderSync, blockId: string): Promise<TaskLink> {
     const { pass, task } = line;
     const description = readDescriptionBlock(pass.lines, line.lineNumber, pass.indentation).text;
     const parent = this.links.linkedParent(localParentBlockId(pass, line.lineNumber));
@@ -118,15 +122,30 @@ export class LineLinker {
       labels: task.tags,
       parentId: parent.providerTaskId,
     });
-
-    this.links.set({
+    const link = {
       blockId,
       providerTaskId: created.id,
       lastSyncedTitle: task.title,
       lastSyncedDescription: description,
       lastSyncedTags: canonicalTags(task.tags),
       lastSyncedParentBlockId: parent.blockId,
-    });
-    return created.id;
+      lastSyncedDone: false,
+    };
+
+    this.links.set(link);
+    return link;
+  }
+
+  /**
+   * A task is always created open. Completing it is left until its line carries the anchor, so a
+   * failure here leaves a linked, open task whose checked line the next pass pushes as usual.
+   */
+  private async completeIfDone(line: LineUnderSync, link: TaskLink): Promise<void> {
+    if (!isDone(line.task)) {
+      return;
+    }
+
+    await this.provider.completeTask(link.providerTaskId);
+    this.links.set({ ...link, lastSyncedDone: true });
   }
 }

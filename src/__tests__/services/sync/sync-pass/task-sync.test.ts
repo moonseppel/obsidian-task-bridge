@@ -72,6 +72,7 @@ describe('TaskSync creation and title sync', () => {
       lastSyncedTitle: 'Buy milk',
       lastSyncedDescription: '',
       lastSyncedTags: [],
+      lastSyncedDone: false,
       lastKnownFilePath: 'Tasks.md',
     });
   });
@@ -82,6 +83,7 @@ describe('TaskSync creation and title sync', () => {
       listTasks: remoteTasks(),
       listProjects: projectExists,
       createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+      completeTask: () => Promise.resolve(),
     });
 
     expect((await sync.run(PROJECT)).created).toBe(1);
