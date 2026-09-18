@@ -125,7 +125,7 @@ export default class TaskBridgePlugin extends Plugin {
   applyDebugMode(): void {
     setDebugLogging(this.settings.debugMode);
     document.body.toggleClass(DEBUG_BODY_CLASS, this.settings.debugMode);
-    logger.info(this.settings.debugMode ? 'Debug mode is on' : 'Debug mode is off');
+    logger.debug(this.settings.debugMode ? 'Debug mode is on' : 'Debug mode is off');
   }
 
   async refreshKnownProjects(): Promise<void> {
@@ -144,7 +144,7 @@ export default class TaskBridgePlugin extends Plugin {
       return;
     }
 
-    logger.info('Checking for changes on a timer', { everyMinutes: this.settings.syncIntervalMinutes });
+    logger.debug('Checking for changes on a timer', { everyMinutes: this.settings.syncIntervalMinutes });
   }
 
   async syncTasks(): Promise<void> {
@@ -208,7 +208,7 @@ export default class TaskBridgePlugin extends Plugin {
   private async followRenamedLocation(newPath: string, oldPath: string): Promise<void> {
     this.settings.relativeTaskSourcePath = newPath;
     await this.saveSettings();
-    logger.info('Source location moved; setting updated', { from: oldPath, to: newPath });
+    logger.debug('Source location moved; setting updated', { from: oldPath, to: newPath });
   }
 
   private async clearSourceLocation(): Promise<void> {

@@ -97,7 +97,7 @@ export class ProjectSelection {
     settings.projectId = project.id;
     settings.projectName = project.name;
     await this.saveSettings();
-    this.logger.info('Project selected', sanitizeForDisplay(project.name));
+    this.logger.debug('Project selected', sanitizeForDisplay(project.name));
   }
 
   private reportReplaced(previousName: string, currentName: string): void {

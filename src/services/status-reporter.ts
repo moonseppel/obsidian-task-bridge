@@ -52,7 +52,7 @@ export class StatusReporter {
 
   reportConnectionStatus(status: ConnectionStatus, now: number = Date.now()): void {
     if (status.state !== 'failed') {
-      this.logger.info('Task provider connection status', status.state);
+      this.logger.debug('Task provider connection status', status.state);
       return;
     }
 

@@ -91,7 +91,7 @@ export class SyncRunner {
     }
 
     this.reportedNoNotesInScope = true;
-    this.logger.info('No notes are in scope, so nothing is synced until a note, folder or the whole vault is chosen');
+    this.logger.info('Task sync finished, no changes.');
   }
 
   private followUpIfChangedWhileSyncing(): void {

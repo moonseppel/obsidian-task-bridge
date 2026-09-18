@@ -3,8 +3,7 @@ import { emptyOutcome } from '../../../../services/sync/sync-run/sync-outcome';
 import { SyncRunner } from '../../../../services/sync/sync-run/sync-runner';
 import { Logger } from '../../../../utils/logger';
 
-const NO_NOTES_IN_SCOPE =
-  'No notes are in scope, so nothing is synced until a note, folder or the whole vault is chosen';
+const NO_NOTES_IN_SCOPE = 'Task sync finished, no changes.';
 
 function runnerWhile(hasFilesInScope: () => boolean): SyncRunner {
   const logger = new Logger('test');
