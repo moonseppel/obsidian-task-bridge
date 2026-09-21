@@ -25,7 +25,7 @@ Created and maintaned by Jan Pralle, [www.jpcloudsolutions.de](www.jpcloudsoluti
 - Filter synced tasks by tag.
 - Ignore pattern for files (e.g. for conflict files from third party sync tool for vaults).
 - Syncs title, description, nested tasks and state.
-- Compatible with the [Obsidian Tasks Plugin](https://publish.obsidian.md/tasks/): its statuses are mapped to open or completed, and its fields stay out of the synced title. Full support is planned soon.
+- Compatible with the [Obsidian Tasks Plugin](https://publish.obsidian.md/tasks/): a blank checkbox is open and any other status completed, and its fields stay out of the synced title. Full support is planned soon.
 
 See `docs/features/` directory in the source code for more details on the features. There may be
 features already documented, that are not implemented yet. The minor version number reflects the
@@ -80,9 +80,7 @@ next poll.
 
 ### Howe task status is interpreted
 
-Without the [Tasks](https://publish.obsidian.md/tasks/) plugin, an empty echckox ('[ ]') means "todo" state. Everything else inside the brackets means "done".
-
-With the Tasks plugin this changes onl in one way: The explicitely configured statusses from the Tasks plugin overwrite the above rule. So if you use cancelled or define '[ ]' to mean "done", then that is treated so. Every other character inside the checkox still counts as "done".
+An empty echckox ('[ ]') means "todo" state. Everything else inside the brackets means "done", whether or not the [Tasks](https://publish.obsidian.md/tasks/) plugin is installed.
 
 ### Which tasks are synced
 
@@ -202,7 +200,7 @@ of it.
 
 ## Known limitations
 
-- Without the Tasks plugin, any checkbox character other than a space counts as done, so a custom state such as `[/]` or `[-]` syncs as a completed task
+- Any checkbox character other than a space counts as done, so a custom state such as `[/]` or `[-]` syncs as a completed task
 - The values of the Tasks plugin's fields, such as a due date, are not synced yet; they stay in the line untouched
 - A line resurrected from a Todoist edit is appended as a plain `- [ ]` line at the end of its note, carrying only the title; its original position and list marker are not restored
 - A Todoist label containing a space, any other character a `#tag` cannot hold, or nothing but digits is left untouched in Todoist rather than synced into the note
@@ -213,6 +211,7 @@ of it.
 - An indent level is a tab or a complete run of the editor's tab size in spaces; spaces left over past the last complete run are part of the line's text, so a line indented with fewer spaces than the tab size neither forms a description nor nests under a task
 - The editor's tab size is read once per sync run, so changing it takes effect on the next sync rather than immediately
 - A tag's place inside a task's text is not preserved when the title is changed in Todoist and pulled: the tag moves to the end of the line, since the text it stood in no longer exists
+- An open task indented under a parent that is completed in Todoist is not created at all, since Todoist itself never allows that; a courtesy notice on the parent explains why, until the parent is reopened
 
 ## Installation using BRAT
 
@@ -257,8 +256,7 @@ The plugin uses a provider abstraction pattern to support multiple task managers
 - **Providers authenticate themselves** — how a provider is authenticated varies too much to model centrally, so the provider draws its own credential rows and owns the values behind them; the settings tab only asks whether it is ready to connect
 - **Transport port** — provider clients speak to an `HttpClient` rather than to a concrete transport, so the plugin can use Obsidian's `requestUrl` (CORS-free, works on desktop and mobile) while the integration tests drive the identical code over `fetch`
 - **Clear error handling and user feedback** — failures are typed (`not-configured`, `project-missing`, `invalid-credentials`, `rate-limited`, `unreachable`, `unexpected`) and surfaced in the settings tab
-- **Providers map user-defined statuses themselves** — which states a task can be in differs between providers, so the provider draws the rows mapping each Tasks plugin status to one of its own states and owns the values behind them
-- **Tasks plugin support** — reading the Tasks plugin's settings and recognising its fields lives in a module of its own, `src/services/tasks-plugin/`
+- **Tasks plugin support** — reading whether the Tasks plugin is enabled and recognising its fields lives in a module of its own, `src/services/tasks-plugin/`
 - **Task source** — one module decides which tasks are in scope and which vault changes matter, derived fresh from the settings every time rather than stored
 - **Task identity** — each synced line carries an Obsidian block id such as `^tb-a1b2c3`, and `data.json` maps that id to the provider's task id plus what both sides last agreed on for each field. The provider's id never enters the note, so switching providers rewrites one file rather than every note
 - **Duplicate avoidance** — the same block id is also embedded in the provider task's description, so a line `data.json` has lost track of can be found and re-linked instead of duplicated, and a per-device tag keeps two devices from ever minting the same id in the first place
