@@ -1,9 +1,11 @@
 import { Logger } from '../../../utils/logger';
+import { ProviderStateMapping } from '../../provider-state-mapping';
 import { ProviderTask, TaskProvider } from '../../task-provider';
 import { CopiedLineSync } from '../duplicates/copied-line-sync';
 import { CrossFileParentSync } from './cross-file-parent-sync';
 import { DuplicateAnchors } from '../duplicates/duplicate-anchors';
 import { GracePeriod } from '../sync-state/grace-period';
+import { CompletionRule, PLAIN_COMPLETION, completionRuleFor } from '../task-format/completion-rule';
 import { Indentation, indentationOf } from '../task-format/indentation';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
@@ -62,6 +64,8 @@ export interface TaskSyncDependencies {
   readonly describeScope?: () => ScopeDescription;
   /** The Tasks plugin's setup, read afresh every run so a change made in its settings applies at once. */
   readonly readTasksPlugin?: () => Promise<TasksPluginSetup | undefined>;
+  /** How the provider syncs each Tasks plugin status; without it, statuses read as without the plugin. */
+  readonly stateMapping?: Pick<ProviderStateMapping, 'isCompleted'>;
 }
 
 export type ScopeDescription = Readonly<Record<string, string | boolean>>;
@@ -73,6 +77,7 @@ interface RunScope {
   /** Resolved once, so one run cannot count two lines of the same note by two different rules. */
   readonly indentation: Indentation;
   readonly findTrailingFields: TrailingFieldsFinder;
+  readonly completion: CompletionRule;
   readonly tasksPlugin: TasksPluginSetup | undefined;
   readonly scannedBlockIds: Set<string>;
   readonly pendingRelocations: PendingRelocation[];
@@ -89,6 +94,7 @@ export class TaskSync {
   private readonly readTabSize: () => unknown;
   private readonly describeScope: () => ScopeDescription;
   private readonly readTasksPlugin: () => Promise<TasksPluginSetup | undefined>;
+  private readonly stateMapping: Pick<ProviderStateMapping, 'isCompleted'> | undefined;
   private readonly lineSync: LinkedLineSync;
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
@@ -112,6 +118,7 @@ export class TaskSync {
     this.readTabSize = dependencies.readTabSize ?? (() => undefined);
     this.describeScope = dependencies.describeScope ?? (() => ({}));
     this.readTasksPlugin = dependencies.readTasksPlugin ?? (() => Promise.resolve(undefined));
+    this.stateMapping = dependencies.stateMapping;
     this.lineSync = new LinkedLineSync(
       this.provider,
       this.links,
@@ -141,6 +148,7 @@ export class TaskSync {
       paths: this.filesInScope(),
       indentation: indentationOf(this.readTabSize()),
       findTrailingFields: tasksPlugin === undefined ? NO_TRAILING_FIELDS : trailingFieldsStart,
+      completion: this.completionRuleFor(tasksPlugin),
       tasksPlugin,
       scannedBlockIds: new Set(),
       pendingRelocations: [],
@@ -154,6 +162,16 @@ export class TaskSync {
     const outcome = mergeOutcomes(scope.outcomes, project.resolution);
 
     return { ...outcome, filesScanned: scope.paths.length, linkedTasks: this.links.size };
+  }
+
+  private completionRuleFor(tasksPlugin: TasksPluginSetup | undefined): CompletionRule {
+    const mapping = this.stateMapping;
+
+    if (tasksPlugin === undefined || mapping === undefined) {
+      return PLAIN_COMPLETION;
+    }
+
+    return completionRuleFor(tasksPlugin.statuses, (symbol) => mapping.isCompleted(symbol));
   }
 
   /**
@@ -175,6 +193,7 @@ export class TaskSync {
       takenBlockIds: scope.scannedBlockIds,
       scannedPaths: scope.paths,
       indentation: scope.indentation,
+      completion: scope.completion,
     };
     scope.outcomes.push(await this.missingLineSync.run(context));
 

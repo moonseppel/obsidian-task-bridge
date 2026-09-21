@@ -50,7 +50,9 @@ describe('trailingFieldsStart', () => {
   });
 
   it('reads a tag standing among the fields as part of the run', () => {
-    expect(fieldsOf('Buy milk 📅 2026-09-20 #errands ✅ 2026-09-21')).toBe('📅 2026-09-20 #errands ✅ 2026-09-21');
+    const run = '📅 2026-09-20 #errands ✅ 2026-09-21';
+
+    expect(fieldsOf(`Buy milk ${run}`)).toBe(run);
   });
 
   it('reads a tag after the last field as part of the run', () => {

@@ -110,14 +110,6 @@ export function trailingTagStart(text: string): number | undefined {
 }
 
 /**
- * Any checkbox character other than a plain space reads as done. A richer, user-defined state
- * (e.g. the Tasks plugin's `[/]` or `[-]`) is not given separate meaning here — see Feature 11.
- */
-export function isDone(task: ParsedTaskLine): boolean {
-  return task.checkbox !== ' ';
-}
-
-/**
  * Whether a string could be written as `#tag` at all — a Todoist label may contain a space or a
  * character Obsidian's tag syntax doesn't allow, in which case it is left unsynced rather than
  * mangled into something that wouldn't parse back the same way.

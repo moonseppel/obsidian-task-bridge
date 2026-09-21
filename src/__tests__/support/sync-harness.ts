@@ -29,6 +29,7 @@ export interface SyncHarnessOptions {
   readonly readTabSize?: () => unknown;
   readonly describeScope?: TaskSyncDependencies['describeScope'];
   readonly readTasksPlugin?: TaskSyncDependencies['readTasksPlugin'];
+  readonly stateMapping?: TaskSyncDependencies['stateMapping'];
 }
 
 /** The description a freshly created task carries: the user's text above this plugin's footer. */
@@ -141,6 +142,7 @@ function optionalDependencies(
     readTabSize: options.readTabSize,
     describeScope: options.describeScope,
     readTasksPlugin: options.readTasksPlugin,
+    stateMapping: options.stateMapping,
   };
 }
 

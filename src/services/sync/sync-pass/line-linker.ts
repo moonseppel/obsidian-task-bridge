@@ -6,7 +6,6 @@ import { LineUnderSync, LinkedLine, localParentBlockId } from './sync-pass';
 import { canonicalTags } from './tag-set';
 import { readDescriptionBlock } from '../task-format/task-description';
 import { composeRemoteDescription } from '../task-format/task-footer';
-import { isDone } from '../task-format/task-line';
 import { TaskLink, TaskLinkStore, linkIds } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');
@@ -141,7 +140,7 @@ export class LineLinker {
    * failure here leaves a linked, open task whose checked line the next pass pushes as usual.
    */
   private async completeIfDone(line: LineUnderSync, link: TaskLink): Promise<void> {
-    if (!isDone(line.task)) {
+    if (!line.pass.completion.readsAsDone(line.task.checkbox)) {
       return;
     }
 

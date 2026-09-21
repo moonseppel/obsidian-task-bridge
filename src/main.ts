@@ -80,6 +80,7 @@ export default class TaskBridgePlugin extends Plugin {
     getDeviceTag: () => getDeviceTag(window.localStorage),
     readTabSize: () => readEditorTabSize(this.app.vault),
     readTasksPlugin: () => this.tasksPlugin.read(),
+    stateMapping: this.stateMapping,
     orphans: this.orphanedTasks,
   });
   private readonly scheduler = new SyncScheduler(

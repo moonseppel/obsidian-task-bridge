@@ -1,4 +1,5 @@
 import { ProviderTask } from '../../task-provider';
+import { CompletionRule } from '../task-format/completion-rule';
 import { Indentation } from '../task-format/indentation';
 import { BlockEdit, LineEdit, LineGuard, LineRemoval, NoteEdits, StructuralEdit } from '../note-access/note-edits';
 import { ResolvedProject } from '../sync-run/project-resolver';
@@ -29,6 +30,7 @@ export interface SyncPass {
   readonly indentation: Indentation;
   /** Where the fields another plugin keeps at the end of a task line start, read for this run. */
   readonly findTrailingFields: TrailingFieldsFinder;
+  readonly completion: CompletionRule;
   readonly projectId: string;
   readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
@@ -84,6 +86,7 @@ export interface BlockReplacement {
 export interface LineReading {
   readonly indentation: Indentation;
   readonly findTrailingFields: TrailingFieldsFinder;
+  readonly completion: CompletionRule;
 }
 
 export interface NoteSnapshot {
@@ -91,8 +94,13 @@ export interface NoteSnapshot {
   readonly modifiedAt: number;
 }
 
-export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, path: string, reading: LineReading): SyncPass {
-  const { indentation, findTrailingFields } = reading;
+export function createSyncPass(
+  project: ResolvedProject,
+  note: NoteSnapshot,
+  path: string,
+  reading: LineReading,
+): SyncPass {
+  const { indentation, findTrailingFields, completion } = reading;
   const lines = note.content.split('\n');
   const taskLines = taskLineNumbers(lines, indentation);
 
@@ -101,6 +109,7 @@ export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, pat
     path,
     indentation,
     findTrailingFields,
+    completion,
     projectId: project.id,
     remoteTasks: indexTasksById(project.tasks),
     remoteTasksByBlockId: indexTasksByEmbeddedBlockId(project.tasks),

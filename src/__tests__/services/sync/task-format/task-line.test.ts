@@ -2,7 +2,6 @@ import {
   ParsedTaskLine,
   collectBlockIds,
   formatTaskLine,
-  isDone,
   isRepresentableAsTag,
   parseTaskLine,
   taskLineFrom,
@@ -19,7 +18,15 @@ describe('parseTaskLine', () => {
     ['1. [ ] Buy milk', '1. ', 'Buy milk'],
     ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', body: title, fields: '', title, tags: [], blockId: undefined });
+    expect(parseTaskLine(line)).toEqual({
+      prefix,
+      checkbox: ' ',
+      body: title,
+      fields: '',
+      title,
+      tags: [],
+      blockId: undefined,
+    });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
@@ -262,16 +269,6 @@ describe('a task line ending in Tasks plugin fields', () => {
 
       expect(withTags(task, ['c']).fields).toBe('📅 2026-09-20');
     });
-  });
-});
-
-describe('isDone', () => {
-  it('reads a space as not done', () => {
-    expect(isDone(parseTaskLine('- [ ] Buy milk')!)).toBe(false);
-  });
-
-  it.each(['x', 'X', '/', '-'])('reads %s as done', (marker) => {
-    expect(isDone(parseTaskLine(`- [${marker}] Buy milk`)!)).toBe(true);
   });
 });
 

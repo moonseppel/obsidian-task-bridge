@@ -3,6 +3,7 @@ import { ProviderTask } from '../../task-provider';
 import { createBlockId } from '../task-format/block-id';
 import { SyncPass, recordInsertUnder } from './sync-pass';
 import { leadingWhitespace } from '../task-format/task-description';
+import { newOpenCheckbox } from '../task-format/completion-rule';
 import { collectBlockIds, formatTaskLine, taskLineFrom } from '../task-format/task-line';
 import { TaskLink, TaskLinkStore } from '../sync-state/task-links';
 
@@ -72,7 +73,9 @@ export class RemoteChildSync {
       const blockId = this.linkChild(pull, task, parent.blockId);
       const prefix = `${parent.childIndent}- `;
 
-      lines.push(formatTaskLine(taskLineFrom({ prefix, checkbox: ' ', body: task.title, blockId })));
+      const checkbox = newOpenCheckbox(pull.pass.completion);
+
+      lines.push(formatTaskLine(taskLineFrom({ prefix, checkbox, body: task.title, blockId })));
       lines.push(...this.buildChildLines(pull, { taskId: task.id, blockId, childIndent: `${parent.childIndent}\t` }));
     }
 
