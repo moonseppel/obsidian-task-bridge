@@ -3,6 +3,7 @@
 ## Scenarios
 
 ### Scenario: Support More States
+This is an error and will be rmeoved in 0.11.1
 - **GIVEN** the tasks plugin is used in Obsidian
 - **WHEN** this plugin defines more user defines states
 - **THEN** add settings to map these states to states of the task provider
