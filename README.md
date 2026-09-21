@@ -27,7 +27,7 @@ Created and maintaned by Jan Pralle, [www.jpcloudsolutions.de](www.jpcloudsoluti
 - Filter synced tasks by tag.
 - Ignore pattern for files (e.g. for conflict files from third party sync tool for vaults).
 - Syncs title, description, nested tasks and state.
-- Supports Obsidian's "Tasks" plugin: its statuses are mapped to open or completed in the settings, and its fields stay out of the synced title.
+- Supports the Obsidian [Tasks Plugin](https://publish.obsidian.md/tasks/): its statuses are mapped to open or completed in the settings, and its fields stay out of the synced title.
 
 See `docs/features/` directory in the source code for more details on the features. There may be
 features already documented, that are not implemented yet. The minor version number reflects the
@@ -61,8 +61,7 @@ it syncs a line, and it is what ties that line to its Todoist task, so the title
 either side without the link breaking. `[[Tasks#^tb-a1b2c3]]` links to that task from anywhere in
 the vault, and uninstalling the plugin leaves valid Obsidian markup behind.
 
-Checking the box completes the Todoist task, and completing it in Todoist checks the box; with the
-Tasks plugin, its statuses sync the way you map them (see [Tasks plugin](#tasks-plugin)). The lines
+Checking the box completes the Todoist task, and completing it in Todoist checks the box. The lines
 indented at least one level deeper than a task line are its Todoist description — bullets, their
 continuation lines, paragraphs, and lines holding nothing but whitespace, which count as blank lines inside
 it — until the first line indented no deeper than the task itself, an empty line included. It reaches
@@ -80,6 +79,12 @@ A sync runs when the plugin loads, ten seconds after you stop editing a note in 
 interval, and whenever you run **Sync now** from the command palette. Editing a note while a sync is
 already running schedules another pass, so a change made in that window is not left waiting for the
 next poll.
+
+### Howe task status is interpreted
+
+Without the [Tasks](https://publish.obsidian.md/tasks/) plugin, an empty echckox ('[ ]') means "todo" state. Everything else inside the brackets means "done".
+
+With the Tasks plugin this changes onl in one way: The explicitely configured statusses from the Tasks plugin overwrite the above rule. So if you use cancelled or define '[ ]' to mean "done", then that is treated so. Every other character inside the checkox still counts as "done".
 
 ### Which tasks are synced
 
@@ -171,32 +176,6 @@ past its last level, is part of the description rather than a sub-task — Obsid
 as a task either. A task already synced from a line that became description text this way is flagged and
 removed in Todoist on the same schedule as a task moved out of scope, while its text lives on in the
 parent's description.
-
-### Tasks plugin
-
-While the [Tasks](https://publish.obsidian.md/tasks/) plugin is enabled, the settings list each of its
-statuses under **Tasks plugin statuses**, each with a choice of **Open** or **Completed** in Todoist.
-The list is read from the Tasks plugin's own settings every time a sync runs or the settings open, so
-a status added there shows up at once; without a settings file, its defaults apply: ` ` Todo, `x`
-Done, `/` In Progress and `-` Cancelled. By default a blank checkbox is open and every other status is
-completed, which is exactly how a line syncs without the Tasks plugin, so nothing changes until you
-change the table.
-
-A task line in a status mapped to completed completes its Todoist task, and one mapped to open
-reopens it. Completing or reopening a task in Todoist writes `[x]` or `[ ]` into the note as long as
-that still means the same, and otherwise the first status in the Tasks plugin's list mapped to that
-state. When no status is mapped to it at all, the line is left as it is. A status that already means
-what Todoist says is never overwritten, so completing a `[-]` task in Todoist leaves it `[-]`.
-
-The fields the Tasks plugin writes at the end of a line — `📅 2026-09-20` or `✅ 2026-09-18`, or
-`[due:: 2026-09-20]` in its Dataview format — stay in the line and out of the Todoist title, and tags
-among them still sync as labels. Only the run of fields at the very end of the line counts, as it does
-for the Tasks plugin itself. A title changed in Todoist is written back as the new title, the line's
-tags, then its fields unchanged. A title that reached Todoist with such fields in it before is cleaned
-up by the next sync.
-
-Without the Tasks plugin enabled, none of this applies: any checkbox character other than a space
-counts as done, and the whole text of a line is its title.
 
 ## Debug mode
 
