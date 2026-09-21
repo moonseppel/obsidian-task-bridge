@@ -1,5 +1,3 @@
-Some content lorem ipsum
-
 ## Tasks
 
 - [x] Buy milk 
