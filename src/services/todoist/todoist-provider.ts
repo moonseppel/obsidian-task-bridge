@@ -2,13 +2,16 @@ import { ObsidianHttpClient } from '../http/obsidian-http-client';
 import { NewTask, ProviderAccount, ProviderProject, ProviderTask, TaskProvider } from '../task-provider';
 import { TodoistApiClient, TodoistProject, TodoistTask, TodoistUser } from './todoist-api-client';
 import { TodoistCredentials } from './todoist-credentials';
+import { TodoistNesting } from './todoist-nesting';
 
 export class TodoistProvider implements TaskProvider {
   readonly description = { displayName: 'Todoist', defaultProjectName: 'Inbox' };
   private readonly api: TodoistApiClient;
+  private readonly nesting: TodoistNesting;
 
   constructor(api: TodoistApiClient) {
     this.api = api;
+    this.nesting = new TodoistNesting(api);
   }
 
   /** Todoist stores a description with the whole string stripped, keeping every byte between its ends. */
@@ -31,15 +34,7 @@ export class TodoistProvider implements TaskProvider {
   }
 
   async createTask(task: NewTask): Promise<ProviderTask> {
-    const created = await this.api.createTask({
-      content: task.title,
-      projectId: task.projectId,
-      description: task.description,
-      labels: task.labels,
-      parentId: task.parentId,
-    });
-
-    return toProviderTask(created);
+    return toProviderTask(await this.nesting.create(task));
   }
 
   async updateTaskTitle(taskId: string, title: string): Promise<void> {

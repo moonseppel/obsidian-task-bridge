@@ -32,7 +32,9 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
     listTasks: listTasks
       ? (projectId) => listTasks(projectId).then((tasks) => tasks.map(withTaskDefaults))
       : notStubbed('listTasks'),
-    createTask: createTask ? (task) => createTask(task).then(withTaskDefaults) : notStubbed('createTask'),
+    createTask: createTask
+      ? (task) => createTask(task).then((created) => withCreatedTaskDefaults(task, created))
+      : notStubbed('createTask'),
     updateTaskTitle: options.updateTaskTitle ?? notStubbed('updateTaskTitle'),
     updateTaskDescription: options.updateTaskDescription ?? notStubbed('updateTaskDescription'),
     updateTaskLabels: options.updateTaskLabels ?? notStubbed('updateTaskLabels'),
@@ -54,4 +56,9 @@ function notStubbed(name: string): () => never {
 
 function withTaskDefaults(task: LooseProviderTask): ProviderTask {
   return { isCompleted: false, projectId: '', description: '', labels: [], ...task };
+}
+
+/** Todoist answers a create with the parent and state it was actually given, unless a test overrides either. */
+function withCreatedTaskDefaults(requested: NewTask, created: LooseProviderTask): ProviderTask {
+  return withTaskDefaults({ isCompleted: requested.isCompleted, parentId: requested.parentId, ...created });
 }

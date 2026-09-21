@@ -52,17 +52,17 @@ describe('TaskSync with the Tasks plugin enabled, without status settings', () =
     expect(note.content).toBe('- [ ] Buy milk ^tb-a1');
   });
 
-  it('creates a new [/] line completed', async () => {
-    const calls: string[] = [];
+  it('creates a new [/] line completed, in one call', async () => {
+    const created: Array<{ isCompleted: boolean }> = [];
     const sync = makeSync(
       new FakeNote('- [/] Buy milk'),
       new TaskLinkStore(),
       {
         listTasks: remoteTasks(),
         listProjects: projectExists,
-        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
-        completeTask: async () => {
-          calls.push('complete');
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: TASK_ID, title: task.title });
         },
       },
       TASKS_ENABLED,
@@ -70,6 +70,6 @@ describe('TaskSync with the Tasks plugin enabled, without status settings', () =
 
     await sync.run(PROJECT);
 
-    expect(calls).toEqual(['complete']);
+    expect(created).toMatchObject([{ isCompleted: true }]);
   });
 });

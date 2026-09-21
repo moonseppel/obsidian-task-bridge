@@ -144,7 +144,7 @@ describe('TaskSync deletion and completion', () => {
 
     expect(await sync.run(PROJECT)).toMatchObject({ conflicted: 1, recreatedTask: 1, removedLine: 0 });
     expect(created).toEqual([
-      { title: 'Buy oat milk', projectId: PROJECT, description: 'TaskBridge ID: ^tb-a1', labels: [] },
+      { title: 'Buy oat milk', projectId: PROJECT, description: 'TaskBridge ID: ^tb-a1', labels: [], isCompleted: false },
     ]);
     expect(note.content).toBe('- [ ] Buy oat milk ^tb-a1');
     expect(links.get('tb-a1')).toEqual({

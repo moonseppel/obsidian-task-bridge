@@ -253,6 +253,35 @@ describeAgainstTodoist('Todoist task round trip', () => {
 
       await expect(client.getTask(child.id)).resolves.toBeUndefined();
     });
+
+    it('answers a task created under a completed parent without that parent', async () => {
+      const parent = await client.createTask({ content: 'Completed parent', projectId: project.id });
+      await client.completeTask(parent.id);
+
+      const child = await client.createTask({ content: 'Child', projectId: project.id, parentId: parent.id });
+
+      expect(child.parentId).toBeUndefined();
+    });
+
+    it('moves a completed task under a completed parent, unlike an open one', async () => {
+      const parent = await client.createTask({ content: 'Completed parent', projectId: project.id });
+      await client.completeTask(parent.id);
+      const child = await client.createTask({ content: 'Child', projectId: project.id });
+      await client.completeTask(child.id);
+
+      await client.moveTask(child.id, parent.id, project.id);
+
+      await expect(client.getTask(child.id)).resolves.toMatchObject({ parentId: parent.id });
+    });
+
+    it('deletes a completed task like any other', async () => {
+      const task = await client.createTask({ content: 'Completed task', projectId: project.id });
+      await client.completeTask(task.id);
+
+      await client.deleteTask(task.id);
+
+      await expect(client.getTask(task.id)).resolves.toBeUndefined();
+    });
   });
 
   // Feature 7's tag sync depends on both of these: a label Obsidian can't write as a #tag must be

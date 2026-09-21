@@ -102,6 +102,7 @@ describe('TaskSync tag sync', () => {
           projectId: PROJECT,
           description: `TaskBridge ID: ^${blockId}`,
           labels: ['errands', 'urgent'],
+          isCompleted: false,
         },
       ]);
       expect(links.get(blockId)?.lastSyncedTags).toEqual(['errands', 'urgent']);

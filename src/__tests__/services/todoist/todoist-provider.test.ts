@@ -1,6 +1,7 @@
 import { TodoistApiClient, TodoistTask, TodoistUser } from '../../../services/todoist/todoist-api-client';
 import { NewTodoistTask } from '../../../services/todoist/todoist-payloads';
 import { TodoistProvider } from '../../../services/todoist/todoist-provider';
+import { Logger } from '../../../utils/logger';
 
 function todoistTask(overrides: Partial<TodoistTask> = {}): TodoistTask {
   return {
@@ -168,7 +169,7 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await provider.createTask({ title: 'Buy milk', projectId: 'p1', description: '^tb-a1b2c3d4' });
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', description: '^tb-a1b2c3d4', isCompleted: false });
 
     expect(created).toEqual(['^tb-a1b2c3d4']);
   });
@@ -182,7 +183,7 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await provider.createTask({ title: 'Buy milk', projectId: 'p1', labels: ['errands', 'urgent'] });
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', labels: ['errands', 'urgent'], isCompleted: false });
 
     expect(created).toEqual([['errands', 'urgent']]);
   });
@@ -196,7 +197,7 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await expect(provider.createTask({ title: 'Buy milk', projectId: 'p1' })).resolves.toEqual({
+    await expect(provider.createTask({ title: 'Buy milk', projectId: 'p1', isCompleted: false })).resolves.toEqual({
       id: 't1',
       title: 'Buy milk',
       isCompleted: false,
@@ -210,13 +211,14 @@ describe('TodoistProvider task and project mapping', () => {
   it('sends the parent id on to the API client when creating a nested task', async () => {
     const created: Array<string | undefined> = [];
     const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: false })),
       createTask: (task: NewTodoistTask) => {
         created.push(task.parentId);
         return Promise.resolve(todoistTask({ content: task.content, parentId: task.parentId }));
       },
     });
 
-    await provider.createTask({ title: 'Buy milk', projectId: 'p1', parentId: 'parent-1' });
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', parentId: 'parent-1', isCompleted: false });
 
     expect(created).toEqual(['parent-1']);
   });
@@ -351,5 +353,120 @@ describe('TodoistProvider task and project mapping', () => {
     });
 
     await expect(provider.getTask('t1')).resolves.toBeUndefined();
+  });
+});
+
+describe('TodoistProvider creating a task nested under a completed parent', () => {
+  function providerOver(api: Partial<TodoistApiClient>): TodoistProvider {
+    return new TodoistProvider(api as TodoistApiClient);
+  }
+
+  it('never looks the parent up when the task has none', async () => {
+    const getTask = jest.fn();
+    const provider = providerOver({
+      getTask,
+      createTask: (task: NewTodoistTask) => Promise.resolve(todoistTask({ content: task.content })),
+    });
+
+    await provider.createTask({ title: 'Buy milk', projectId: 'p1', isCompleted: false });
+
+    expect(getTask).not.toHaveBeenCalled();
+  });
+
+  it('creates a checked task under an open parent in one call, then completes it', async () => {
+    const completed: string[] = [];
+    const created: Array<string | undefined> = [];
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: false })),
+      createTask: (task: NewTodoistTask) => {
+        created.push(task.parentId);
+        return Promise.resolve(todoistTask({ id: 'child-1', content: task.content, parentId: task.parentId }));
+      },
+      completeTask: (id: string) => {
+        completed.push(id);
+        return Promise.resolve();
+      },
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: true,
+    });
+
+    expect(created).toEqual(['parent-1']);
+    expect(completed).toEqual(['child-1']);
+    expect(result).toMatchObject({ parentId: 'parent-1', isCompleted: true });
+  });
+
+  it('creates a checked task under a completed parent top-level, completes it, then moves it under the parent', async () => {
+    const calls: string[] = [];
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: true })),
+      createTask: (task: NewTodoistTask) => {
+        calls.push(`create:${task.parentId ?? 'none'}`);
+        return Promise.resolve(todoistTask({ id: 'child-1', content: task.content, parentId: task.parentId }));
+      },
+      completeTask: (id: string) => {
+        calls.push(`complete:${id}`);
+        return Promise.resolve();
+      },
+      moveTask: (id: string, parentId: string | undefined) => {
+        calls.push(`move:${id}:${parentId}`);
+        return Promise.resolve(todoistTask({ id, isCompleted: true, parentId }));
+      },
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: true,
+    });
+
+    expect(calls).toEqual(['create:none', 'complete:child-1', 'move:child-1:parent-1']);
+    expect(result).toMatchObject({ parentId: 'parent-1', isCompleted: true });
+  });
+
+  it('returns the task as it stands, warning rather than throwing, when completing it after creation fails', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: false })),
+      createTask: (task: NewTodoistTask) => Promise.resolve(todoistTask({ id: 'child-1', content: task.content })),
+      completeTask: () => Promise.reject(new Error('offline')),
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: true,
+    });
+
+    expect(result).toMatchObject({ id: 'child-1', isCompleted: false });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('returns the completed task as it stands, warning rather than throwing, when the move under the completed parent fails', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: true })),
+      createTask: (task: NewTodoistTask) => Promise.resolve(todoistTask({ id: 'child-1', content: task.content })),
+      completeTask: () => Promise.resolve(),
+      moveTask: () => Promise.reject(new Error('offline')),
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: true,
+    });
+
+    expect(result).toMatchObject({ id: 'child-1', isCompleted: true, parentId: undefined });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

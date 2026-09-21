@@ -36,6 +36,8 @@ export interface NewTask {
   labels?: readonly string[];
   /** The task to nest this one under, when it is created as a nested task. */
   parentId?: string;
+  /** The state to create the task in; the line's own checkbox at the time it is created. */
+  isCompleted: boolean;
 }
 
 /** The few words the settings tab needs to speak about this provider without naming it. */
@@ -56,6 +58,7 @@ export interface TaskProvider {
   connect(): Promise<ProviderAccount>;
   listProjects(): Promise<ProviderProject[]>;
   listTasks(projectId: string): Promise<ProviderTask[]>;
+  /** Resolves to the task as the provider actually holds it, which may differ from what was asked. */
   createTask(task: NewTask): Promise<ProviderTask>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;

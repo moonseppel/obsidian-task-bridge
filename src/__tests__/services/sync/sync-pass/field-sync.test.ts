@@ -117,14 +117,18 @@ describe('TaskSync field sync', () => {
       expect(links.get('tb-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
     });
 
-    it('completes a task created from a line that is already checked', async () => {
+    it('creates a task already completed from a line that is already checked', async () => {
       const note = new FakeNote('- [x] Buy milk');
       const links = new TaskLinkStore();
+      const created: NewTask[] = [];
       const completed: string[] = [];
       const sync = makeSync(note, links, {
         listTasks: remoteTasks(),
         listProjects: projectExists,
-        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: TASK_ID, title: task.title });
+        },
         completeTask: (id) => {
           completed.push(id);
           return Promise.resolve();
@@ -134,36 +138,41 @@ describe('TaskSync field sync', () => {
       expect(await sync.run(PROJECT)).toMatchObject({ created: 1, pushed: 0 });
       const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
 
-      expect(completed).toEqual([TASK_ID]);
+      expect(created).toMatchObject([{ isCompleted: true }]);
+      expect(completed).toEqual([]);
       expect(links.get(blockId)?.lastSyncedDone).toBe(true);
     });
 
     it('records an open line as not done on creation, without completing its task', async () => {
       const note = new FakeNote('- [ ] Buy milk');
       const links = new TaskLinkStore();
+      const created: NewTask[] = [];
       const sync = makeSync(note, links, {
         listTasks: remoteTasks(),
         listProjects: projectExists,
-        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: TASK_ID, title: task.title });
+        },
       });
 
       await sync.run(PROJECT);
       const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
 
+      expect(created).toMatchObject([{ isCompleted: false }]);
       expect(links.get(blockId)?.lastSyncedDone).toBe(false);
     });
 
-    it('leaves a failed completion on creation for the next pass to push', async () => {
+    it('takes the completion state the provider actually created the task in, when it differs', async () => {
       const note = new FakeNote('- [x] Buy milk');
       const links = new TaskLinkStore();
       const sync = makeSync(note, links, {
         listTasks: remoteTasks(),
         listProjects: projectExists,
-        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
-        completeTask: () => Promise.reject(new Error('offline')),
+        createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title, isCompleted: false }),
       });
 
-      await sync.run(PROJECT).catch(() => undefined);
+      await sync.run(PROJECT);
       const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
 
       expect(links.get(blockId)).toMatchObject({ providerTaskId: TASK_ID, lastSyncedDone: false });
@@ -287,6 +296,7 @@ describe('TaskSync field sync', () => {
           projectId: PROJECT,
           description: `Oat milk, not regular\n\nTaskBridge ID: ^${blockId}`,
           labels: [],
+          isCompleted: false,
         },
       ]);
       expect(links.get(blockId)?.lastSyncedDescription).toBe('Oat milk, not regular');

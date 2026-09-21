@@ -1,5 +1,5 @@
 import { Logger } from '../../../utils/logger';
-import { TaskProvider } from '../../task-provider';
+import { ProviderTask, TaskProvider } from '../../task-provider';
 import { createBlockId } from '../task-format/block-id';
 import { SourceNote } from '../note-access/source-note';
 import { LineUnderSync, LinkedLine, localParentBlockId } from './sync-pass';
@@ -7,7 +7,7 @@ import { canonicalTags } from './tag-set';
 import { readDescriptionBlock } from '../task-format/task-description';
 import { composeRemoteDescription } from '../task-format/task-footer';
 import { isDone } from '../task-format/task-line';
-import { TaskLink, TaskLinkStore, linkIds } from '../sync-state/task-links';
+import { LinkedParent, TaskLink, TaskLinkStore, linkIds } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');
 
@@ -73,14 +73,12 @@ export class LineLinker {
 
     pass.outcome.created += 1;
     logger.debug('Created a task for a new line', { blockId, taskId });
-    await this.completeIfDone(line, created);
   }
 
   /** A deleted task leaves no timestamp to compare, so the missing-timestamp rule hands it to local. */
   async recreate(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
     const recreated = await this.createAndLink(line, link.blockId);
-    await this.completeIfDone(line, recreated);
 
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
@@ -121,6 +119,7 @@ export class LineLinker {
       description: composeRemoteDescription(description, blockId),
       labels: task.tags,
       parentId: parent.providerTaskId,
+      isCompleted: isDone(task),
     });
     const link = {
       blockId,
@@ -128,24 +127,16 @@ export class LineLinker {
       lastSyncedTitle: task.title,
       lastSyncedDescription: description,
       lastSyncedTags: canonicalTags(task.tags),
-      lastSyncedParentBlockId: parent.blockId,
-      lastSyncedDone: false,
+      lastSyncedParentBlockId: parentBlockIdOf(parent, created),
+      lastSyncedDone: created.isCompleted,
     };
 
     this.links.set(link);
     return link;
   }
+}
 
-  /**
-   * A task is always created open. Completing it is left until its line carries the anchor, so a
-   * failure here leaves a linked, open task whose checked line the next pass pushes as usual.
-   */
-  private async completeIfDone(line: LineUnderSync, link: TaskLink): Promise<void> {
-    if (!isDone(line.task)) {
-      return;
-    }
-
-    await this.provider.completeTask(link.providerTaskId);
-    this.links.set({ ...link, lastSyncedDone: true });
-  }
+/** Only the parent the provider actually kept counts; anything it dropped is pushed again next pass. */
+function parentBlockIdOf(parent: LinkedParent, created: ProviderTask): string | undefined {
+  return created.parentId === parent.providerTaskId ? parent.blockId : undefined;
 }
