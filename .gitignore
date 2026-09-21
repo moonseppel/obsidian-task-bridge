@@ -66,7 +66,6 @@ obsidian-test-vault/.obsidian/plugins/task-bridge/styles.css
 # AI agent instruction files (kept locally, removed from git history)
 /claude.md
 /gemini.md
-/docs/coding-guides/cleancode_claude.md
 /docs/coding-guides/cleancode_gemini.md
+/docs/coding-guides/coding-workflow.md
 /docs/coding-guides/development-rules.md
-/docs/coding-guides/style_guide.md
