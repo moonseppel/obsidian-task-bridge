@@ -117,7 +117,15 @@ describe('TaskBridgePlugin', () => {
         orphanedTasks: [],
         knownProjects: [],
         providerCredentials: { apiTokenSecretName: '' },
+        providerStateMapping: {},
       });
+    });
+
+    it('loads the status mapping the provider stored last time', async () => {
+      const { plugin, loadData } = makePlugin();
+      loadData.mockResolvedValue({ providerStateMapping: { '/': 'open' } });
+      await plugin.loadSettings();
+      expect(plugin.stateMapping.toStored()).toEqual({ '/': 'open' });
     });
 
     it('loads the credentials the provider stored last time', async () => {

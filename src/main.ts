@@ -15,6 +15,7 @@ import { TaskLinkStore } from './services/sync/sync-state/task-links';
 import { TaskSync } from './services/sync/sync-pass/task-sync';
 import { TasksPluginReader } from './services/tasks-plugin/tasks-plugin-reader';
 import { TodoistCredentials } from './services/todoist/todoist-credentials';
+import { TodoistStateMapping } from './services/todoist/todoist-state-mapping';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
 import { readProviderCredentials, readStoredField, toKnownProjects, toSettings } from './stored-data';
 import { Logger, setDebugLogging } from './utils/logger';
@@ -38,6 +39,7 @@ export default class TaskBridgePlugin extends Plugin {
   taskLinks = new TaskLinkStore();
   orphanedTasks = new OrphanTracker();
   readonly credentials = new TodoistCredentials(this.app, () => this.saveSettings());
+  readonly stateMapping = new TodoistStateMapping(() => this.saveSettings());
   private readonly provider = createTodoistProvider(this.credentials);
   connection = new ProviderConnection(this.provider);
   private readonly reporter = new StatusReporter(logger, announce, {
@@ -166,6 +168,7 @@ export default class TaskBridgePlugin extends Plugin {
 
     this.settings = toSettings(stored);
     this.credentials.restore(readProviderCredentials(stored));
+    this.stateMapping.restore(readStoredField(stored, 'providerStateMapping'));
     this.taskLinks.replaceAll(readStoredField(stored, 'taskLinks'));
     this.orphanedTasks.replaceAll(readStoredField(stored, 'orphanedTasks'));
     this.projects.remember(toKnownProjects(readStoredField(stored, 'knownProjects')));
@@ -178,6 +181,7 @@ export default class TaskBridgePlugin extends Plugin {
       orphanedTasks: this.orphanedTasks.toStored(),
       knownProjects: this.projects.knownProjects,
       providerCredentials: this.credentials.toStored(),
+      providerStateMapping: this.stateMapping.toStored(),
     });
   }
 

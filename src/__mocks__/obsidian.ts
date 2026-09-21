@@ -320,6 +320,27 @@ export class ToggleComponent {
   }
 }
 
+export class DropdownComponent {
+  private value = '';
+
+  addOptions(_options: Record<string, string>): this {
+    return this;
+  }
+
+  setValue(value: string): this {
+    this.value = value;
+    return this;
+  }
+
+  getValue(): string {
+    return this.value;
+  }
+
+  onChange(_callback: (value: string) => unknown): this {
+    return this;
+  }
+}
+
 export class ButtonComponent {
   buttonEl: HTMLElement = createMockElement();
 
@@ -371,6 +392,11 @@ export class Setting {
 
   addToggle(callback: (component: ToggleComponent) => void): this {
     callback(new ToggleComponent());
+    return this;
+  }
+
+  addDropdown(callback: (component: DropdownComponent) => void): this {
+    callback(new DropdownComponent());
     return this;
   }
 

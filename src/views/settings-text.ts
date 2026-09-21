@@ -44,6 +44,15 @@ export function projectDescription(defaultProjectName: string): string {
   );
 }
 
+export const STATUS_MAPPING_DISPLAY_NAME = 'Tasks plugin statuses';
+
+export function statusMappingDescription(providerName: string): string {
+  return (
+    `How each status of the Tasks plugin is synced to ${providerName}. A task completed or reopened in ` +
+    `${providerName} is given the first status here set to that state.`
+  );
+}
+
 export const SYNC_DISPLAY_NAME = 'Sync';
 export const SYNC_INTERVAL_DISPLAY_NAME = 'Check for changes every';
 
