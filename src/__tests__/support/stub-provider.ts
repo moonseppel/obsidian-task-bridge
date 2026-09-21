@@ -14,7 +14,7 @@ export interface StubProviderOptions {
   updateTaskLabels?: (taskId: string, labels: readonly string[]) => Promise<void>;
   completeTask?: (taskId: string) => Promise<void>;
   reopenTask?: (taskId: string) => Promise<void>;
-  reparentTask?: (taskId: string, parentId: string | undefined, projectId: string) => Promise<void>;
+  reparentTask?: (taskId: string, parentId: string | undefined, projectId: string) => Promise<boolean>;
   removeTask?: (taskId: string) => Promise<void>;
   getTask?: (taskId: string) => Promise<LooseProviderTask | undefined>;
   /** Left out by a stub standing in for a provider that stores a description exactly as given. */

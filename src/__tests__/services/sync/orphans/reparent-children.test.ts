@@ -11,7 +11,7 @@ describe('promoteChildrenToTopLevel', () => {
     const provider = {
       reparentTask: (taskId: string, parentId: string | undefined, projectId: string) => {
         reparented.push([taskId, parentId, projectId]);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     } as unknown as Parameters<typeof promoteChildrenToTopLevel>[0];
 
@@ -35,7 +35,7 @@ describe('promoteChildrenToTopLevel', () => {
     const provider = {
       reparentTask: (taskId: string) => {
         reparented.push(taskId);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     } as unknown as Parameters<typeof promoteChildrenToTopLevel>[0];
 
@@ -49,7 +49,7 @@ describe('promoteChildrenToTopLevel', () => {
     const provider = {
       reparentTask: (taskId: string) => {
         reparented.push(taskId);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     } as unknown as Parameters<typeof promoteChildrenToTopLevel>[0];
 

@@ -88,7 +88,7 @@ describe('TaskSync creating a task nested under a completed parent', () => {
       createTask: (task) => Promise.resolve({ id: 'child-task', title: task.title, isCompleted: true, parentId: undefined }),
       reparentTask: (taskId, parentId) => {
         reparented.push([taskId, parentId]);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     });
 

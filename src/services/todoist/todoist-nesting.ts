@@ -12,7 +12,8 @@ const logger = new Logger('TaskBridge:Todoist');
  * (architecture-rules.md rule 42). Completing a task is always a second call after creation, since
  * Todoist never creates a task already completed. An open child can never sit under a completed
  * parent at all — completing a parent completes its children, and reopening a child reopens its
- * parent — so it is held back entirely and noted on the parent instead.
+ * parent — so it is held back entirely (on creation) or left where it is (on reparenting) and noted
+ * on the parent instead.
  */
 export class TodoistNesting {
   private readonly api: TodoistApiClient;
@@ -30,13 +31,36 @@ export class TodoistNesting {
     }
 
     if (parent.isCompleted) {
-      return task.isCompleted ? this.createUnderCompletedParent(task, parent.id) : this.holdBack(parent, task.title);
+      if (!task.isCompleted) {
+        await this.writeNotice(parent, task.title);
+        return undefined;
+      }
+
+      return this.createUnderCompletedParent(task, parent.id);
     }
 
     const created = await this.createAt(task, parent.id);
     await this.removeNoticeIfPresent(parent, task.title);
 
     return created;
+  }
+
+  /** Resolves to whether the task now sits under the parent that was asked for. */
+  async reparent(taskId: string, parentId: string | undefined, projectId: string): Promise<boolean> {
+    const moved = await this.api.moveTask(taskId, parentId, projectId);
+
+    if (parentId === undefined) {
+      return true;
+    }
+
+    const parent = await this.api.getTask(parentId);
+    const landed = moved.parentId === parentId;
+
+    if (parent !== undefined) {
+      await (landed ? this.removeNoticeIfPresent(parent, moved.content) : this.writeNotice(parent, moved.content));
+    }
+
+    return landed;
   }
 
   private async createAt(task: NewTask, parentId: string | undefined): Promise<TodoistTask> {
@@ -57,16 +81,14 @@ export class TodoistNesting {
     }
   }
 
-  /** Creates nothing at all; the parent gets a courtesy notice instead, until it reads otherwise. */
-  private async holdBack(parent: TodoistTask, title: string): Promise<undefined> {
+  /** Leaves a courtesy notice on the parent, until it reads otherwise. */
+  private async writeNotice(parent: TodoistTask, title: string): Promise<void> {
     const description = addChildNotice(parent.description, title);
 
     if (description !== parent.description) {
       await this.api.updateTaskDescription(parent.id, description);
       logger.info('Noted a child task waiting for its completed parent to reopen', { parentTaskId: parent.id });
     }
-
-    return undefined;
   }
 
   /** A stale notice from an earlier held-back attempt, now resolved. A failed removal is not fatal. */

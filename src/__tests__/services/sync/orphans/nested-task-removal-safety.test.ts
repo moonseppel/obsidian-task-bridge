@@ -31,7 +31,7 @@ describe('protecting a still-linked child from a provider-side cascade delete', 
         removeTask,
         reparentTask: (taskId, parentId, projectId) => {
           reparented.push([taskId, parentId, projectId]);
-          return Promise.resolve();
+          return Promise.resolve(true);
         },
       },
       { orphans },
@@ -59,7 +59,7 @@ describe('protecting a still-linked child from a provider-side cascade delete', 
       removeTask,
       reparentTask: (taskId, parentId, projectId) => {
         reparented.push([taskId, parentId, projectId]);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     });
 

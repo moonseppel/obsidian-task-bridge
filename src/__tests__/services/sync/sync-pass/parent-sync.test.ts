@@ -22,7 +22,7 @@ describe('a deleted parent line', () => {
       listProjects: projectExists,
       reparentTask: (taskId, parentId) => {
         reparented.push([taskId, parentId]);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     });
 
@@ -53,7 +53,7 @@ describe('TaskSync parent field sync', () => {
       listProjects: projectExists,
       reparentTask: (taskId, parentId, projectId) => {
         reparented.push([taskId, parentId, projectId]);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     });
 
@@ -64,6 +64,42 @@ describe('TaskSync parent field sync', () => {
     expect(note.content).toBe(before);
     expect(links.get('tb-b')?.lastSyncedParentBlockId).toBe('tb-c');
     expect(outcome.pushed).toBe(1);
+  });
+
+  it('leaves the link unchanged and retries next pass when a reparent is refused', async () => {
+    const note = new FakeNote('- [ ] A ^tb-a\n- [ ] C ^tb-c\n\t- [ ] B ^tb-b');
+    const links = new TaskLinkStore([
+      { blockId: 'tb-a', providerTaskId: 'task-a', lastSyncedTitle: 'A' },
+      { blockId: 'tb-c', providerTaskId: 'task-c', lastSyncedTitle: 'C' },
+      { blockId: 'tb-b', providerTaskId: 'task-b', lastSyncedTitle: 'B', lastSyncedParentBlockId: 'tb-a' },
+    ]);
+    const reparented: Array<[string, string | undefined, string]> = [];
+    const sync = makeSync(note, links, {
+      listTasks: remoteTasks(
+        { id: 'task-a', title: 'A', embeddedBlockId: 'tb-a' },
+        { id: 'task-c', title: 'C', embeddedBlockId: 'tb-c' },
+        { id: 'task-b', title: 'B', embeddedBlockId: 'tb-b', parentId: 'task-a', projectId: PROJECT },
+      ),
+      listProjects: projectExists,
+      reparentTask: (taskId, parentId, projectId) => {
+        reparented.push([taskId, parentId, projectId]);
+        return Promise.resolve(false);
+      },
+    });
+
+    const before = note.content;
+    const outcome = await sync.run(PROJECT);
+
+    expect(note.content).toBe(before);
+    expect(links.get('tb-b')?.lastSyncedParentBlockId).toBe('tb-a');
+    expect(outcome.pushed).toBe(0);
+
+    await sync.run(PROJECT);
+
+    expect(reparented).toEqual([
+      ['task-b', 'task-c', PROJECT],
+      ['task-b', 'task-c', PROJECT],
+    ]);
   });
 
   it('pushes a local reparent to top-level as clearing the parent', async () => {
@@ -81,7 +117,7 @@ describe('TaskSync parent field sync', () => {
       listProjects: projectExists,
       reparentTask: (_taskId, parentId) => {
         reparented.push(parentId);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     });
 

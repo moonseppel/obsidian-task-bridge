@@ -283,6 +283,17 @@ describeAgainstTodoist('Todoist task round trip', () => {
       await expect(client.getTask(child.id)).resolves.toMatchObject({ parentId: parent.id });
     });
 
+    it('answers moving an open task under a completed parent without that parent', async () => {
+      const parent = await client.createTask({ content: 'Completed parent', projectId: project.id });
+      await client.completeTask(parent.id);
+      const child = await client.createTask({ content: 'Child', projectId: project.id });
+
+      const moved = await client.moveTask(child.id, parent.id, project.id);
+
+      expect(moved.parentId).toBeUndefined();
+      await expect(client.getTask(child.id)).resolves.toMatchObject({ parentId: undefined });
+    });
+
     it('deletes a completed task like any other', async () => {
       const task = await client.createTask({ content: 'Completed task', projectId: project.id });
       await client.completeTask(task.id);

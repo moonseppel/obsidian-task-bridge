@@ -206,7 +206,7 @@ describe('TaskSync scope-exit handling', () => {
           updateTaskDescription: jest.fn().mockResolvedValue(undefined),
           reparentTask: (taskId) => {
             calls.push(`reparent:${taskId}`);
-            return Promise.resolve();
+            return Promise.resolve(true);
           },
           removeTask: (taskId) => {
             calls.push(`remove:${taskId}`);

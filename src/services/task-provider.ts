@@ -73,8 +73,10 @@ export interface TaskProvider {
    * A dedicated action rather than a field update, because Todoist rejects `parent_id` on the
    * general update endpoint. Clearing a parent (`parentId` undefined) still needs the task's
    * current project, since Todoist only accepts that as `project_id` re-sent on the same project.
+   * Resolves to whether the task now sits under the parent that was asked for: an open task can
+   * never land under a completed one, and clearing a parent always succeeds.
    */
-  reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<void>;
+  reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<boolean>;
   /** Moves the task to trash where the provider offers one, otherwise deletes it permanently. */
   removeTask(taskId: string): Promise<void>;
   /**

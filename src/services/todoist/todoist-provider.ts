@@ -64,8 +64,8 @@ export class TodoistProvider implements TaskProvider {
     await this.api.reopenTask(taskId);
   }
 
-  async reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<void> {
-    await this.api.moveTask(taskId, parentId, projectId);
+  async reparentTask(taskId: string, parentId: string | undefined, projectId: string): Promise<boolean> {
+    return this.nesting.reparent(taskId, parentId, projectId);
   }
 
   /** Todoist offers no trash for tasks, so removal here is always the permanent delete. */

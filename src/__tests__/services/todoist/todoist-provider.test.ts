@@ -334,13 +334,14 @@ describe('TodoistProvider task and project mapping', () => {
   it('reparents a task through the dedicated move action', async () => {
     const moved: Array<[string, string | undefined, string]> = [];
     const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1' })),
       moveTask: (id: string, parentId: string | undefined, projectId: string) => {
         moved.push([id, parentId, projectId]);
         return Promise.resolve(todoistTask({ id, parentId }));
       },
     });
 
-    await expect(provider.reparentTask('t1', 'parent-1', 'p1')).resolves.toBeUndefined();
+    await expect(provider.reparentTask('t1', 'parent-1', 'p1')).resolves.toBe(true);
     expect(moved).toEqual([['t1', 'parent-1', 'p1']]);
   });
 
@@ -353,7 +354,7 @@ describe('TodoistProvider task and project mapping', () => {
       },
     });
 
-    await expect(provider.reparentTask('t1', undefined, 'p1')).resolves.toBeUndefined();
+    await expect(provider.reparentTask('t1', undefined, 'p1')).resolves.toBe(true);
     expect(moved).toEqual([undefined]);
   });
 
@@ -563,5 +564,74 @@ describe('TodoistProvider creating a task nested under a completed parent', () =
 
     expect(result).toMatchObject({ id: 'child-1', parentId: 'parent-1' });
     expect(updated).toEqual([['parent-1', 'Notes']]);
+  });
+});
+
+describe('TodoistProvider reparenting a task onto a completed parent', () => {
+  function providerOver(api: Partial<TodoistApiClient>): TodoistProvider {
+    return new TodoistProvider(api as TodoistApiClient);
+  }
+
+  it('resolves to true and clears any stale notice once an open task lands under an open parent', async () => {
+    const updated: Array<[string, string]> = [];
+    const provider = providerOver({
+      moveTask: (id: string, parentId: string | undefined) => Promise.resolve(todoistTask({ id, parentId })),
+      getTask: () =>
+        Promise.resolve(
+          todoistTask({
+            id: 'parent-1',
+            isCompleted: false,
+            description:
+              'Notes\nTaskBridge tried to add a child to this task, but that is not supported by Todoist once ' +
+              'the parent is completed. Reopening will allow the child to be synced in the next run. Child task ' +
+              'title: Buy milk',
+          }),
+        ),
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve(todoistTask({ id, description }));
+      },
+    });
+
+    const landed = await provider.reparentTask('child-1', 'parent-1', 'p1');
+
+    expect(landed).toBe(true);
+    expect(updated).toEqual([['parent-1', 'Notes']]);
+  });
+
+  it('resolves to false and notes the parent when the move under a completed parent is refused', async () => {
+    const updated: Array<[string, string]> = [];
+    const provider = providerOver({
+      // Todoist answers OK but silently ignores the parent for an open task.
+      moveTask: (id: string) => Promise.resolve(todoistTask({ id, content: 'Buy milk', parentId: undefined })),
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: true, description: 'Notes' })),
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve(todoistTask({ id, description }));
+      },
+    });
+
+    const landed = await provider.reparentTask('child-1', 'parent-1', 'p1');
+
+    expect(landed).toBe(false);
+    expect(updated).toEqual([
+      [
+        'parent-1',
+        'Notes\nTaskBridge tried to add a child to this task, but that is not supported by Todoist once the ' +
+          'parent is completed. Reopening will allow the child to be synced in the next run. Child task title: ' +
+          'Buy milk',
+      ],
+    ]);
+  });
+
+  it('always resolves to true when clearing a parent, without looking anything up', async () => {
+    const getTask = jest.fn();
+    const provider = providerOver({
+      getTask,
+      moveTask: (id: string) => Promise.resolve(todoistTask({ id })),
+    });
+
+    await expect(provider.reparentTask('child-1', undefined, 'p1')).resolves.toBe(true);
+    expect(getTask).not.toHaveBeenCalled();
   });
 });

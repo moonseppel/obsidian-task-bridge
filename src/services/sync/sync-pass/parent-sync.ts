@@ -61,13 +61,21 @@ export class ParentSync {
    * A local parent that is not linked yet is pushed as top-level for now, corrected once it is.
    * Clearing a parent re-sends the task's own current project (see `TaskProvider.reparentTask`),
    * not the pass's configured one, so a task synced from a different Todoist project than this
-   * plugin is configured for stays exactly where its owner put it.
+   * plugin is configured for stays exactly where its owner put it. An open task can never land
+   * under a completed parent, so a refused move leaves the link exactly as it was — the parent's
+   * task gets a notice instead — and is tried again every later pass until the parent reopens.
    */
   private async push(linked: LinkedLine, parentBlockId: string | undefined, projectId: string): Promise<void> {
     const { line, link } = linked;
     const parent = this.links.linkedParent(parentBlockId);
 
-    await this.provider.reparentTask(link.providerTaskId, parent.providerTaskId, projectId);
+    const landed = await this.provider.reparentTask(link.providerTaskId, parent.providerTaskId, projectId);
+
+    if (!landed) {
+      logger.debug('Move under a completed parent was refused; retrying on a later pass', linkIds(link));
+      return;
+    }
+
     this.links.set({ ...link, lastSyncedParentBlockId: parent.blockId });
     line.pass.outcome.pushed += 1;
   }
