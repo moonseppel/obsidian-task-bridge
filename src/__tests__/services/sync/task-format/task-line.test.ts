@@ -1,4 +1,5 @@
 import {
+  ParsedTaskLine,
   collectBlockIds,
   formatTaskLine,
   isDone,
@@ -8,6 +9,7 @@ import {
   withTags,
   withTitle,
 } from '../../../../services/sync/task-format/task-line';
+import { trailingFieldsStart } from '../../../../services/tasks-plugin/tasks-fields';
 
 describe('parseTaskLine', () => {
   it.each([
@@ -17,7 +19,7 @@ describe('parseTaskLine', () => {
     ['1. [ ] Buy milk', '1. ', 'Buy milk'],
     ['2) [ ] Buy milk', '2) ', 'Buy milk'],
   ])('recognises %s as a task', (line, prefix, title) => {
-    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', text: title, title, tags: [], blockId: undefined });
+    expect(parseTaskLine(line)).toEqual({ prefix, checkbox: ' ', body: title, fields: '', title, tags: [], blockId: undefined });
   });
 
   it('keeps the indentation of a nested task in the prefix', () => {
@@ -35,7 +37,8 @@ describe('parseTaskLine', () => {
     expect(parseTaskLine('- [ ] Buy milk ^tb-a1b2c3')).toEqual({
       prefix: '- ',
       checkbox: ' ',
-      text: 'Buy milk',
+      body: 'Buy milk',
+      fields: '',
       title: 'Buy milk',
       tags: [],
       blockId: 'tb-a1b2c3',
@@ -46,7 +49,8 @@ describe('parseTaskLine', () => {
     expect(parseTaskLine('- [ ] Read ^chapter ^tb-a1')).toEqual({
       prefix: '- ',
       checkbox: ' ',
-      text: 'Read ^chapter',
+      body: 'Read ^chapter',
+      fields: '',
       title: 'Read ^chapter',
       tags: [],
       blockId: 'tb-a1',
@@ -76,7 +80,8 @@ describe('parseTaskLine', () => {
       expect(parseTaskLine('- [ ] Renew passport #errands')).toEqual({
         prefix: '- ',
         checkbox: ' ',
-        text: 'Renew passport #errands',
+        body: 'Renew passport #errands',
+        fields: '',
         title: 'Renew passport',
         tags: ['errands'],
         blockId: undefined,
@@ -91,7 +96,8 @@ describe('parseTaskLine', () => {
       expect(parseTaskLine('- [ ] Renew passport #errands #urgent ^tb-a1')).toEqual({
         prefix: '- ',
         checkbox: ' ',
-        text: 'Renew passport #errands #urgent',
+        body: 'Renew passport #errands #urgent',
+        fields: '',
         title: 'Renew passport',
         tags: ['errands', 'urgent'],
         blockId: 'tb-a1',
@@ -103,7 +109,7 @@ describe('parseTaskLine', () => {
 
       expect(task?.title).toBe('Call the dentist');
       expect(task?.tags).toEqual(['home']);
-      expect(task?.text).toBe('Call the #home dentist');
+      expect(task?.body).toBe('Call the #home dentist');
     });
 
     it('reads a tag opening the text', () => {
@@ -174,6 +180,91 @@ describe('parseTaskLine', () => {
   });
 });
 
+describe('a task line ending in Tasks plugin fields', () => {
+  function parseWithFields(line: string): ParsedTaskLine {
+    return parseTaskLine(line, trailingFieldsStart)!;
+  }
+
+  it('keeps emoji fields out of the title', () => {
+    expect(parseWithFields('- [ ] Buy milk 📅 2026-09-20 ✅ 2026-09-21 ^tb-a1').title).toBe('Buy milk');
+  });
+
+  it.each(['[due:: 2026-09-20]', '(due:: 2026-09-20)'])('keeps the Dataview field %s out of the title', (field) => {
+    expect(parseWithFields(`- [ ] Buy milk  ${field} ^tb-a1`).title).toBe('Buy milk');
+  });
+
+  it('holds the fields verbatim apart from the text before them', () => {
+    const task = parseWithFields('- [ ] Buy milk  [due:: 2026-09-20] ^tb-a1');
+
+    expect([task.body, task.fields]).toEqual(['Buy milk  ', '[due:: 2026-09-20]']);
+  });
+
+  it('keeps a Dataview field whose key the Tasks plugin does not use in the title', () => {
+    expect(parseWithFields('- [ ] Buy milk [store:: corner shop]').title).toBe('Buy milk [store:: corner shop]');
+  });
+
+  it('keeps a field standing in the middle of the text in the title', () => {
+    expect(parseWithFields('- [ ] Pay 📅 2026-09-20 at the bank').title).toBe('Pay 📅 2026-09-20 at the bank');
+  });
+
+  it('reads the tags on both sides of the fields as tags', () => {
+    expect(parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1').tags).toEqual(['a', 'b']);
+  });
+
+  it('keeps tags among the fields out of the title', () => {
+    expect(parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1').title).toBe('Buy');
+  });
+
+  it('reads the fields as part of the title without a finder for them', () => {
+    expect(parseTaskLine('- [ ] Buy milk 📅 2026-09-20')?.title).toBe('Buy milk 📅 2026-09-20');
+  });
+
+  it.each([
+    '- [ ] Buy milk 📅 2026-09-20 ✅ 2026-09-21 ^tb-a1',
+    '- [ ] Buy milk  [due:: 2026-09-20]  [priority:: high] ^tb-a1',
+    '- [ ] Buy #a 📅 2026-09-20 #b',
+    '- [x] Buy milk   🔁 every week   ✅ 2026-09-21',
+  ])('round trips %s unchanged', (line) => {
+    expect(formatTaskLine(parseWithFields(line))).toBe(line);
+  });
+
+  describe('taking a pulled title', () => {
+    it('writes the new title, then the tags, then the fields unchanged', () => {
+      const task = parseWithFields('- [ ] Call the #home dentist 📅 2026-09-20 ^tb-a1');
+
+      expect(formatTaskLine(withTitle(task, 'Book a check-up'))).toBe(
+        '- [ ] Book a check-up #home 📅 2026-09-20 ^tb-a1',
+      );
+    });
+
+    it('keeps each tag once, whether it stood before the fields or among them', () => {
+      const task = parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1');
+
+      expect(formatTaskLine(withTitle(task, 'Sell'))).toBe('- [ ] Sell #a 📅 2026-09-20 #b ^tb-a1');
+    });
+  });
+
+  describe('taking pulled tags', () => {
+    it('removes a tag standing among the fields, leaving the fields and the other tags', () => {
+      const task = parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1');
+
+      expect(formatTaskLine(withTags(task, ['a']))).toBe('- [ ] Buy #a 📅 2026-09-20 ^tb-a1');
+    });
+
+    it('adds a new tag before the fields', () => {
+      const task = parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1');
+
+      expect(formatTaskLine(withTags(task, ['a', 'b', 'c']))).toBe('- [ ] Buy #a #c 📅 2026-09-20 #b ^tb-a1');
+    });
+
+    it('keeps reading the fields as fields afterwards', () => {
+      const task = parseWithFields('- [ ] Buy #a 📅 2026-09-20 #b ^tb-a1');
+
+      expect(withTags(task, ['c']).fields).toBe('📅 2026-09-20');
+    });
+  });
+});
+
 describe('isDone', () => {
   it('reads a space as not done', () => {
     expect(isDone(parseTaskLine('- [ ] Buy milk')!)).toBe(false);
@@ -187,13 +278,13 @@ describe('isDone', () => {
 describe('formatTaskLine', () => {
   it('appends the block id when there is one', () => {
     expect(
-      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Buy milk', blockId: 'tb-a1' })),
+      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: ' ', body: 'Buy milk', blockId: 'tb-a1' })),
     ).toBe('- [ ] Buy milk ^tb-a1');
   });
 
   it('leaves the line bare when there is no block id', () => {
     expect(
-      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: 'x', text: 'Buy milk', blockId: undefined })),
+      formatTaskLine(taskLineFrom({ prefix: '- ', checkbox: 'x', body: 'Buy milk', blockId: undefined })),
     ).toBe('- [x] Buy milk');
   });
 
@@ -203,7 +294,7 @@ describe('formatTaskLine', () => {
         taskLineFrom({
           prefix: '- ',
           checkbox: ' ',
-          text: 'Renew passport #errands #urgent',
+          body: 'Renew passport #errands #urgent',
           blockId: 'tb-a1',
         }),
       ),
@@ -231,10 +322,11 @@ describe('formatTaskLine', () => {
 
 describe('taskLineFrom', () => {
   it('reads the title and the tags out of the text it is given', () => {
-    expect(taskLineFrom({ prefix: '- ', checkbox: ' ', text: 'Renew passport #errands', blockId: undefined })).toEqual({
+    expect(taskLineFrom({ prefix: '- ', checkbox: ' ', body: 'Renew passport #errands', blockId: undefined })).toEqual({
       prefix: '- ',
       checkbox: ' ',
-      text: 'Renew passport #errands',
+      body: 'Renew passport #errands',
+      fields: '',
       title: 'Renew passport',
       tags: ['errands'],
       blockId: undefined,

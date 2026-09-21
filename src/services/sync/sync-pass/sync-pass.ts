@@ -1,10 +1,16 @@
 import { ProviderTask } from '../../task-provider';
-import { DEFAULT_INDENTATION, Indentation } from '../task-format/indentation';
+import { Indentation } from '../task-format/indentation';
 import { BlockEdit, LineEdit, LineGuard, LineRemoval, NoteEdits, StructuralEdit } from '../note-access/note-edits';
 import { ResolvedProject } from '../sync-run/project-resolver';
 import { SyncOutcome, emptyOutcome } from '../sync-run/sync-outcome';
 import { indexTasksByEmbeddedBlockId, indexTasksById } from './task-index';
-import { ParsedTaskLine, collectBlockIds, formatTaskLine, parseTaskLine } from '../task-format/task-line';
+import {
+  ParsedTaskLine,
+  TrailingFieldsFinder,
+  collectBlockIds,
+  formatTaskLine,
+  parseTaskLine,
+} from '../task-format/task-line';
 import { TaskLink } from '../sync-state/task-links';
 import { nearestAncestorLineNumbers, taskLineNumbers } from '../task-format/task-tree';
 
@@ -21,6 +27,8 @@ export interface SyncPass {
   readonly path: string;
   /** This run's one indentation rule, so no two readers of the note can count its levels differently. */
   readonly indentation: Indentation;
+  /** Where the fields another plugin keeps at the end of a task line start, read for this run. */
+  readonly findTrailingFields: TrailingFieldsFinder;
   readonly projectId: string;
   readonly remoteTasks: ReadonlyMap<string, ProviderTask>;
   readonly remoteTasksByBlockId: ReadonlyMap<string, ProviderTask>;
@@ -72,17 +80,19 @@ export interface BlockReplacement {
   readonly lines: readonly string[];
 }
 
+/** How this run reads a note's lines, the same for every note in it. */
+export interface LineReading {
+  readonly indentation: Indentation;
+  readonly findTrailingFields: TrailingFieldsFinder;
+}
+
 export interface NoteSnapshot {
   readonly content: string;
   readonly modifiedAt: number;
 }
 
-export function createSyncPass(
-  project: ResolvedProject,
-  note: NoteSnapshot,
-  path: string,
-  indentation = DEFAULT_INDENTATION,
-): SyncPass {
+export function createSyncPass(project: ResolvedProject, note: NoteSnapshot, path: string, reading: LineReading): SyncPass {
+  const { indentation, findTrailingFields } = reading;
   const lines = note.content.split('\n');
   const taskLines = taskLineNumbers(lines, indentation);
 
@@ -90,6 +100,7 @@ export function createSyncPass(
     lines,
     path,
     indentation,
+    findTrailingFields,
     projectId: project.id,
     remoteTasks: indexTasksById(project.tasks),
     remoteTasksByBlockId: indexTasksByEmbeddedBlockId(project.tasks),
@@ -210,7 +221,7 @@ function anchorsLineInScope(
   lineNumber: number,
   isTagInScope: (task: ParsedTaskLine) => boolean,
 ): boolean {
-  const task = parseTaskLine(pass.lines[lineNumber]);
+  const task = parseTaskLine(pass.lines[lineNumber], pass.findTrailingFields);
 
   return task !== undefined && isTagInScope(task);
 }

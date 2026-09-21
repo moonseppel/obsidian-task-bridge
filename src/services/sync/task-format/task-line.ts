@@ -19,63 +19,94 @@ const VALID_TAG = new RegExp(`^${TAG_BODY}$`, 'u');
 /** Obsidian reads a run of digits alone as a number, so `#123` stays ordinary text. */
 const DIGITS_ONLY = /^\p{N}+$/u;
 
+/** Where a run of fields another plugin reads at the end of a task's text starts; its length for none. */
+export type TrailingFieldsFinder = (text: string) => number;
+
+/** Without a plugin reading fields at the end of a line, a line has none. */
+export const NO_TRAILING_FIELDS: TrailingFieldsFinder = (text) => text.length;
+
 export interface ParsedTaskLine {
   /** The list marker, kept verbatim so indentation survives. */
   readonly prefix: string;
   /** The single character inside the checkbox brackets, e.g. ' ' or 'x'. */
   readonly checkbox: string;
-  /** The line's own text verbatim, tags in place, without the block id anchor. */
-  readonly text: string;
-  /** What `text` reads as once its tags are taken out — what the provider is told the task is called. */
+  /**
+   * The line's own text verbatim, tags in place, up to where a run of trailing fields starts — the
+   * Tasks plugin's `📅 2026-09-20`, say. Together with `fields` it is the whole text, anchor aside.
+   */
+  readonly body: string;
+  /** The run of trailing fields, verbatim; empty when the line ends in none. */
+  readonly fields: string;
+  /** What `body` reads as once its tags are taken out — what the provider is told the task is called. */
   readonly title: string;
-  /** The tags standing in `text`, in the order they appear there. */
+  /** The tags standing anywhere in the text, fields included, in the order they appear there. */
   readonly tags: readonly string[];
   readonly blockId: string | undefined;
 }
 
-/** What a task line is made of; `title` and `tags` are read out of `text` rather than given. */
+/** What a task line is made of; `title` and `tags` are read out of the text rather than given. */
 export interface TaskLineParts {
   readonly prefix: string;
   readonly checkbox: string;
-  readonly text: string;
+  readonly body: string;
+  readonly fields?: string;
   readonly blockId: string | undefined;
 }
 
-/** The one way a `ParsedTaskLine` is built, so `title` and `tags` can never disagree with `text`. */
+/** The one way a `ParsedTaskLine` is built, so `title` and `tags` can never disagree with the text. */
 export function taskLineFrom(parts: TaskLineParts): ParsedTaskLine {
+  const fields = parts.fields ?? '';
+
   return {
     ...parts,
-    title: removeTags(parts.text, () => true).trim(),
-    tags: tagsIn(parts.text).map((tag) => tag.name),
+    fields,
+    title: removeTags(parts.body, () => true).trim(),
+    tags: tagsIn(parts.body + fields).map((tag) => tag.name),
   };
 }
 
 /**
- * The pulled title with the line's tags after it: where a tag stood inside the previous text
- * cannot survive text that no longer exists, so it moves to the trailing position.
+ * The pulled title with the tags of the text it replaces after it: where a tag stood inside that
+ * text cannot survive text that no longer exists, so it moves to the trailing position. The fields
+ * stay as they were, together with any tag standing among them.
  */
 export function withTitle(task: ParsedTaskLine, title: string): ParsedTaskLine {
-  return withText(task, appendTags(title, task.tags));
+  const bodyTags = tagsIn(task.body).map((tag) => tag.name);
+
+  return withText(task, appendTags(title, bodyTags), task.fields);
 }
 
 /**
- * A label taken away in the provider is taken out of the text where it stands, leaving the rest of
- * it alone; a new one is appended at the end, the only place text that never carried it can offer.
+ * A label taken away in the provider is taken out of the text where it stands, among the fields
+ * too, leaving the rest of it alone; a new one is appended after the title, the only place text
+ * that never carried it can offer.
  */
 export function withTags(task: ParsedTaskLine, tags: readonly string[]): ParsedTaskLine {
   const stillThere = new Set(tags);
-  const kept = removeTags(task.text, (name) => !stillThere.has(name)).trim();
+  const isGone = (name: string): boolean => !stillThere.has(name);
+  const keptBody = removeTags(task.body, isGone).trim();
+  const keptFields = removeTags(task.fields, isGone).trim();
 
-  return withText(task, appendTags(kept, tags.filter((tag) => !task.tags.includes(tag))));
+  return withText(task, appendTags(keptBody, tags.filter((tag) => !task.tags.includes(tag))), keptFields);
 }
 
-function withText(task: ParsedTaskLine, text: string): ParsedTaskLine {
-  return taskLineFrom({ prefix: task.prefix, checkbox: task.checkbox, text, blockId: task.blockId });
+function withText(task: ParsedTaskLine, body: string, fields: string): ParsedTaskLine {
+  const separator = body.length > 0 && fields.length > 0 ? ' ' : '';
+  const { prefix, checkbox, blockId } = task;
+
+  return taskLineFrom({ prefix, checkbox, body: body + separator, fields, blockId });
 }
 
 /** `#tag` tokens after the text they belong to — the trailing place a newly pulled tag is written. */
 function appendTags(text: string, tags: readonly string[]): string {
   return [text, ...tags.map((tag) => `#${tag}`)].filter((part) => part.length > 0).join(' ');
+}
+
+/** Where a tag ending the text starts, if the text ends in one. */
+export function trailingTagStart(text: string): number | undefined {
+  const last = tagsIn(text).at(-1);
+
+  return last !== undefined && last.end === text.length ? last.start : undefined;
 }
 
 /**
@@ -162,7 +193,11 @@ function isSpace(character: string | undefined): boolean {
   return character === ' ' || character === '\t';
 }
 
-export function parseTaskLine(line: string): ParsedTaskLine | undefined {
+/** Without a finder for trailing fields, the whole text is body, as it is without the Tasks plugin. */
+export function parseTaskLine(
+  line: string,
+  findTrailingFields: TrailingFieldsFinder = NO_TRAILING_FIELDS,
+): ParsedTaskLine | undefined {
   const match = TASK_LINE.exec(line);
 
   if (match === null) {
@@ -173,14 +208,16 @@ export function parseTaskLine(line: string): ParsedTaskLine | undefined {
   const withBlockId = TRAILING_BLOCK_ID.exec(remainder);
   const [text, blockId] = withBlockId === null ? [remainder, undefined] : [withBlockId[1], withBlockId[2]];
 
-  return taskLineFrom({ prefix, checkbox, text, blockId });
+  const fieldsStart = findTrailingFields(text);
+
+  return taskLineFrom({ prefix, checkbox, body: text.slice(0, fieldsStart), fields: text.slice(fieldsStart), blockId });
 }
 
 /** Renders the line's own text verbatim, so one the pass never changed comes back byte for byte. */
 export function formatTaskLine(task: ParsedTaskLine): string {
   const anchor = task.blockId === undefined ? '' : ` ^${task.blockId}`;
 
-  return `${task.prefix}[${task.checkbox}] ${task.text}${anchor}`;
+  return `${task.prefix}[${task.checkbox}] ${task.body}${task.fields}${anchor}`;
 }
 
 /** Every block id in the note, task line or not, so a newly minted one cannot collide. */

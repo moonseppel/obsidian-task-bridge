@@ -11,6 +11,9 @@ export interface FakeVault {
   trigger: (event: string, ...args: unknown[]) => void;
   getAbstractFileByPath: (path: string) => TFile | null;
   existingPaths: Set<string>;
+  /** Obsidian's config folder, which holds no file at all here, so no other plugin reads as enabled. */
+  configDir: string;
+  adapter: { exists: (path: string) => Promise<boolean>; read: (path: string) => Promise<string> };
 }
 
 export function fakeVault(): FakeVault {
@@ -25,6 +28,8 @@ export function fakeVault(): FakeVault {
       (handlers[event] ?? []).forEach((cb) => cb(...args));
     },
     existingPaths,
+    configDir: '.obsidian',
+    adapter: { exists: async () => false, read: async () => '' },
     getAbstractFileByPath(path) {
       return existingPaths.has(path) ? tfile(path) : null;
     },

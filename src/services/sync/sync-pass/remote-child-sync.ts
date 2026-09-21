@@ -72,7 +72,7 @@ export class RemoteChildSync {
       const blockId = this.linkChild(pull, task, parent.blockId);
       const prefix = `${parent.childIndent}- `;
 
-      lines.push(formatTaskLine(taskLineFrom({ prefix, checkbox: ' ', text: task.title, blockId })));
+      lines.push(formatTaskLine(taskLineFrom({ prefix, checkbox: ' ', body: task.title, blockId })));
       lines.push(...this.buildChildLines(pull, { taskId: task.id, blockId, childIndent: `${parent.childIndent}\t` }));
     }
 

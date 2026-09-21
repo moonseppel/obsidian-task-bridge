@@ -13,6 +13,7 @@ import { SyncScheduler } from './services/sync/sync-run/sync-scheduler';
 import { TaskCollection } from './services/sync/task-source/task-collection';
 import { TaskLinkStore } from './services/sync/sync-state/task-links';
 import { TaskSync } from './services/sync/sync-pass/task-sync';
+import { TasksPluginReader } from './services/tasks-plugin/tasks-plugin-reader';
 import { TodoistCredentials } from './services/todoist/todoist-credentials';
 import { createTodoistProvider } from './services/todoist/todoist-provider';
 import { readProviderCredentials, readStoredField, toKnownProjects, toSettings } from './stored-data';
@@ -63,6 +64,7 @@ export default class TaskBridgePlugin extends Plugin {
       onRelevantChange: () => this.syncRunner.handleRelevantChange(),
     },
   });
+  readonly tasksPlugin = new TasksPluginReader(this.app.vault.adapter, this.app.vault.configDir);
   private readonly taskSync = new TaskSync({
     filesInScope: () => this.taskCollection.filesInScope(),
     noteFor: (path) => new ObsidianSourceNote(this.app.vault, () => this.fileAt(path)),
@@ -75,6 +77,7 @@ export default class TaskBridgePlugin extends Plugin {
     saveLinks: () => this.saveSettings(),
     getDeviceTag: () => getDeviceTag(window.localStorage),
     readTabSize: () => readEditorTabSize(this.app.vault),
+    readTasksPlugin: () => this.tasksPlugin.read(),
     orphans: this.orphanedTasks,
   });
   private readonly scheduler = new SyncScheduler(

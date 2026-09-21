@@ -28,7 +28,9 @@ import {
   createSyncPass,
   recordRemoval,
 } from './sync-pass';
-import { ParsedTaskLine, parseTaskLine } from '../task-format/task-line';
+import { NO_TRAILING_FIELDS, ParsedTaskLine, TrailingFieldsFinder, parseTaskLine } from '../task-format/task-line';
+import { TasksPluginSetup } from '../../tasks-plugin/tasks-plugin-reader';
+import { trailingFieldsStart } from '../../tasks-plugin/tasks-fields';
 import { TaskLinkStore, linkIds } from '../sync-state/task-links';
 
 const logger = new Logger('TaskBridge:Sync');
@@ -58,6 +60,8 @@ export interface TaskSyncDependencies {
   readonly readTabSize?: () => unknown;
   /** The settings deciding this run's scope, logged at its start so a bug report shows what applied. */
   readonly describeScope?: () => ScopeDescription;
+  /** The Tasks plugin's setup, read afresh every run so a change made in its settings applies at once. */
+  readonly readTasksPlugin?: () => Promise<TasksPluginSetup | undefined>;
 }
 
 export type ScopeDescription = Readonly<Record<string, string | boolean>>;
@@ -68,6 +72,8 @@ interface RunScope {
   readonly paths: readonly string[];
   /** Resolved once, so one run cannot count two lines of the same note by two different rules. */
   readonly indentation: Indentation;
+  readonly findTrailingFields: TrailingFieldsFinder;
+  readonly tasksPlugin: TasksPluginSetup | undefined;
   readonly scannedBlockIds: Set<string>;
   readonly pendingRelocations: PendingRelocation[];
   readonly outcomes: SyncOutcome[];
@@ -82,6 +88,7 @@ export class TaskSync {
   private readonly isTagInScope: (task: ParsedTaskLine) => boolean;
   private readonly readTabSize: () => unknown;
   private readonly describeScope: () => ScopeDescription;
+  private readonly readTasksPlugin: () => Promise<TasksPluginSetup | undefined>;
   private readonly lineSync: LinkedLineSync;
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
@@ -104,6 +111,7 @@ export class TaskSync {
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
     this.readTabSize = dependencies.readTabSize ?? (() => undefined);
     this.describeScope = dependencies.describeScope ?? (() => ({}));
+    this.readTasksPlugin = dependencies.readTasksPlugin ?? (() => Promise.resolve(undefined));
     this.lineSync = new LinkedLineSync(
       this.provider,
       this.links,
@@ -127,10 +135,13 @@ export class TaskSync {
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await resolveProject(this.provider, configuredProjectId);
+    const tasksPlugin = await this.readTasksPlugin();
     const scope: RunScope = {
       project,
       paths: this.filesInScope(),
       indentation: indentationOf(this.readTabSize()),
+      findTrailingFields: tasksPlugin === undefined ? NO_TRAILING_FIELDS : trailingFieldsStart,
+      tasksPlugin,
       scannedBlockIds: new Set(),
       pendingRelocations: [],
       outcomes: [],
@@ -191,7 +202,7 @@ export class TaskSync {
       return emptyOutcome(scope.project.resolution);
     }
 
-    const pass = createSyncPass(scope.project, snapshot, path, scope.indentation);
+    const pass = createSyncPass(scope.project, snapshot, path, scope);
     await this.syncAndCommit(scope, path, pass);
 
     logger.debug('Note synced', { path, outcome: pass.outcome });
@@ -252,7 +263,7 @@ export class TaskSync {
 
   private async syncLine(pass: SyncPass, lineNumber: number, note: SourceNote): Promise<void> {
     const original = pass.lines[lineNumber];
-    const task = pass.taskLineNumbers.has(lineNumber) ? parseTaskLine(original) : undefined;
+    const task = pass.taskLineNumbers.has(lineNumber) ? parseTaskLine(original, pass.findTrailingFields) : undefined;
 
     if (task === undefined || task.title.length === 0 || !this.isTagInScope(task)) {
       return;
@@ -355,6 +366,8 @@ function logRunStart(scope: RunScope, settings: ScopeDescription): void {
     projectResolution: scope.project.resolution.kind,
     remoteTasks: scope.project.tasks.length,
     notesInScope: scope.paths.length,
+    tasksPluginEnabled: scope.tasksPlugin !== undefined,
+    tasksPluginStatuses: scope.tasksPlugin?.statuses.length ?? 0,
     ...settings,
   });
 }
