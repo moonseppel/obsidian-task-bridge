@@ -7,7 +7,8 @@ export interface StubProviderOptions {
   connect?: () => Promise<ProviderAccount>;
   listProjects?: () => Promise<ProviderProject[]>;
   listTasks?: (projectId: string) => Promise<LooseProviderTask[]>;
-  createTask?: (task: NewTask) => Promise<LooseProviderTask>;
+  /** Undefined when the scenario stands in for a provider that holds creation back entirely. */
+  createTask?: (task: NewTask) => Promise<LooseProviderTask | undefined>;
   updateTaskTitle?: (taskId: string, title: string) => Promise<void>;
   updateTaskDescription?: (taskId: string, description: string) => Promise<void>;
   updateTaskLabels?: (taskId: string, labels: readonly string[]) => Promise<void>;
@@ -33,7 +34,7 @@ export function stubProvider(options: StubProviderOptions = {}): TaskProvider {
       ? (projectId) => listTasks(projectId).then((tasks) => tasks.map(withTaskDefaults))
       : notStubbed('listTasks'),
     createTask: createTask
-      ? (task) => createTask(task).then((created) => withCreatedTaskDefaults(task, created))
+      ? (task) => createTask(task).then((created) => (created === undefined ? undefined : withCreatedTaskDefaults(task, created)))
       : notStubbed('createTask'),
     updateTaskTitle: options.updateTaskTitle ?? notStubbed('updateTaskTitle'),
     updateTaskDescription: options.updateTaskDescription ?? notStubbed('updateTaskDescription'),

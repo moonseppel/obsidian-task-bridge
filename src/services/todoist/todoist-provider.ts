@@ -1,5 +1,6 @@
 import { ObsidianHttpClient } from '../http/obsidian-http-client';
 import { NewTask, ProviderAccount, ProviderProject, ProviderTask, TaskProvider } from '../task-provider';
+import { childNoticesIn, withChildNotices, withoutChildNotices } from './child-notice';
 import { TodoistApiClient, TodoistProject, TodoistTask, TodoistUser } from './todoist-api-client';
 import { TodoistCredentials } from './todoist-credentials';
 import { TodoistNesting } from './todoist-nesting';
@@ -33,16 +34,22 @@ export class TodoistProvider implements TaskProvider {
     return (await this.api.listTasks(projectId)).map(toProviderTask);
   }
 
-  async createTask(task: NewTask): Promise<ProviderTask> {
-    return toProviderTask(await this.nesting.create(task));
+  async createTask(task: NewTask): Promise<ProviderTask | undefined> {
+    const created = await this.nesting.create(task);
+
+    return created === undefined ? undefined : toProviderTask(created);
   }
 
   async updateTaskTitle(taskId: string, title: string): Promise<void> {
     await this.api.updateTaskContent(taskId, title);
   }
 
+  /** Reads the task first so a notice this plugin left on it survives the overwrite. */
   async updateTaskDescription(taskId: string, description: string): Promise<void> {
-    await this.api.updateTaskDescription(taskId, description);
+    const current = await this.api.getTask(taskId);
+    const notices = current === undefined ? [] : childNoticesIn(current.description);
+
+    await this.api.updateTaskDescription(taskId, withChildNotices(description, notices));
   }
 
   async updateTaskLabels(taskId: string, labels: readonly string[]): Promise<void> {
@@ -89,7 +96,7 @@ function toProviderTask(task: TodoistTask): ProviderTask {
     embeddedBlockId: task.embeddedBlockId,
     isCompleted: task.isCompleted,
     projectId: task.projectId,
-    description: task.description,
+    description: withoutChildNotices(task.description),
     labels: task.labels,
     parentId: task.parentId,
   };

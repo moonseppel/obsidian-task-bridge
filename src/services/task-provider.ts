@@ -58,8 +58,11 @@ export interface TaskProvider {
   connect(): Promise<ProviderAccount>;
   listProjects(): Promise<ProviderProject[]>;
   listTasks(projectId: string): Promise<ProviderTask[]>;
-  /** Resolves to the task as the provider actually holds it, which may differ from what was asked. */
-  createTask(task: NewTask): Promise<ProviderTask>;
+  /**
+   * Resolves to the task as the provider actually holds it, which may differ from what was asked,
+   * or to nothing when the provider held creation back entirely rather than create anything at all.
+   */
+  createTask(task: NewTask): Promise<ProviderTask | undefined>;
   updateTaskTitle(taskId: string, title: string): Promise<void>;
   updateTaskDescription(taskId: string, description: string): Promise<void>;
   updateTaskLabels(taskId: string, labels: readonly string[]): Promise<void>;

@@ -1,5 +1,6 @@
 import { Logger } from '../../utils/logger';
 import { NewTask } from '../task-provider';
+import { addChildNotice, removeChildNotice } from './child-notice';
 import { TodoistApiClient, TodoistTask } from './todoist-api-client';
 import { NewTodoistTask } from './todoist-payloads';
 
@@ -9,7 +10,9 @@ const logger = new Logger('TaskBridge:Todoist');
  * Nesting a child under a completed parent behaves unexpectedly in Todoist: the parent is ignored
  * on the first try, and the child has to be moved under it again afterwards to actually land there
  * (architecture-rules.md rule 42). Completing a task is always a second call after creation, since
- * Todoist never creates a task already completed.
+ * Todoist never creates a task already completed. An open child can never sit under a completed
+ * parent at all — completing a parent completes its children, and reopening a child reopens its
+ * parent — so it is held back entirely and noted on the parent instead.
  */
 export class TodoistNesting {
   private readonly api: TodoistApiClient;
@@ -18,28 +21,69 @@ export class TodoistNesting {
     this.api = api;
   }
 
-  async create(task: NewTask): Promise<TodoistTask> {
+  /** Undefined when the provider held the task back and created nothing at all. */
+  async create(task: NewTask): Promise<TodoistTask | undefined> {
     const parent = task.parentId === undefined ? undefined : await this.api.getTask(task.parentId);
 
-    if (parent !== undefined && parent.isCompleted && task.isCompleted) {
-      return this.createUnderCompletedParent(task, parent.id);
+    if (parent === undefined) {
+      return this.createAt(task, undefined);
     }
 
-    const created = await this.api.createTask(toNewTodoistTask(task, task.parentId));
+    if (parent.isCompleted) {
+      return task.isCompleted ? this.createUnderCompletedParent(task, parent.id) : this.holdBack(parent, task.title);
+    }
+
+    const created = await this.createAt(task, parent.id);
+    await this.removeNoticeIfPresent(parent, task.title);
+
+    return created;
+  }
+
+  private async createAt(task: NewTask, parentId: string | undefined): Promise<TodoistTask> {
+    const created = await this.api.createTask(toNewTodoistTask(task, parentId));
 
     return task.isCompleted ? await this.completeIfPossible(created) : created;
   }
 
   /** Created top-level first, since Todoist ignores the parent outright when it is completed. */
   private async createUnderCompletedParent(task: NewTask, parentId: string): Promise<TodoistTask> {
-    const created = await this.api.createTask(toNewTodoistTask(task, undefined));
-    const completed = await this.completeIfPossible(created);
+    const completed = await this.createAt(task, undefined);
 
     try {
       return await this.api.moveTask(completed.id, parentId, task.projectId);
     } catch (error) {
       logger.warn('Could not move a newly created task under its completed parent', { taskId: completed.id, error });
       return completed;
+    }
+  }
+
+  /** Creates nothing at all; the parent gets a courtesy notice instead, until it reads otherwise. */
+  private async holdBack(parent: TodoistTask, title: string): Promise<undefined> {
+    const description = addChildNotice(parent.description, title);
+
+    if (description !== parent.description) {
+      await this.api.updateTaskDescription(parent.id, description);
+      logger.info('Noted a child task waiting for its completed parent to reopen', { parentTaskId: parent.id });
+    }
+
+    return undefined;
+  }
+
+  /** A stale notice from an earlier held-back attempt, now resolved. A failed removal is not fatal. */
+  private async removeNoticeIfPresent(parent: TodoistTask, title: string): Promise<void> {
+    const description = removeChildNotice(parent.description, title);
+
+    if (description === parent.description) {
+      return;
+    }
+
+    try {
+      await this.api.updateTaskDescription(parent.id, description);
+      logger.info('Removed a child-waiting notice now that the child synced under its parent', {
+        parentTaskId: parent.id,
+      });
+    } catch (error) {
+      logger.warn('Could not remove a child-waiting notice from its parent', { parentTaskId: parent.id, error });
     }
   }
 

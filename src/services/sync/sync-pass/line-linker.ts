@@ -63,6 +63,15 @@ export class LineLinker {
     pass.takenBlockIds.add(blockId);
 
     const created = await this.createAndLink(line, blockId);
+
+    if (created === undefined) {
+      // Nothing to anchor: the line stays exactly as it is, so a line nested under it reads as
+      // top-level rather than pushing a "clear parent" every pass.
+      pass.blockIdByLineNumber.delete(line.lineNumber);
+      logger.debug('Provider held the task back; the line stays unlinked for now', { blockId });
+      return;
+    }
+
     const taskId = created.providerTaskId;
 
     if (!(await note.appendAnchorIfMissing(line.lineNumber, blockId, pass.indentation))) {
@@ -79,6 +88,11 @@ export class LineLinker {
   async recreate(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
     const recreated = await this.createAndLink(line, link.blockId);
+
+    if (recreated === undefined) {
+      logger.debug('Provider held the recreation back; the link stays as it is', linkIds(link));
+      return;
+    }
 
     line.pass.outcome.conflicted += 1;
     line.pass.outcome.recreatedTask += 1;
@@ -109,7 +123,7 @@ export class LineLinker {
    * still waiting out its own creation grace period is not linked yet, so its child is created as
    * top-level for now and corrected the next pass. Resolves to the link it saved.
    */
-  private async createAndLink(line: LineUnderSync, blockId: string): Promise<TaskLink> {
+  private async createAndLink(line: LineUnderSync, blockId: string): Promise<TaskLink | undefined> {
     const { pass, task } = line;
     const description = readDescriptionBlock(pass.lines, line.lineNumber, pass.indentation).text;
     const parent = this.links.linkedParent(localParentBlockId(pass, line.lineNumber));
@@ -121,6 +135,11 @@ export class LineLinker {
       parentId: parent.providerTaskId,
       isCompleted: isDone(task),
     });
+
+    if (created === undefined) {
+      return undefined;
+    }
+
     const link = {
       blockId,
       providerTaskId: created.id,

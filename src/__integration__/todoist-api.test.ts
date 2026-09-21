@@ -190,6 +190,15 @@ describeAgainstTodoist('Todoist task round trip', () => {
       expect(ids).toContain(created.id);
       await expect(client.getTask(created.id)).resolves.toMatchObject({ isCompleted: false });
     });
+
+    it('still lets a completed task have its description updated', async () => {
+      const created = await client.createTask({ content: 'Temporary', projectId: project.id });
+      await client.completeTask(created.id);
+
+      await client.updateTaskDescription(created.id, 'Updated notes');
+
+      await expect(client.getTask(created.id)).resolves.toMatchObject({ description: 'Updated notes' });
+    });
   });
 
   // Feature 7 depends on this to sync a tag as a label without a separate "create the label" step.

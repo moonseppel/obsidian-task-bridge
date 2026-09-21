@@ -142,6 +142,27 @@ describe('TodoistProvider task and project mapping', () => {
     await expect(provider.listTasks('p1')).resolves.toMatchObject([{ description: 'Some notes' }]);
   });
 
+  it('strips a child-waiting notice out of the description in the provider-neutral shape', async () => {
+    const notice =
+      'TaskBridge tried to add a child to this task, but that is not supported by Todoist once the parent is ' +
+      'completed. Reopening will allow the child to be synced in the next run. Child task title: Buy milk';
+    const provider = providerOver({
+      listTasks: () =>
+        Promise.resolve([
+          {
+            id: 't1',
+            content: 'Parent',
+            isCompleted: true,
+            projectId: 'p1',
+            description: `Some notes\n${notice}`,
+            labels: [],
+          },
+        ]),
+    });
+
+    await expect(provider.listTasks('p1')).resolves.toMatchObject([{ description: 'Some notes' }]);
+  });
+
   it('carries labels through to the provider-neutral shape', async () => {
     const provider = providerOver({
       listTasks: () =>
@@ -243,6 +264,7 @@ describe('TodoistProvider task and project mapping', () => {
   it('sends a description update on to the API client', async () => {
     const updated: Array<[string, string]> = [];
     const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 't1' })),
       updateTaskDescription: (id: string, description: string) => {
         updated.push([id, description]);
         return Promise.resolve(todoistTask({ id, description }));
@@ -251,6 +273,23 @@ describe('TodoistProvider task and project mapping', () => {
 
     await expect(provider.updateTaskDescription('t1', 'Now orphaned.\n^tb-a1')).resolves.toBeUndefined();
     expect(updated).toEqual([['t1', 'Now orphaned.\n^tb-a1']]);
+  });
+
+  it('keeps a child-waiting notice on a description update, carrying it past the overwrite', async () => {
+    const updated: Array<[string, string]> = [];
+    const notice = 'TaskBridge tried to add a child to this task, but that is not supported by Todoist once ' +
+      'the parent is completed. Reopening will allow the child to be synced in the next run. Child task title: Child';
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 't1', description: `Old notes\n${notice}` })),
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve(todoistTask({ id, description }));
+      },
+    });
+
+    await provider.updateTaskDescription('t1', 'New notes');
+
+    expect(updated).toEqual([['t1', `New notes\n${notice}`]]);
   });
 
   it('sends a labels update on to the API client', async () => {
@@ -468,5 +507,61 @@ describe('TodoistProvider creating a task nested under a completed parent', () =
     expect(result).toMatchObject({ id: 'child-1', isCompleted: true, parentId: undefined });
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it('creates nothing at all for an open task under a completed parent, noting it there instead', async () => {
+    const createTask = jest.fn();
+    const updated: Array<[string, string]> = [];
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: true, description: 'Notes' })),
+      createTask,
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve(todoistTask({ id, description }));
+      },
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: false,
+    });
+
+    expect(result).toBeUndefined();
+    expect(createTask).not.toHaveBeenCalled();
+    expect(updated).toEqual([
+      [
+        'parent-1',
+        'Notes\nTaskBridge tried to add a child to this task, but that is not supported by Todoist once the ' +
+          'parent is completed. Reopening will allow the child to be synced in the next run. Child task title: ' +
+          'Buy milk',
+      ],
+    ]);
+  });
+
+  it('removes a stale notice once the same child creates normally under a reopened parent', async () => {
+    const notice =
+      'TaskBridge tried to add a child to this task, but that is not supported by Todoist once the parent is ' +
+      'completed. Reopening will allow the child to be synced in the next run. Child task title: Buy milk';
+    const updated: Array<[string, string]> = [];
+    const provider = providerOver({
+      getTask: () => Promise.resolve(todoistTask({ id: 'parent-1', isCompleted: false, description: `Notes\n${notice}` })),
+      createTask: (task: NewTodoistTask) => Promise.resolve(todoistTask({ id: 'child-1', content: task.content, parentId: task.parentId })),
+      updateTaskDescription: (id: string, description: string) => {
+        updated.push([id, description]);
+        return Promise.resolve(todoistTask({ id, description }));
+      },
+    });
+
+    const result = await provider.createTask({
+      title: 'Buy milk',
+      projectId: 'p1',
+      parentId: 'parent-1',
+      isCompleted: false,
+    });
+
+    expect(result).toMatchObject({ id: 'child-1', parentId: 'parent-1' });
+    expect(updated).toEqual([['parent-1', 'Notes']]);
   });
 });
