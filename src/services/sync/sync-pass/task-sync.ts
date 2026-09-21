@@ -1,11 +1,9 @@
 import { Logger } from '../../../utils/logger';
-import { ProviderStateMapping } from '../../provider-state-mapping';
 import { ProviderTask, TaskProvider } from '../../task-provider';
 import { CopiedLineSync } from '../duplicates/copied-line-sync';
 import { CrossFileParentSync } from './cross-file-parent-sync';
 import { DuplicateAnchors } from '../duplicates/duplicate-anchors';
 import { GracePeriod } from '../sync-state/grace-period';
-import { CompletionRule, PLAIN_COMPLETION, completionRuleFor } from '../task-format/completion-rule';
 import { Indentation, indentationOf } from '../task-format/indentation';
 import { LineLinker } from './line-linker';
 import { LinkedLineSync } from './linked-line-sync';
@@ -31,7 +29,6 @@ import {
   recordRemoval,
 } from './sync-pass';
 import { NO_TRAILING_FIELDS, ParsedTaskLine, TrailingFieldsFinder, parseTaskLine } from '../task-format/task-line';
-import { TasksPluginSetup } from '../../tasks-plugin/tasks-plugin-reader';
 import { trailingFieldsStart } from '../../tasks-plugin/tasks-fields';
 import { TaskLinkStore, linkIds } from '../sync-state/task-links';
 
@@ -62,10 +59,8 @@ export interface TaskSyncDependencies {
   readonly readTabSize?: () => unknown;
   /** The settings deciding this run's scope, logged at its start so a bug report shows what applied. */
   readonly describeScope?: () => ScopeDescription;
-  /** The Tasks plugin's setup, read afresh every run so a change made in its settings applies at once. */
-  readonly readTasksPlugin?: () => Promise<TasksPluginSetup | undefined>;
-  /** How the provider syncs each Tasks plugin status; without it, statuses read as without the plugin. */
-  readonly stateMapping?: Pick<ProviderStateMapping, 'isCompleted'>;
+  /** Whether the Tasks plugin is enabled, read afresh every run so enabling or disabling it applies at once. */
+  readonly isTasksPluginEnabled?: () => Promise<boolean>;
 }
 
 export type ScopeDescription = Readonly<Record<string, string | boolean>>;
@@ -77,8 +72,7 @@ interface RunScope {
   /** Resolved once, so one run cannot count two lines of the same note by two different rules. */
   readonly indentation: Indentation;
   readonly findTrailingFields: TrailingFieldsFinder;
-  readonly completion: CompletionRule;
-  readonly tasksPlugin: TasksPluginSetup | undefined;
+  readonly tasksPluginEnabled: boolean;
   readonly scannedBlockIds: Set<string>;
   readonly pendingRelocations: PendingRelocation[];
   readonly outcomes: SyncOutcome[];
@@ -93,8 +87,7 @@ export class TaskSync {
   private readonly isTagInScope: (task: ParsedTaskLine) => boolean;
   private readonly readTabSize: () => unknown;
   private readonly describeScope: () => ScopeDescription;
-  private readonly readTasksPlugin: () => Promise<TasksPluginSetup | undefined>;
-  private readonly stateMapping: Pick<ProviderStateMapping, 'isCompleted'> | undefined;
+  private readonly isTasksPluginEnabled: () => Promise<boolean>;
   private readonly lineSync: LinkedLineSync;
   private readonly lineLinker: LineLinker;
   private readonly missingLineSync: MissingLineSync;
@@ -117,8 +110,7 @@ export class TaskSync {
     this.isTagInScope = dependencies.isTagInScope ?? (() => true);
     this.readTabSize = dependencies.readTabSize ?? (() => undefined);
     this.describeScope = dependencies.describeScope ?? (() => ({}));
-    this.readTasksPlugin = dependencies.readTasksPlugin ?? (() => Promise.resolve(undefined));
-    this.stateMapping = dependencies.stateMapping;
+    this.isTasksPluginEnabled = dependencies.isTasksPluginEnabled ?? (() => Promise.resolve(false));
     this.lineSync = new LinkedLineSync(
       this.provider,
       this.links,
@@ -142,14 +134,13 @@ export class TaskSync {
 
   async run(configuredProjectId: string): Promise<SyncOutcome> {
     const project = await resolveProject(this.provider, configuredProjectId);
-    const tasksPlugin = await this.readTasksPlugin();
+    const tasksPluginEnabled = await this.isTasksPluginEnabled();
     const scope: RunScope = {
       project,
       paths: this.filesInScope(),
       indentation: indentationOf(this.readTabSize()),
-      findTrailingFields: tasksPlugin === undefined ? NO_TRAILING_FIELDS : trailingFieldsStart,
-      completion: this.completionRuleFor(tasksPlugin),
-      tasksPlugin,
+      findTrailingFields: tasksPluginEnabled ? trailingFieldsStart : NO_TRAILING_FIELDS,
+      tasksPluginEnabled,
       scannedBlockIds: new Set(),
       pendingRelocations: [],
       outcomes: [],
@@ -162,16 +153,6 @@ export class TaskSync {
     const outcome = mergeOutcomes(scope.outcomes, project.resolution);
 
     return { ...outcome, filesScanned: scope.paths.length, linkedTasks: this.links.size };
-  }
-
-  private completionRuleFor(tasksPlugin: TasksPluginSetup | undefined): CompletionRule {
-    const mapping = this.stateMapping;
-
-    if (tasksPlugin === undefined || mapping === undefined) {
-      return PLAIN_COMPLETION;
-    }
-
-    return completionRuleFor(tasksPlugin.statuses, (symbol) => mapping.isCompleted(symbol));
   }
 
   /**
@@ -193,7 +174,6 @@ export class TaskSync {
       takenBlockIds: scope.scannedBlockIds,
       scannedPaths: scope.paths,
       indentation: scope.indentation,
-      completion: scope.completion,
     };
     scope.outcomes.push(await this.missingLineSync.run(context));
 
@@ -385,8 +365,7 @@ function logRunStart(scope: RunScope, settings: ScopeDescription): void {
     projectResolution: scope.project.resolution.kind,
     remoteTasks: scope.project.tasks.length,
     notesInScope: scope.paths.length,
-    tasksPluginEnabled: scope.tasksPlugin !== undefined,
-    tasksPluginStatuses: scope.tasksPlugin?.statuses.length ?? 0,
+    tasksPluginEnabled: scope.tasksPluginEnabled,
     ...settings,
   });
 }

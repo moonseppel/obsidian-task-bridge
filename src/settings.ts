@@ -4,7 +4,6 @@ import { toSyncIntervalMinutes } from './utils/sync-interval';
 import { ProviderSettings } from './views/provider-settings';
 import * as text from './views/settings-text';
 import { SourceScopeSettings } from './views/source-scope-settings';
-import { StatusMappingSettings } from './views/status-mapping-settings';
 
 export interface TaskBridgeSettings {
   relativeTaskSourcePath: string;
@@ -35,7 +34,6 @@ export class TaskBridgeSettingTab extends PluginSettingTab {
   private readonly plugin: TaskBridgePlugin;
   private readonly sourceScope: SourceScopeSettings;
   private readonly providerSettings: ProviderSettings;
-  private readonly statusMapping: StatusMappingSettings;
   private isOpen = false;
 
   constructor(app: App, plugin: TaskBridgePlugin) {
@@ -43,7 +41,6 @@ export class TaskBridgeSettingTab extends PluginSettingTab {
     this.plugin = plugin;
     this.sourceScope = new SourceScopeSettings(app, plugin, () => this.display());
     this.providerSettings = new ProviderSettings(app, plugin, () => this.display());
-    this.statusMapping = new StatusMappingSettings(plugin, () => this.display());
   }
 
   display(): void {
@@ -51,13 +48,11 @@ export class TaskBridgeSettingTab extends PluginSettingTab {
     if (!this.isOpen) {
       this.isOpen = true;
       void this.refreshProjects();
-      void this.statusMapping.refresh();
     }
 
     this.containerEl.empty();
     this.sourceScope.display(this.containerEl);
     this.providerSettings.display(this.containerEl);
-    this.statusMapping.display(this.containerEl);
     this.displaySyncSettings();
     this.displayDebugSetting();
   }

@@ -28,8 +28,7 @@ export interface SyncHarnessOptions {
   readonly locateParentFile?: (blockId: string) => string | undefined;
   readonly readTabSize?: () => unknown;
   readonly describeScope?: TaskSyncDependencies['describeScope'];
-  readonly readTasksPlugin?: TaskSyncDependencies['readTasksPlugin'];
-  readonly stateMapping?: TaskSyncDependencies['stateMapping'];
+  readonly isTasksPluginEnabled?: TaskSyncDependencies['isTasksPluginEnabled'];
 }
 
 /** The description a freshly created task carries: the user's text above this plugin's footer. */
@@ -141,8 +140,7 @@ function optionalDependencies(
     locateParentFile: options.locateParentFile && resolving(options.locateParentFile),
     readTabSize: options.readTabSize,
     describeScope: options.describeScope,
-    readTasksPlugin: options.readTasksPlugin,
-    stateMapping: options.stateMapping,
+    isTasksPluginEnabled: options.isTasksPluginEnabled,
   };
 }
 

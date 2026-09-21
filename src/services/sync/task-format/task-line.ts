@@ -109,6 +109,10 @@ export function trailingTagStart(text: string): number | undefined {
   return last !== undefined && last.end === text.length ? last.start : undefined;
 }
 
+export function isDone(task: ParsedTaskLine): boolean {
+  return task.checkbox !== ' ';
+}
+
 /**
  * Whether a string could be written as `#tag` at all — a Todoist label may contain a space or a
  * character Obsidian's tag syntax doesn't allow, in which case it is left unsynced rather than

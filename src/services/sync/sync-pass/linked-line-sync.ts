@@ -10,11 +10,8 @@ import {
   renderDescriptionBlock,
 } from '../task-format/task-description';
 import { composeRemoteDescription, extractUserDescription } from '../task-format/task-footer';
-import { isRepresentableAsTag, withTags, withTitle } from '../task-format/task-line';
+import { isDone, isRepresentableAsTag, withTags, withTitle } from '../task-format/task-line';
 import { TaskLinkStore } from '../sync-state/task-links';
-import { Logger } from '../../../utils/logger';
-
-const logger = new Logger('TaskBridge:Sync');
 
 export interface RemoteCompletion {
   readonly isDone: boolean;
@@ -42,7 +39,7 @@ export class LinkedLineSync {
 
   async syncCompletion(linked: LinkedLine, remote: RemoteCompletion): Promise<void> {
     const { line, link } = linked;
-    const localDone = line.pass.completion.readsAsDone(line.task.checkbox);
+    const localDone = isDone(line.task);
 
     await syncField(line, {
       field: 'completion',
@@ -159,21 +156,11 @@ export class LinkedLineSync {
     line.pass.outcome.pushed += 1;
   }
 
-  /** With no status standing for the pulled state, the line and the link stay as they are, so nothing flips back. */
   private pullDone(linked: LinkedLine, done: boolean): void {
     const { line, link } = linked;
-    const checkbox = line.pass.completion.checkboxFor(done);
-
-    if (checkbox === undefined) {
-      logger.debug('No status is mapped to the pulled completion state; leaving the line as it is', {
-        blockId: link.blockId,
-        done,
-      });
-      return;
-    }
 
     this.links.set({ ...link, lastSyncedDone: done });
-    recordTaskEdit(line, (task) => ({ ...task, checkbox }));
+    recordTaskEdit(line, (task) => ({ ...task, checkbox: done ? 'x' : ' ' }));
     line.pass.outcome.pulled += 1;
   }
 

@@ -1,7 +1,6 @@
 import { Logger } from '../../../utils/logger';
 import { ProviderTask, TaskProvider } from '../../task-provider';
 import { GracePeriod } from '../sync-state/grace-period';
-import { CompletionRule, newOpenCheckbox } from '../task-format/completion-rule';
 import { Indentation } from '../task-format/indentation';
 import { appendingOnly } from '../note-access/note-edits';
 import { ResolvedProject } from '../sync-run/project-resolver';
@@ -16,6 +15,7 @@ const logger = new Logger('TaskBridge:Sync');
 
 /** The original marker (bullet vs. numbered, checked vs. not) is gone and cannot be restored. */
 const RESURRECTED_LINE_PREFIX = '- ';
+const RESURRECTED_LINE_CHECKBOX = ' ';
 
 export interface MissingLineSyncDependencies {
   readonly provider: TaskProvider;
@@ -35,8 +35,6 @@ export interface MissingLineRunContext {
   readonly scannedPaths: readonly string[];
   /** This run's one indentation rule, carried into the note a resurrected line is appended to. */
   readonly indentation: Indentation;
-  /** Decides the checkbox a resurrected line is written with. */
-  readonly completion: CompletionRule;
 }
 
 interface MissingLineSweep extends MissingLineRunContext {
@@ -177,7 +175,7 @@ export class MissingLineSync {
     const resurrected = formatTaskLine(
       taskLineFrom({
         prefix: RESURRECTED_LINE_PREFIX,
-        checkbox: newOpenCheckbox(sweep.completion),
+        checkbox: RESURRECTED_LINE_CHECKBOX,
         body: remoteTask.title,
         blockId: link.blockId,
       }),

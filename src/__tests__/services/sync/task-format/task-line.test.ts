@@ -2,6 +2,7 @@ import {
   ParsedTaskLine,
   collectBlockIds,
   formatTaskLine,
+  isDone,
   isRepresentableAsTag,
   parseTaskLine,
   taskLineFrom,
@@ -269,6 +270,16 @@ describe('a task line ending in Tasks plugin fields', () => {
 
       expect(withTags(task, ['c']).fields).toBe('📅 2026-09-20');
     });
+  });
+});
+
+describe('isDone', () => {
+  it('reads a space as not done', () => {
+    expect(isDone(parseTaskLine('- [ ] Buy milk')!)).toBe(false);
+  });
+
+  it.each(['x', 'X', '/', '-'])('reads %s as done', (marker) => {
+    expect(isDone(parseTaskLine(`- [${marker}] Buy milk`)!)).toBe(true);
   });
 });
 

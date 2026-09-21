@@ -1,7 +1,6 @@
 import { App, Setting, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, TaskBridgeSettingTab } from '../../settings';
 import { TodoistCredentials } from '../../services/todoist/todoist-credentials';
-import { TodoistStateMapping } from '../../services/todoist/todoist-state-mapping';
 import type TaskBridgePlugin from '../../main';
 import { ProviderConnection } from '../../services/provider-connection';
 import { stubProvider } from './stub-provider';
@@ -31,9 +30,6 @@ export interface TabContext {
   ensureProjectSelected: jest.Mock;
   knownProjects: ProviderProject[];
   credentials: TodoistCredentials;
-  stateMapping: TodoistStateMapping;
-  /** Resolves to no setup, as for a vault without the Tasks plugin, unless a test says otherwise. */
-  readTasksPlugin: jest.Mock;
   connection: ProviderConnection;
   existingPaths: string[];
 }
@@ -64,8 +60,6 @@ export function makeTab(
   const refreshKnownProjects = jest.fn().mockResolvedValue(undefined);
   const ensureProjectSelected = jest.fn().mockResolvedValue(undefined);
   const knownProjects: ProviderProject[] = [];
-  const stateMapping = new TodoistStateMapping(() => saveSettings());
-  const readTasksPlugin = jest.fn().mockResolvedValue(undefined);
   const plugin = {
     app,
     settings: { ...DEFAULT_SETTINGS, relativeTaskSourcePath },
@@ -78,8 +72,6 @@ export function makeTab(
     ensureProjectSelected,
     knownProjects,
     credentials,
-    stateMapping,
-    tasksPlugin: { read: readTasksPlugin },
   } as unknown as TaskBridgePlugin;
 
   return {
@@ -95,8 +87,6 @@ export function makeTab(
     ensureProjectSelected,
     knownProjects,
     credentials,
-    stateMapping,
-    readTasksPlugin,
   };
 }
 

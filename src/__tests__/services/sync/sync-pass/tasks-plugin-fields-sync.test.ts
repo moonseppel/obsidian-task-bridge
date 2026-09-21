@@ -1,12 +1,8 @@
 import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
-import { TasksPluginSetup } from '../../../../services/tasks-plugin/tasks-plugin-reader';
-import { DEFAULT_TASKS_STATUSES } from '../../../../services/tasks-plugin/tasks-statuses';
 import { NewTask } from '../../../../services/task-provider';
 import { FakeNote, PROJECT, TASK_ID, makeSync, projectExists, remoteTasks } from '../../../support/sync-harness';
 
-const TASKS_ENABLED = {
-  readTasksPlugin: (): Promise<TasksPluginSetup> => Promise.resolve({ statuses: DEFAULT_TASKS_STATUSES }),
-};
+const TASKS_ENABLED = { isTasksPluginEnabled: (): Promise<boolean> => Promise.resolve(true) };
 
 function linkedAs(lastSyncedTitle: string, lastSyncedTags: string[] = []): TaskLinkStore {
   return new TaskLinkStore([{ blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle, lastSyncedTags }]);
