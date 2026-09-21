@@ -33,7 +33,7 @@ interface HousekeepingSweep {
 /**
  * A task is tracked on this same delayed-removal schedule for either of two reasons: its block id
  * carries no link that points back at it (orphaned), or its link is intact but the block id was
- * not found anywhere this run scanned (moved out of the configured scope — rule 33). Every task in
+ * not found anywhere this run scanned (moved out of the configured scope — rule 31). Every task in
  * the project is checked regardless of reason, since re-linking or scope re-entry can resolve one
  * the note never mentions.
  */

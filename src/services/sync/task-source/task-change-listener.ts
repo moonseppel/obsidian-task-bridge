@@ -23,7 +23,7 @@ export interface TaskChangeListenerCallbacks {
 
 /**
  * Decides whether a vault event matters to the configured task source — the "reacting" half of
- * the task-source module (architecture-rules.md rule 28). Registering with `vault.on` stays with
+ * the task-source module (architecture-rules.md rule 27). Registering with `vault.on` stays with
  * the caller, since only a `Component` can own that registration.
  */
 export class TaskChangeListener {
@@ -85,7 +85,7 @@ export class TaskChangeListener {
 
     const settings = this.readSettings();
 
-    // An explicitly selected single note is always relevant, ignore pattern notwithstanding (rule 31).
+    // An explicitly selected single note is always relevant, ignore pattern notwithstanding (rule 29).
     if (!settings.syncWholeVault && file.path === settings.relativeTaskSourcePath) {
       return true;
     }

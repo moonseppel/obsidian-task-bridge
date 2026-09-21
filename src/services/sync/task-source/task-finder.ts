@@ -20,7 +20,7 @@ export interface TaskFinderScopeDescription {
 
 /**
  * Finds which tasks are currently in scope, from settings and vault state — the "finding" half of
- * the task-source module (see architecture-rules.md rules 28-32). Scope is derived fresh on every
+ * the task-source module (see architecture-rules.md rules 27-31). Scope is derived fresh on every
  * call, never cached, since the vault can change between passes.
  */
 export class TaskFinder {
@@ -79,7 +79,7 @@ export class TaskFinder {
 
   /**
    * Whether a block id is anchored anywhere in the vault, outside ignored files — used to tell a
-   * task that merely moved out of scope from one that was genuinely deleted (rule 33).
+   * task that merely moved out of scope from one that was genuinely deleted (rule 31).
    */
   async existsOutsideIgnoredFiles(blockId: string): Promise<boolean> {
     const settings = this.readSettings();

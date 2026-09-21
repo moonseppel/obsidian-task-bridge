@@ -7,7 +7,7 @@ const ID_LABEL = 'TaskBridge ID: ';
  * The longest part of the footer that never varies: the label, the caret and this plugin's own
  * block-id prefix. Everything the footer is found by, since neither its position nor a bare `^id`
  * identifies it — the user's own text may carry block ids of its own, on either side of it
- * (architecture-rules.md #39).
+ * (architecture-rules.md #38).
  */
 const FOOTER_MARKER = `${ID_LABEL}^${BLOCK_ID_PREFIX}`;
 
@@ -41,7 +41,7 @@ export function findFooterBlockId(description: string): string | undefined {
  * Everything in the description that is not the footer, in the order the user wrote it. Text below
  * the footer is the user's own just as much as text above it, so it is kept rather than dropped and
  * destroyed by the next push; only the blank line this plugin inserted above the footer goes with
- * it (architecture-rules.md #39).
+ * it (architecture-rules.md #38).
  */
 export function extractUserDescription(rawDescription: string): string {
   const lines = rawDescription.split('\n');

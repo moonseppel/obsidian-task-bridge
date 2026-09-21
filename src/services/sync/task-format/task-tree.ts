@@ -17,7 +17,7 @@ interface OpenAncestor {
 
 /**
  * Which lines are tasks, found in one top-down walk: a checkbox line is a task unless it lies inside
- * a still-open description, which only a nested task ends (architecture-rules.md #38).
+ * a still-open description, which only a nested task ends (architecture-rules.md #37).
  */
 export function taskLineNumbers(lines: readonly string[], indentation = DEFAULT_INDENTATION): ReadonlySet<number> {
   const found = new Set<number>();

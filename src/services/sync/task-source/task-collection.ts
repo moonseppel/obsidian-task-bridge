@@ -17,7 +17,7 @@ export interface TaskCollectionDependencies {
 /**
  * The task-source module: composes a submodule that finds which tasks are currently in scope
  * (`TaskFinder`) with one that reacts to vault changes (`TaskChangeListener`). See
- * architecture-rules.md rule 28. Holds no scope or event logic of its own.
+ * architecture-rules.md rule 27. Holds no scope or event logic of its own.
  */
 export class TaskCollection {
   private readonly finder: TaskFinder;

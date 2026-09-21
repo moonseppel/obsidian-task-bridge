@@ -108,7 +108,7 @@ export class LinkedLineSync {
     return stored(left) === stored(right);
   }
 
-  /** A provider that declares nothing stores what it is given (architecture-rules.md #40). */
+  /** A provider that declares nothing stores what it is given (architecture-rules.md #39). */
   private asStored(description: string): string {
     return this.provider.storedDescription?.(description) ?? description;
   }

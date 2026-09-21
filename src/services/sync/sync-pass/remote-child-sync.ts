@@ -109,7 +109,7 @@ export class RemoteChildSync {
  * A child whose block id appears anywhere in the note, description text included, is already
  * pulled in. A link not anchored anywhere yet doesn't count: its insert may have been dropped by a
  * stale guard (an overlapping sync pass, say), and it needs retrying with the same block id rather
- * than being silently abandoned — see architecture-rules.md rule 36.
+ * than being silently abandoned — see architecture-rules.md rule 35.
  */
 function alreadyAnchoredTaskIds(pass: SyncPass, links: readonly TaskLink[]): Set<string> {
   const blockIdsInNote = collectBlockIds(pass.lines);
