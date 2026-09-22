@@ -8,7 +8,7 @@ export const WHOLE_VAULT_DESC =
 export const SOURCE_LOCATION_DISPLAY_NAME = 'Note or folder';
 export const SOURCE_LOCATION_DESC =
   'The note or folder whose tasks are synced. A note syncs just that note; a folder syncs every ' +
-  'note under it. Leave empty, or check "Sync the whole vault" above, to sync no tasks from here.';
+  'note under it. Leave empty to sync no tasks.';
 export const SOURCE_LOCATION_DISABLED_DESC = 'Disabled while "Sync the whole vault" is checked.';
 export const SOURCE_LOCATION_PLACEHOLDER = 'Example: Tasks.md or Projects/Work';
 
