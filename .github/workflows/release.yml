@@ -23,8 +23,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run offline tests
-        run: npm run test:unit
+      - name: Run all tests
+        run: npm run test:all
+        env:
+          OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN: ${{ secrets.OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN }}
 
       - name: Build
         run: npm run build
