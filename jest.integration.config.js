@@ -1,5 +1,5 @@
 /**
- * Reaches the real Todoist API. Part of `npm test`, and so of the pre-commit hook too.
+ * Reaches the real Todoist API. Run by `npm run test:integration` and `npm run test:all`, not by `npm test`.
  * A missing OBSIDIAN_TASK_SYNC_TODOIST_API_TOKEN fails a test in the suite itself rather
  * than aborting the run, so the offline suite still gets to report while the guard against
  * Todoist changing its API stays armed.
@@ -13,7 +13,7 @@ const config = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__integration__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testTimeout: 20000,
+  setupFilesAfterEnv: ['<rootDir>/src/__integration__/test-timeout.ts'],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
