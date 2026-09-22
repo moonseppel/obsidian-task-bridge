@@ -159,7 +159,7 @@ describe('TodoistApiClient writes', () => {
     it.each([
       [401, 'invalid-credentials'],
       [429, 'rate-limited'],
-      [500, 'unreachable'],
+      [500, 'server-error'],
       [418, 'unexpected'],
     ])('maps status %s to the %s failure', async (status, failure) => {
       const context = clientReplying(() => Promise.resolve({ status, text: '{}' }));

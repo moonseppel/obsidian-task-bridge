@@ -5,6 +5,7 @@ export type TaskProviderFailure =
   | 'invalid-credentials'
   | 'rate-limited'
   | 'unreachable'
+  | 'server-error'
   | 'unexpected';
 
 const FAILURE_MESSAGES: Record<TaskProviderFailure, string> = {
@@ -21,11 +22,13 @@ const FAILURE_MESSAGES: Record<TaskProviderFailure, string> = {
     'It resumes on its own within a few minutes.',
   'unreachable':
     'The task manager could not be reached. Check your internet connection — syncing resumes on its own.',
+  'server-error':
+    'The task manager is having problems right now — syncing resumes on its own.',
   'unexpected':
     'The task manager returned a response this plugin does not understand. Please report this with the console output.',
 };
 
-const TRANSIENT_FAILURES: readonly TaskProviderFailure[] = ['unreachable', 'rate-limited'];
+const TRANSIENT_FAILURES: readonly TaskProviderFailure[] = ['unreachable', 'server-error', 'rate-limited'];
 
 export function isTransientFailure(failure: TaskProviderFailure): boolean {
   return TRANSIENT_FAILURES.includes(failure);

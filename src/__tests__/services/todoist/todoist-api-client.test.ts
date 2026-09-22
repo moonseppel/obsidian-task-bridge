@@ -73,9 +73,9 @@ describe('TodoistApiClient', () => {
       await expect(context.client.fetchUser()).rejects.toMatchObject({ failure: 'rate-limited' });
     });
 
-    it('reports an unreachable service for 500', async () => {
+    it('reports a server error for 500', async () => {
       const context = respondingWith(500, { error: 'Internal error' });
-      await expect(context.client.fetchUser()).rejects.toMatchObject({ failure: 'unreachable' });
+      await expect(context.client.fetchUser()).rejects.toMatchObject({ failure: 'server-error' });
     });
 
     it('reports an unexpected response for other error statuses', async () => {

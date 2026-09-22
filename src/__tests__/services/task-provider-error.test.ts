@@ -20,7 +20,7 @@ describe('TaskProviderError', () => {
 });
 
 describe('isTransientFailure', () => {
-  it.each<TaskProviderFailure>(['unreachable', 'rate-limited'])('treats %s as resolving on its own', (failure) => {
+  it.each<TaskProviderFailure>(['unreachable', 'server-error', 'rate-limited'])('treats %s as resolving on its own', (failure) => {
     expect(isTransientFailure(failure)).toBe(true);
   });
 
@@ -40,6 +40,7 @@ describe('needsDailyReminder', () => {
     'invalid-credentials',
     'rate-limited',
     'unreachable',
+    'server-error',
     'unexpected',
   ])('is false for %s', (failure) => {
     expect(needsDailyReminder(failure)).toBe(false);

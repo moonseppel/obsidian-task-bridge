@@ -149,7 +149,7 @@ function failureForStatus(status: number, notFound: TaskProviderFailure): TaskPr
     return 'rate-limited';
   }
 
-  return status >= 500 ? 'unreachable' : 'unexpected';
+  return status >= 500 ? 'server-error' : 'unexpected';
 }
 
 function requireRecord(payload: unknown, complaint: string): Record<string, unknown> {
