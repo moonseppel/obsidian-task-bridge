@@ -1,6 +1,7 @@
 import * as obsidian from 'obsidian';
 import TaskBridgePlugin from '../main';
 import { TaskProviderError } from '../services/task-provider-error';
+import { emptyOutcome } from '../services/sync/sync-run/sync-outcome';
 import { SYNC_DISABLED_MINUTES } from '../utils/sync-interval';
 import {
   PluginContext,
@@ -34,12 +35,7 @@ describe('TaskBridgePlugin task sync', () => {
   }
 
   function taskSyncOf(plugin: TaskBridgePlugin): { run: jest.Mock } {
-    const run = jest.fn().mockResolvedValue({
-      created: 0,
-      pushed: 0,
-      pulled: 0,
-      projectResolution: { kind: 'configured' },
-    });
+    const run = jest.fn().mockResolvedValue(emptyOutcome({ kind: 'configured' }));
     (plugin as unknown as { taskSync: { run: jest.Mock } }).taskSync = { run };
 
     return { run };
@@ -76,12 +72,7 @@ describe('TaskBridgePlugin task sync', () => {
 
   it('remembers the project the engine settled on', async () => {
     const { plugin, saveData } = syncablePlugin();
-    taskSyncOf(plugin).run.mockResolvedValue({
-      created: 0,
-      pushed: 0,
-      pulled: 0,
-      projectResolution: { kind: 'defaulted', project: INBOX_PROJECT },
-    });
+    taskSyncOf(plugin).run.mockResolvedValue(emptyOutcome({ kind: 'defaulted', project: INBOX_PROJECT }));
 
     await plugin.syncTasks();
 
@@ -96,12 +87,7 @@ describe('TaskBridgePlugin task sync', () => {
       .mockImplementation(() => undefined as unknown as obsidian.Notice);
     const { plugin } = syncablePlugin();
     plugin.settings.projectName = 'Errands';
-    taskSyncOf(plugin).run.mockResolvedValue({
-      created: 0,
-      pushed: 0,
-      pulled: 0,
-      projectResolution: { kind: 'replaced', project: INBOX_PROJECT },
-    });
+    taskSyncOf(plugin).run.mockResolvedValue(emptyOutcome({ kind: 'replaced', project: INBOX_PROJECT }));
 
     await plugin.syncTasks();
 
@@ -116,12 +102,7 @@ describe('TaskBridgePlugin task sync', () => {
       .spyOn(obsidian, 'Notice')
       .mockImplementation(() => undefined as unknown as obsidian.Notice);
     const { plugin } = syncablePlugin();
-    taskSyncOf(plugin).run.mockResolvedValue({
-      created: 0,
-      pushed: 0,
-      pulled: 0,
-      projectResolution: { kind: 'defaulted', project: INBOX_PROJECT },
-    });
+    taskSyncOf(plugin).run.mockResolvedValue(emptyOutcome({ kind: 'defaulted', project: INBOX_PROJECT }));
 
     await plugin.syncTasks();
 
@@ -133,12 +114,7 @@ describe('TaskBridgePlugin task sync', () => {
     const { run } = taskSyncOf(plugin);
     let release = (): void => undefined;
     run.mockImplementation(() => new Promise((resolve) => {
-      release = () => resolve({
-        created: 0,
-        pushed: 0,
-        pulled: 0,
-        projectResolution: { kind: 'configured' },
-      });
+      release = () => resolve(emptyOutcome({ kind: 'configured' }));
     }));
 
     const first = plugin.syncTasks();
@@ -308,13 +284,7 @@ describe('TaskBridgePlugin edits made while syncing', () => {
       () =>
         new Promise((resolve) => {
           finish = () =>
-            resolve({
-              created: 0,
-              pushed: 0,
-              pulled: 0,
-              reassignedTo: null,
-              replacedMissingProject: false,
-            });
+            resolve(emptyOutcome({ kind: 'configured' }));
         }),
     );
     (plugin as unknown as { taskSync: { run: jest.Mock } }).taskSync = { run };
