@@ -235,7 +235,7 @@ way to install while the plugin is in public beta.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24+
 - npm or yarn
 - Obsidian 1.11.4+ (for testing)
 
