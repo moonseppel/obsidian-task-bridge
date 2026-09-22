@@ -1,6 +1,7 @@
 import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
 import { OrphanTracker } from '../../../../services/sync/orphans/orphan-tracker';
 import { FakeNote, PROJECT, TASK_ID, makeSync, projectExists, remoteTasks } from '../../../support/sync-harness';
+import { LooseProviderTask } from '../../../support/stub-provider';
 
 describe('TaskSync scope-exit handling', () => {
   afterEach(() => {
@@ -161,12 +162,13 @@ describe('TaskSync scope-exit handling', () => {
         { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk' },
       ]);
       const updateTaskDescription = jest.fn().mockResolvedValue(undefined);
+      const updateTaskLabels = jest.fn().mockResolvedValue(undefined);
       const removeTask = jest.fn().mockResolvedValue(undefined);
       const orphans = new OrphanTracker();
       const sync = makeSync(
         note,
         links,
-        { listTasks: remoteTasks(anchoredTask), updateTaskDescription, removeTask },
+        { listTasks: remoteTasks(anchoredTask), updateTaskDescription, updateTaskLabels, removeTask },
         { ...STILL_IN_THE_VAULT, orphans, isTagInScope: carriesWorkTag },
       );
 
@@ -192,20 +194,23 @@ describe('TaskSync scope-exit handling', () => {
       ]);
       const calls: string[] = [];
       const orphans = new OrphanTracker();
+      const child: LooseProviderTask = {
+        id: 'child-1',
+        title: 'Buy oat milk',
+        parentId: TASK_ID,
+        embeddedBlockId: 'tb-b2',
+        description: 'TaskBridge ID: ^tb-b2',
+      };
       const sync = makeSync(
         new FakeNote('- [ ] Buy milk #home ^tb-a1\n\t- [ ] Buy oat milk #work ^tb-b2'),
         links,
         {
-          listTasks: remoteTasks(anchoredTask, {
-            id: 'child-1',
-            title: 'Buy oat milk',
-            parentId: TASK_ID,
-            embeddedBlockId: 'tb-b2',
-            description: 'TaskBridge ID: ^tb-b2',
-          }),
+          listTasks: remoteTasks(anchoredTask, child),
           updateTaskDescription: jest.fn().mockResolvedValue(undefined),
-          reparentTask: (taskId) => {
+          updateTaskLabels: jest.fn().mockResolvedValue(undefined),
+          reparentTask: (taskId, parentId) => {
             calls.push(`reparent:${taskId}`);
+            child.parentId = parentId;
             return Promise.resolve(true);
           },
           removeTask: (taskId) => {
