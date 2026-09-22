@@ -2,7 +2,7 @@
 
 An Obsidian plugin that synchronizes task checkboxes between Obsidian notes and Todoist. If you
 are using tasks in Obsidian and want also to have the full feature set of a task manager or just
-create a few tasks in Obsidian and mainly are suing a task manager, this plugin might be the right
+create a few tasks in Obsidian and mainly are using a task manager, this plugin might be the right
 choice for you.
 
 This plugin currently is in public beta. I thoroughly tested it, but since that was just in
