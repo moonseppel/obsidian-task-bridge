@@ -8,6 +8,7 @@ import {
   projectExists,
   remoteTasks,
 } from '../../../support/sync-harness';
+import { LooseProviderTask } from '../../../support/stub-provider';
 
 const GRACE_MS = 60_000;
 const FRESH_ANCHOR = /\^tb-[a-z0-9]{8}$/;
@@ -199,6 +200,7 @@ describe('TaskSync re-minting a copied task line', () => {
     const keeper = new FakeNote('- [ ] Buy milk ^tb-a1');
     const copied = ['\t- [ ] Buy milk #errands ^tb-a1', '\t\tremember the oat one', '\t\t- [ ] Check the date'];
     const copy = new FakeNote(['- [ ] Groceries ^tb-top', ...copied].join('\n'));
+    const tasks: LooseProviderTask[] = [{ id: TASK_ID, title: 'Buy milk' }];
     const sync = makeMultiFileSync(
       new Map([
         ['Keeper.md', keeper],
@@ -206,9 +208,13 @@ describe('TaskSync re-minting a copied task line', () => {
       ]),
       linkedTo('Keeper.md'),
       {
-        listTasks: remoteTasks({ id: TASK_ID, title: 'Buy milk' }),
+        listTasks: () => Promise.resolve(tasks),
         listProjects: projectExists,
-        createTask: (task) => Promise.resolve({ id: 'task-top', title: task.title }),
+        createTask: (task) => {
+          const created = { id: 'task-top', title: task.title, description: task.description };
+          tasks.push(created);
+          return Promise.resolve(created);
+        },
       },
     );
 
