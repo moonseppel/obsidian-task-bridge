@@ -7,12 +7,13 @@ function outcomeWith(overrides: Partial<SyncOutcome> = {}): SyncOutcome {
   return { ...emptyOutcome({ kind: 'configured' }), filesScanned: 2, linkedTasks: 3, ...overrides };
 }
 
-function spyOnLevels(): { debug: jest.SpyInstance; info: jest.SpyInstance } {
+function spyOnLevels(): { debug: jest.SpyInstance; info: jest.SpyInstance; error: jest.SpyInstance } {
   jest.spyOn(Logger.prototype, 'warn').mockImplementation();
 
   return {
     debug: jest.spyOn(Logger.prototype, 'debug').mockImplementation(),
     info: jest.spyOn(Logger.prototype, 'info').mockImplementation(),
+    error: jest.spyOn(Logger.prototype, 'error').mockImplementation(),
   };
 }
 

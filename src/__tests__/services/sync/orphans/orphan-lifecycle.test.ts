@@ -10,8 +10,15 @@ import {
   remoteTasks,
 } from '../../../support/sync-harness';
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync orphan lifecycle', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 

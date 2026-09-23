@@ -4,7 +4,16 @@ import { FakeNote, PROJECT, TASK_ID, makeMultiFileSync, makeSync, remoteTasks } 
 
 const ORPHAN = { id: TASK_ID, title: 'Buy milk', embeddedBlockId: 'tb-orphan' };
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync run outcome', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });

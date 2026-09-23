@@ -1,3 +1,6 @@
+import { Logger } from '../utils/logger';
+beforeEach(() => { jest.spyOn(Logger.prototype, 'warn').mockImplementation(); jest.spyOn(Logger.prototype, 'info').mockImplementation(); jest.spyOn(Logger.prototype, 'debug').mockImplementation(); jest.spyOn(Logger.prototype, 'error').mockImplementation(); });
+afterEach(() => { jest.restoreAllMocks(); });
 import * as obsidian from 'obsidian';
 import TaskBridgePlugin from '../main';
 import { TaskProviderError } from '../services/task-provider-error';

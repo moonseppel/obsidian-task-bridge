@@ -1,3 +1,6 @@
+import { Logger } from '../utils/logger';
+beforeEach(() => { jest.spyOn(Logger.prototype, 'warn').mockImplementation(); jest.spyOn(Logger.prototype, 'info').mockImplementation(); jest.spyOn(Logger.prototype, 'debug').mockImplementation(); });
+afterEach(() => { jest.restoreAllMocks(); });
 import { isDebugLogging, setDebugLogging } from '../utils/logger';
 import {
   makePlugin,

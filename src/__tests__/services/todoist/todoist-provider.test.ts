@@ -1,3 +1,6 @@
+import { Logger } from '../../../utils/logger';
+beforeEach(() => { jest.spyOn(Logger.prototype, 'info').mockImplementation(); });
+afterEach(() => { jest.restoreAllMocks(); });
 import { TodoistApiClient, TodoistTask, TodoistUser } from '../../../services/todoist/todoist-api-client';
 import { NewTodoistTask } from '../../../services/todoist/todoist-payloads';
 import { TodoistProvider } from '../../../services/todoist/todoist-provider';

@@ -20,7 +20,16 @@ function linkedTo(path: string): TaskLinkStore {
   ]);
 }
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync with a task line copied to a second place', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });
@@ -129,6 +138,7 @@ describe('TaskSync with a task line copied to a second place', () => {
 });
 
 describe('TaskSync re-minting a copied task line', () => {
+  beforeEach(() => { jest.spyOn(Logger.prototype, 'info').mockImplementation(); });
   afterEach(() => {
     jest.useRealTimers();
   });

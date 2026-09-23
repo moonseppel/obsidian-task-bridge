@@ -8,7 +8,16 @@ import {
   remoteTasks,
 } from '../../../support/sync-harness';
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync pulling remote-only nested tasks', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   it('inserts a sub-task added directly in the provider under its linked parent', async () => {
     const note = new FakeNote('- [ ] Parent ^tb-parent1');
     const links = new TaskLinkStore([

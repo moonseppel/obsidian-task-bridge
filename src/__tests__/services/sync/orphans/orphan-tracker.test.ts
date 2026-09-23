@@ -7,7 +7,16 @@ function restored(stored: unknown): OrphanTracker {
   return orphans;
 }
 
+import { Logger } from '../../../../utils/logger';
+
 describe('OrphanTracker', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   it('tracks a task the first time it is observed orphaned', () => {
     const orphans = new OrphanTracker();
 

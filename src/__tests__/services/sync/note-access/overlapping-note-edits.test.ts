@@ -25,7 +25,16 @@ function parentAndChildLinks(): TaskLinkStore {
   ]);
 }
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync with several pulls landing on the same lines in one pass', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   it('writes both fields when a task is renamed and labelled remotely', async () => {
     const links = new TaskLinkStore([
       { blockId: 'tb-a', providerTaskId: 'ta', lastSyncedTitle: 'Milk', lastSyncedTags: [] },

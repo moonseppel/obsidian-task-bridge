@@ -7,7 +7,16 @@ import { FakeNote, PROJECT, TASK_ID, makeSync, remoteTasks } from '../../../supp
  * places the sync engine removes a task must reparent any still-live child away first, or that
  * child would be silently taken down too, purely as a side effect of deleting something else.
  */
+import { Logger } from '../../../../utils/logger';
+
 describe('protecting a still-linked child from a provider-side cascade delete', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });

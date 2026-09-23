@@ -9,7 +9,16 @@ import {
   remoteTasks,
 } from '../../../support/sync-harness';
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync deletion and completion', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });

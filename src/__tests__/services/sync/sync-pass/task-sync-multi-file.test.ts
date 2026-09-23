@@ -2,7 +2,16 @@ import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
 import { NewTask } from '../../../../services/task-provider';
 import { FakeNote, PROJECT, TASK_ID, makeMultiFileSync, projectExists, remoteTasks } from '../../../support/sync-harness';
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync across multiple files', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });
@@ -96,7 +105,7 @@ describe('TaskSync across multiple files', () => {
     // Starts agreeing with the line, so establishing lastKnownFilePath below does not itself pull
     // a title change; only changed to a conflicting title once the line is about to disappear.
     let remoteTitle = 'Buy milk';
-    let remoteUpdatedAt: number | undefined;
+    let remoteUpdatedAt: number | undefined; // eslint-disable-line prefer-const
     const sync = makeMultiFileSync(
       new Map([
         ['A.md', fileA],

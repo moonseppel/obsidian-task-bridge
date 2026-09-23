@@ -14,6 +14,15 @@ afterEach(() => {
 });
 
 describe('TaskBridgePlugin', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   describe('Plugin structure', () => {
     it('is an instance of TaskBridgePlugin', () => {
       expect(makePlugin().plugin).toBeInstanceOf(TaskBridgePlugin);

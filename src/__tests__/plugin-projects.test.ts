@@ -5,6 +5,12 @@ import {
   settingsWith,
 } from './support/plugin-harness';
 
+import { Logger } from '../utils/logger';
+
+beforeEach(() => {
+  jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+});
+
 afterEach(() => {
   jest.restoreAllMocks();
 });
@@ -17,7 +23,16 @@ async function pluginRemembering(projects: unknown[]): Promise<PluginContext> {
   return context;
 }
 
+import { Logger } from '../utils/logger';
+
 describe('TaskBridgePlugin remembered projects', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   const PROJECT = { id: 'p1', name: 'Errands', isDefault: false };
 
   it('persists the project list alongside the settings', async () => {

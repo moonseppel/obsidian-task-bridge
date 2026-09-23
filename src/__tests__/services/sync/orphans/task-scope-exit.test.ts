@@ -3,7 +3,16 @@ import { OrphanTracker } from '../../../../services/sync/orphans/orphan-tracker'
 import { FakeNote, PROJECT, TASK_ID, makeSync, projectExists, remoteTasks } from '../../../support/sync-harness';
 import { LooseProviderTask } from '../../../support/stub-provider';
 
+import { Logger } from '../../../../utils/logger';
+
 describe('TaskSync scope-exit handling', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'info').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   afterEach(() => {
     jest.useRealTimers();
   });

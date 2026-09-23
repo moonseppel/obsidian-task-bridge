@@ -17,6 +17,13 @@ const LINK: TaskLink = {
 };
 
 describe('TaskLinkStore', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   it('finds a link by its block id', () => {
     expect(new TaskLinkStore([LINK]).get('tb-a1')).toEqual(LINK);
   });

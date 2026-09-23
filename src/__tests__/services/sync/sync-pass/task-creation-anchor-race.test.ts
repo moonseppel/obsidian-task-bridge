@@ -18,6 +18,10 @@ function raceOnFirstAppend(note: FakeNote, editTo: string): void {
 }
 
 describe('TaskSync creating a task whose line changes before the anchor can land', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });

@@ -36,6 +36,10 @@ function twoNoteScopeAcrossManyRuns(): { notes: Map<string, FakeNote>; links: Ta
 }
 
 describe("TaskSync isolating one note's failure from the rest of the run", () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
