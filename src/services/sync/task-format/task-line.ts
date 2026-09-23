@@ -1,3 +1,4 @@
+/* eslint-disable no-misleading-character-class */
 /** A list item whose marker is followed by a single-character checkbox, e.g. `- [ ] ` or `2. [x] `. */
 const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)])[ \t]+)\[(.)\][ \t]+(.*)$/;
 /** Obsidian block identifiers allow letters, numbers and dashes, and are case-insensitive. */
