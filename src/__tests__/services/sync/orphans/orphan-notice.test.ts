@@ -6,7 +6,7 @@ describe('orphanNoticeDescription', () => {
 
     expect(description).toContain('TaskBridge');
     expect(description.toLowerCase()).toContain('orphaned');
-    expect(description).toContain('2026-01-15');
+    expect(description).toContain('2026-01-15 00:00');
   });
 
   it('still embeds the block id, so a re-link lookup keeps finding this task', () => {
