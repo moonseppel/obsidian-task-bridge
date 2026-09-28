@@ -77,19 +77,6 @@ describe('TaskSync creation and title sync', () => {
     });
   });
 
-  it('creates a task for a checked line too, since titles sync regardless of state', async () => {
-    const note = new FakeNote('- [x] Call the dentist');
-    const sync = makeSync(note, new TaskLinkStore(), {
-      listTasks: remoteTasks(),
-      listProjects: projectExists,
-      createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title }),
-      completeTask: () => Promise.resolve(),
-    });
-
-    expect((await sync.run(PROJECT)).created).toBe(1);
-    expect(note.content).toContain('- [x] Call the dentist ^tb-');
-  });
-
   function pushScenario(): {
     note: FakeNote;
     links: TaskLinkStore;

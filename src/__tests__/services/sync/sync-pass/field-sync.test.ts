@@ -9,6 +9,13 @@ import {
   remoteTasks,
 } from '../../../support/sync-harness';
 
+// A checked line is created only when its task is recreated: one never synced is skipped (0.11.5).
+function recreatedFromCheckedLine(): TaskLinkStore {
+  return new TaskLinkStore([
+    { blockId: 'tb-a1', providerTaskId: 'deleted-task', lastSyncedTitle: 'Buy bread', lastSyncedDone: false },
+  ]);
+}
+
 describe('TaskSync field sync', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -117,14 +124,15 @@ describe('TaskSync field sync', () => {
       expect(links.get('tb-a1')).toMatchObject({ lastSyncedTitle: 'Buy oat milk', lastSyncedDone: true });
     });
 
-    it('creates a task already completed from a line that is already checked', async () => {
-      const note = new FakeNote('- [x] Buy milk');
-      const links = new TaskLinkStore();
+    it('recreates a task already completed from a line that is already checked', async () => {
+      const note = new FakeNote('- [x] Buy milk ^tb-a1');
+      const links = recreatedFromCheckedLine();
       const created: NewTask[] = [];
       const completed: string[] = [];
       const sync = makeSync(note, links, {
         listTasks: remoteTasks(),
         listProjects: projectExists,
+        getTask: () => Promise.resolve(undefined),
         createTask: (task) => {
           created.push(task);
           return Promise.resolve({ id: TASK_ID, title: task.title });
@@ -135,12 +143,11 @@ describe('TaskSync field sync', () => {
         },
       });
 
-      expect(await sync.run(PROJECT)).toMatchObject({ created: 1, pushed: 0 });
-      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
+      expect(await sync.run(PROJECT)).toMatchObject({ recreatedTask: 1, pushed: 0 });
 
       expect(created).toMatchObject([{ isCompleted: true }]);
       expect(completed).toEqual([]);
-      expect(links.get(blockId)?.lastSyncedDone).toBe(true);
+      expect(links.get('tb-a1')?.lastSyncedDone).toBe(true);
     });
 
     it('records an open line as not done on creation, without completing its task', async () => {
@@ -164,18 +171,18 @@ describe('TaskSync field sync', () => {
     });
 
     it('takes the completion state the provider actually created the task in, when it differs', async () => {
-      const note = new FakeNote('- [x] Buy milk');
-      const links = new TaskLinkStore();
+      const note = new FakeNote('- [x] Buy milk ^tb-a1');
+      const links = recreatedFromCheckedLine();
       const sync = makeSync(note, links, {
         listTasks: remoteTasks(),
         listProjects: projectExists,
+        getTask: () => Promise.resolve(undefined),
         createTask: (task) => Promise.resolve({ id: TASK_ID, title: task.title, isCompleted: false }),
       });
 
       await sync.run(PROJECT);
-      const blockId = /\^(\S+)$/.exec(note.content)?.[1] ?? '';
 
-      expect(links.get(blockId)).toMatchObject({ providerTaskId: TASK_ID, lastSyncedDone: false });
+      expect(links.get('tb-a1')).toMatchObject({ providerTaskId: TASK_ID, lastSyncedDone: false });
     });
   });
 

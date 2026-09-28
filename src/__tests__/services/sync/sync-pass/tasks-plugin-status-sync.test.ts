@@ -1,6 +1,6 @@
 import { TaskLinkStore } from '../../../../services/sync/sync-state/task-links';
 import { StubProviderOptions } from '../../../support/stub-provider';
-import { FakeNote, PROJECT, TASK_ID, makeSync, projectExists, remoteTasks } from '../../../support/sync-harness';
+import { FakeNote, PROJECT, TASK_ID, makeSync, remoteTasks } from '../../../support/sync-harness';
 
 const TASKS_ENABLED = { isTasksPluginEnabled: (): Promise<boolean> => Promise.resolve(true) };
 
@@ -50,26 +50,5 @@ describe('TaskSync with the Tasks plugin enabled, without status settings', () =
     await sync.run(PROJECT);
 
     expect(note.content).toBe('- [ ] Buy milk ^tb-a1');
-  });
-
-  it('creates a new [/] line completed, in one call', async () => {
-    const created: Array<{ isCompleted: boolean }> = [];
-    const sync = makeSync(
-      new FakeNote('- [/] Buy milk'),
-      new TaskLinkStore(),
-      {
-        listTasks: remoteTasks(),
-        listProjects: projectExists,
-        createTask: (task) => {
-          created.push(task);
-          return Promise.resolve({ id: TASK_ID, title: task.title });
-        },
-      },
-      TASKS_ENABLED,
-    );
-
-    await sync.run(PROJECT);
-
-    expect(created).toMatchObject([{ isCompleted: true }]);
   });
 });

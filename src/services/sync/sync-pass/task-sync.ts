@@ -28,7 +28,7 @@ import {
   createSyncPass,
   recordRemoval,
 } from './sync-pass';
-import { NO_TRAILING_FIELDS, ParsedTaskLine, TrailingFieldsFinder, parseTaskLine } from '../task-format/task-line';
+import { NO_TRAILING_FIELDS, ParsedTaskLine, TrailingFieldsFinder, isDone, parseTaskLine } from '../task-format/task-line';
 import { trailingFieldsStart } from '../../tasks-plugin/tasks-fields';
 import { TaskLinkStore, linkIds } from '../sync-state/task-links';
 
@@ -265,6 +265,10 @@ export class TaskSync {
     const task = pass.taskLineNumbers.has(lineNumber) ? parseTaskLine(original, pass.findTrailingFields) : undefined;
 
     if (task === undefined || task.title.length === 0 || !this.isTagInScope(task)) {
+      return;
+    }
+
+    if (task.blockId === undefined && isDone(task)) {
       return;
     }
 
