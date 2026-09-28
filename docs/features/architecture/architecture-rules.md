@@ -43,5 +43,3 @@
 41. The changes needed to support the Tasks plugin should be placed in a separate module, if possible. Or as separate sub-modules of existing modules, if an own module if not possible.
 42. Nesting a child under a completed parant behaves unexpected in Todoist. The parent is ignored on the first try and the child has to be again moved under its intended parent again tom ake it work. Since this is a Todoist specialty, it has to reside in the Todoist module.
 43. When any integration test is run against the Todoist API, it should time out after 10 seconds.
-44. `TaskSync.syncAgainstMissingRemoteTask` returns early if `link.lastSyncedDone` is true and the local task is completed.
-45. `TaskSync.syncLine` ignores tasks where `task.blockId === undefined` and `isDone(task)` is true.

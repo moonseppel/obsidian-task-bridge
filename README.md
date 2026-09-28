@@ -25,7 +25,7 @@ Created and maintaned by Jan Pralle, [www.jpcloudsolutions.de](www.jpcloudsoluti
 - Filter synced tasks by tag.
 - Ignore pattern for files (e.g. for conflict files from third party sync tool for vaults).
 - Syncs title, description, nested tasks and state.
-- Completed tasks that were never synced are not sent to Todoist.
+- Completed tasks are not synced anymore.
 - Compatible with the [Obsidian Tasks Plugin](https://publish.obsidian.md/tasks/): a blank checkbox is open and any other status completed, and its fields stay out of the synced title. Full support is planned soon.
 
 See `docs/features/` directory in the source code for more details on the features. There may be
@@ -213,7 +213,7 @@ of it.
 - The editor's tab size is read once per sync run, so changing it takes effect on the next sync rather than immediately
 - A tag's place inside a task's text is not preserved when the title is changed in Todoist and pulled: the tag moves to the end of the line, since the text it stood in no longer exists
 - An open task indented under a parent that is completed in Todoist is not created at all, since Todoist itself never allows that; a courtesy notice on the parent explains why, until the parent is reopened
-- A task completed on both sides is no longer looked up in Todoist: edits made to it on either side while it stays completed only sync once it is reopened on one side, and a completed task deleted in Todoist keeps its line in the note, where unchecking it recreates the task
+- A task completed on both sides is no longer looked up in Todoist. It needs to be reopened on at least one side to be synced again.
 
 ## Installation using BRAT
 
