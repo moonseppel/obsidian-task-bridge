@@ -22,6 +22,12 @@
 - **BUT WHEN** the user unchecks the task locally
 - **THEN** the plugin fetches the remote task, sees the local task is newer, and pushes both the uncheck and the edits to the provider
 
+### Scenario: Unchecking a completed task deleted in the provider
+- **GIVEN** a linked task that was completed on both sides during the last sync
+- **AND** the task was deleted in the provider since
+- **WHEN** the user unchecks the task line
+- **THEN** the task is recreated from the line, with every edit made while it was completed, rather than the line being removed
+
 ## Architecture
 1. `TaskSync.syncAgainstMissingRemoteTask` returns early if `link.lastSyncedDone` is true and the local task is completed.
 2. `TaskSync.syncLine` ignores tasks where `task.blockId === undefined` and `isDone(task)` is true.
