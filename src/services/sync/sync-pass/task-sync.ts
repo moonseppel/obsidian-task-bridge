@@ -324,10 +324,17 @@ export class TaskSync {
 
   /**
    * Todoist's active list excludes a completed task exactly as it excludes a deleted one, so
-   * absence is ambiguous and costs a direct lookup before anything destructive happens.
+   * absence is ambiguous and costs a direct lookup before anything destructive happens — unless
+   * both sides were already completed and the line still is, which leaves nothing to sync.
    */
   private async syncAgainstMissingRemoteTask(linked: LinkedLine): Promise<void> {
     const { line, link } = linked;
+
+    if (link.lastSyncedDone === true && isDone(line.task)) {
+      logger.debug('Skipping the lookup of a task completed on both sides', linkIds(link));
+      return;
+    }
+
     const found = await this.provider.getTask(link.providerTaskId);
 
     if (found !== undefined) {
