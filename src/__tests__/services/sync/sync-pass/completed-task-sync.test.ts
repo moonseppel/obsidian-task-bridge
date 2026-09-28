@@ -7,7 +7,13 @@ const TASKS_ENABLED = { isTasksPluginEnabled: (): Promise<boolean> => Promise.re
 
 function completedOnBothSides(): TaskLinkStore {
   return new TaskLinkStore([
-    { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: true, lastSyncedDescription: '' },
+    {
+      blockId: 'tb-a1',
+      providerTaskId: TASK_ID,
+      lastSyncedTitle: 'Buy milk',
+      lastSyncedDone: true,
+      lastSyncedDescription: '',
+    },
   ]);
 }
 
@@ -28,6 +34,10 @@ function completedInTodoist(calls: string[]): StubProviderOptions {
     updateTaskDescription: record('updateTaskDescription'),
     reopenTask: record('reopenTask'),
   };
+}
+
+function deletedInTodoist(): StubProviderOptions {
+  return { listTasks: remoteTasks(), listProjects: projectExists, getTask: () => Promise.resolve(undefined) };
 }
 
 describe('TaskSync ignoring completed tasks', () => {
@@ -100,6 +110,57 @@ describe('TaskSync ignoring completed tasks', () => {
       await sync.run(PROJECT);
 
       expect(calls).toEqual(['getTask', 'updateTaskTitle', 'reopenTask', 'updateTaskDescription']);
+    });
+  });
+
+  describe('a task deleted in Todoist', () => {
+    it('is recreated with the edits kept back when its line is unchecked', async () => {
+      const created: NewTask[] = [];
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1\n\tThe barista kind');
+      const sync = makeSync(note, completedOnBothSides(), {
+        ...deletedInTodoist(),
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: 'task-2', title: task.title });
+        },
+      });
+
+      await sync.run(PROJECT);
+
+      expect(created).toMatchObject([
+        { title: 'Buy milk', description: expect.stringContaining('The barista kind'), isCompleted: false },
+      ]);
+    });
+
+    it('keeps the block id of the line it recreates', async () => {
+      const links = completedOnBothSides();
+      const note = new FakeNote('- [ ] Buy milk ^tb-a1');
+      const sync = makeSync(note, links, {
+        ...deletedInTodoist(),
+        createTask: (task) => Promise.resolve({ id: 'task-2', title: task.title }),
+      });
+
+      await sync.run(PROJECT);
+
+      expect([note.content, links.get('tb-a1')?.providerTaskId]).toEqual(['- [ ] Buy milk ^tb-a1', 'task-2']);
+    });
+
+    it('is recreated completed when its line was checked since the last sync', async () => {
+      const created: NewTask[] = [];
+      const links = new TaskLinkStore([
+        { blockId: 'tb-a1', providerTaskId: TASK_ID, lastSyncedTitle: 'Buy milk', lastSyncedDone: false },
+      ]);
+      const sync = makeSync(new FakeNote('- [x] Buy milk ^tb-a1'), links, {
+        ...deletedInTodoist(),
+        createTask: (task) => {
+          created.push(task);
+          return Promise.resolve({ id: 'task-2', title: task.title });
+        },
+      });
+
+      await sync.run(PROJECT);
+
+      expect(created).toMatchObject([{ title: 'Buy milk', isCompleted: true }]);
     });
   });
 });

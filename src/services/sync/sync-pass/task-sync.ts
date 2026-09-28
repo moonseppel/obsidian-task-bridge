@@ -342,7 +342,7 @@ export class TaskSync {
       return;
     }
 
-    if (line.task.title !== link.lastSyncedTitle) {
+    if (hasLocalEditSinceSync(linked)) {
       await this.lineLinker.recreate(linked);
       return;
     }
@@ -361,6 +361,11 @@ export class TaskSync {
   private async syncAgainstTaskFoundElsewhere(linked: LinkedLine, found: ProviderTask): Promise<void> {
     await this.lineSync.syncEveryField(linked, found);
   }
+}
+
+/** An uncheck counts too: a completed task is no longer looked up, so its edits wait for one. */
+function hasLocalEditSinceSync({ line, link }: LinkedLine): boolean {
+  return line.task.title !== link.lastSyncedTitle || isDone(line.task) !== (link.lastSyncedDone ?? false);
 }
 
 /** Resolves to how many edits were left unwritten because their lines changed while the pass ran. */
