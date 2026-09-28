@@ -23,7 +23,6 @@ async function pluginRemembering(projects: unknown[]): Promise<PluginContext> {
   return context;
 }
 
-import { Logger } from '../utils/logger';
 
 describe('TaskBridgePlugin remembered projects', () => {
   beforeEach(() => {
