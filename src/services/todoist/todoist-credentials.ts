@@ -9,7 +9,7 @@ const TOKEN_URL = 'https://app.todoist.com/app/settings/integrations/developer';
 const DESCRIPTION_START =
   'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
   'Create a token in Todoist under Settings → Integrations → ';
-const DESCRIPTION_END = '. The token must be configured separately on every device.';
+const DESCRIPTION_END = '. ⚠️ The token must be configured separately on every device. ⚠️';
 const NOTHING_SELECTED = 'Select an API token first.';
 
 export class TodoistCredentials implements ProviderCredentials {

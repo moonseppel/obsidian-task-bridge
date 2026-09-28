@@ -37,7 +37,7 @@ describe('TaskBridgeSettingTab Todoist section', () => {
     expect(tokenDescription(setDesc).textContent).toBe(
       'Kept in Obsidian’s secret storage, not in the plugin settings file. ' +
         'Create a token in Todoist under Settings → Integrations → Developer. ' +
-        'The token must be configured separately on every device.',
+        '⚠️ The token must be configured separately on every device. ⚠️',
     );
   });
 
